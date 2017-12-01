@@ -1,0 +1,379 @@
+(require 'ffi)
+(require 'zmq-constants)
+
+(define-ffi-library libzmq "libzmq")
+
+;;; Types
+
+;; TODO: The fd field is different on windows
+(define-ffi-struct zmq-pollitem
+  (socket :type :pointer)
+  (fd :type :int)
+  (events :type :short)
+  (revents :type :short))
+
+(define-ffi-array zmq-msg :uchar 64)
+
+;;; FFI wrapper
+
+;; Flag value:
+;;
+;; TODO: Deconvolute the flag parameter
+(defmacro zmq--ffi-function-wrapper (c-name return-type arg-types &optional flag noerror)
+  (when (and (consp flag) (eq (car flag) 'quote))
+    (setq flag (cdr flag)))
+  (let* ((ffi-name (concat (cond
+                            ((eq flag 'internal) "--")
+                            ((eq flag 'nowrap) "")
+                            (t "-"))
+                           (subst-char-in-string ?_ ?- c-name))))
+    (setq c-name (concat "zmq_" c-name))
+    (if (eq flag 'nowrap)
+        `(define-ffi-function
+           ,(intern (concat "zmq-" ffi-name)) ,c-name
+           ,return-type ,arg-types zmq)
+      (let* ((wrapped-name (intern (concat "zmq-" (cl-subseq ffi-name 1))))
+             (ffi-name (intern (concat "zmq-" ffi-name)))
+             (args (cl-loop repeat (length arg-types)
+                            collect (cl-gensym)))
+             (body `((let ((ret (,ffi-name ,@args)))
+                       (if ,(cl-case return-type
+                              (:pointer '(ffi-pointer-null-p ret))
+                              (:int '(= ret -1))
+                              ;; Just return without checking for errors
+                              (t nil))
+                           ,(if noerror 'nil
+                              '(error (ffi-get-c-string
+                                       (zmq-strerror (zmq-errno)))))
+                         ret)))))
+        `(progn
+           (define-ffi-function ,ffi-name ,c-name ,return-type ,arg-types libzmq)
+           (defun ,wrapped-name ,args
+             ,@body))))))
+
+;;; Error handling
+
+;; These are used in `zmq--ffi-function-wrapper' so don't try to wrap them.
+(define-ffi-function zmq-errno "zmq_errno" :int [] libzmq)
+(define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq)
+
+;;; Contexts
+
+(zmq--ffi-function-wrapper "ctx_new" :pointer [] nil noerror)
+(zmq--ffi-function-wrapper "ctx_set" :int [:pointer :int :int])
+(zmq--ffi-function-wrapper "ctx_get" :int [:pointer :int])
+(zmq--ffi-function-wrapper "ctx_term" :int [:pointer])
+(zmq--ffi-function-wrapper "ctx_shutdown" :int [:pointer])
+
+;;; Encryption
+
+(zmq--ffi-function-wrapper "z85_decode" :pointer [:pointer :pointer] internal noerror)
+(zmq--ffi-function-wrapper "z85_encode" :pointer [:pointer :pointer :size_t] internal noerror)
+(zmq--ffi-function-wrapper "curve_keypair" :int [:pointer :pointer] internal)
+(zmq--ffi-function-wrapper "curve_public" :int [:pointer :pointer] internal)
+
+(defun zmq-z85-decode (data)
+  (with-ffi-string (_data data)
+    (with-ffi-temporary (decoded (ceiling (* 0.8 (string-bytes data))))
+      (when (ffi-pointer= decoded (zmq--z85-decode decoded _data))
+        (ffi-get-c-string decoded)))))
+
+(defun zmq-z85-encode (data)
+  (with-ffi-string (_data data)
+    (with-ffi-temporary (encoded (+ (ceiling (* 1.25 (string-bytes data))) 1))
+      (when (ffi-pointer= encoded (zmq--z85-encode encoded _data (string-bytes data)))
+        (ffi-get-c-string encoded)))))
+
+(defun zmq-curve-keypair ()
+  (unless (zmq-has "curve")
+    (error "0MQ not built with CURVE security"))
+  (with-ffi-temporaries ((public-key 41)
+                         (secret-key 41))
+    (zmq--curve-keypair public-key secret-key)
+    (cons (ffi-get-c-string public-key)
+          (ffi-get-c-string secret-key))))
+
+(defun zmq-curve-public (secret-key)
+  (unless (zmq-has "curve")
+    (error "0MQ not built with CURVE security"))
+  (with-ffi-string (secret-key secret-key)
+    (with-ffi-temporary (public-key 41)
+      (zmq--curve-public public-key secret-key)
+      (ffi-get-c-string public-key))))
+
+;;; Messages
+
+(zmq--ffi-function-wrapper "msg_close" :int [:pointer] internal)
+(zmq--ffi-function-wrapper "msg_copy" :int [:pointer :pointer] internal)
+(zmq--ffi-function-wrapper "msg_data" :pointer [:pointer] internal noerror)
+(zmq--ffi-function-wrapper "msg_gets" :pointer [:pointer :pointer] internal)
+(zmq--ffi-function-wrapper "msg_get" :int [:pointer :int])
+(zmq--ffi-function-wrapper "msg_init_data" :int [:pointer :pointer :size_t :pointer :pointer] internal)
+(zmq--ffi-function-wrapper "msg_init_size" :int [:pointer :size_t])
+(zmq--ffi-function-wrapper "msg_init" :int [:pointer])
+(zmq--ffi-function-wrapper "msg_more" :int [:pointer] internal)
+(zmq--ffi-function-wrapper "msg_move" :int [:pointer :pointer] internal)
+(zmq--ffi-function-wrapper "msg_recv" :int [:pointer :pointer :int])
+(zmq--ffi-function-wrapper "msg_routing_id" :uint32 [:pointer])
+(zmq--ffi-function-wrapper "msg_send" :int [:pointer :pointer :int])
+(zmq--ffi-function-wrapper "msg_set_routing_id" :int [:pointer :uint32])
+(zmq--ffi-function-wrapper "msg_set" :int [:pointer :int :int])
+(zmq--ffi-function-wrapper "msg_size" :size_t [:pointer])
+
+(defun zmq--msg-init-data-free (data hint)
+  ;; TODO: Thread safety? How will this function be called in emacs?
+  ()
+  (ffi-free data))
+
+(defvar zmq--msg-init-data-free-fn
+  (ffi-make-closure (ffi--prep-cif :void [:pointer :pointer]) 'zmq--msg-init-data-free)
+  "Function pointer for use in `zmq-msg-init-data'.")
+
+(defun zmq-msg-new ()
+  (ffi-allocate zmq-msg))
+
+(async-start
+ (lambda ()
+   (let ((msg (zmq-msg-init-data "foobar")))
+     (zmq-msg-close msg))))
+
+;; Actual message API
+
+(defun zmq-msg-close (message)
+  (unwind-protect
+      (zmq--msg-close message)
+    ;; TODO: Is freeing this OK after a close? The above function doesn't
+    ;; actually release the resources of message.
+    (ffi-free message)))
+
+(defun zmq-msg-copy (message)
+  (let ((dest (zmq-msg-new)))
+    (condition-case nil
+        (progn
+          (zmq--msg-copy dest message)
+          dest)
+      (error (ffi-free dest)))))
+
+(defun zmq-msg-data (message)
+  (let ((data (zmq--msg-data message)))
+    (when data (ffi-get-c-string data))))
+
+(defun zmq-msg-gets (message property)
+  (with-ffi-string (prop (encode-coding-string property 'utf-8))
+    (encode-coding-string
+     (ffi-get-c-string (zmq--msg-gets message prop)) 'utf-8)))
+
+(defun zmq-msg-init-data (data)
+  (let* ((message (zmq-msg-new))
+         (buf (ffi-make-c-string data)))
+    (zmq--msg-init-data
+     message buf (string-bytes data)
+     zmq--msg-init-data-free-fn (ffi-null-pointer))
+    message))
+
+(defun zmq-msg-more (message)
+  (= (zmq--msg-more message) 1))
+
+(defun zmq-msg-move (dest src)
+  ;; See `zmq-msg-copy'
+  (zmq--msg-move dest src))
+
+(defun zmq-recv-multipart (sock)
+  (let ((res '()))
+    (with-ffi-temporaries ((part zmq-msg))
+      (catch 'done
+        (while t
+          (zmq-msg-init part)
+          (zmq-msg-recv part sock 0)
+          (push (zmq-msg-data part) res)
+          (unless (zmq-msg-more part)
+            (throw 'done (mapconcat
+                          'identity (nreverse res) ""))))))))
+
+;;; Polling
+
+(zmq--ffi-function-wrapper "poll" :int [:pointer :int :long] internal)
+
+(defun zmq-pollitem-new (&rest args)
+  (let ((item (ffi-allocate zmq-pollitem))
+        (val nil))
+    (setf (zmq-pollitem-socket item) (if (setq val (plist-get args :socket))
+                                         val
+                                       (ffi-null-pointer)))
+    (setf (zmq-pollitem-fd item) (if (setq val (plist-get args :fd))
+                                     val
+                                   -1))
+    (setf (zmq-pollitem-fd item) (if (setq val (plist-get args :events))
+                                     val
+                                   0))
+    (setf (zmq-pollitem-fd item) (if (setq val (plist-get args :revents))
+                                     val
+                                   0))
+    item))
+
+(defun zmq-poll (items timeout)
+  (let ((pointer-size (ffi--type-size :pointer)))
+    (with-ffi-temporary (head (* (length items) pointer-size))
+      (cl-loop
+       with pointer = head
+       for item in items do (ffi--mem-set pointer :pointer item)
+       (setq pointer (ffi-pointer+ pointer pointer-size)))
+      (zmq--poll head (length items) timeout))))
+
+;;; Proxy
+
+(zmq--ffi-function-wrapper "proxy_steerable" :int [:pointer :pointer :pointer :pointer])
+(zmq--ffi-function-wrapper "proxy" :int [:pointer :pointer :pointer])
+
+;;; Sockets
+
+(zmq--ffi-function-wrapper "send_const" :int [:pointer :pointer :size_t :int] internal)
+(zmq--ffi-function-wrapper "send" :int [:pointer :pointer :size_t :int] internal)
+(zmq--ffi-function-wrapper "recv" :int [:pointer :pointer :size_t :int] internal)
+
+(zmq--ffi-function-wrapper "socket" :pointer [:pointer :int])
+(zmq--ffi-function-wrapper "socket_monitor" :int [:pointer :pointer :int])
+
+(zmq--ffi-function-wrapper "bind" :int [:pointer :pointer] internal)
+(zmq--ffi-function-wrapper "unbind" :int [:pointer :pointer] internal)
+
+(zmq--ffi-function-wrapper "getsockopt" :int [:pointer :int :pointer :pointer])
+(zmq--ffi-function-wrapper "setsockopt" :int [:pointer :int :pointer :size_t] internal)
+
+(zmq--ffi-function-wrapper "connect" :int [:pointer :pointer] internal)
+(zmq--ffi-function-wrapper "disconnect" :int [:pointer :pointer] internal)
+
+(zmq--ffi-function-wrapper "close" :int [:pointer])
+
+(defun zmq-send-const (sock buf len &optional flags)
+  (unless (user-ptrp buf)
+    (error "BUF needs to already be a pointer to constant memory."))
+  (zmq--send-const sock buf len (or flags 0)))
+
+(defun zmq-send (sock buf &optional flags)
+  (with-ffi-string (_buf buf)
+    (zmq--send sock _buf (string-bytes buf) (or flags 0))))
+
+(defun zmq-recv (sock len &optional flags buf)
+  (unless (null buf) (cl-assert (user-ptrp buf)))
+  (let ((buf (or buf (ffi-allocate len)))
+        (allocated (null buf)))
+    (zmq--recv sock buf len (or flags 0))
+    (prog1 (ffi-get-c-string buf)
+      (when allocated
+        (ffi-free buf)))))
+
+;; TODO: Abstract away this pattern, scan argument lists for :string, if found
+;; wrap that argument in an `with-ffi-string'. if multiple arguments,
+;; `with-ffi-strings'.
+(defun zmq-bind (sock endpoint)
+  (with-ffi-string (endpoint endpoint)
+    (zmq--bind sock endpoint)))
+
+(defun zmq-unbind (sock endpoint)
+  (with-ffi-string (endpoint endpoint)
+    (zmq--bind sock endpoint)))
+
+(defun zmq-connect (sock endpoint)
+  (with-ffi-string (endpoint endpoint)
+    (zmq--connect sock endpoint)))
+
+(defun zmq-disconnect (sock endpoint)
+  (with-ffi-string (endpoint endpoint)
+    (zmq--disconnect sock endpoint)))
+
+(defun zmq-setsockopt (sock opt val)
+  (let (size c-val)
+    (cond
+     ((= opt zmq-SUBSCRIBE)
+      (setq size (string-bytes val)
+            c-val (ffi-make-c-string val)))
+     ((= opt zmq-ROUTING_ID)
+      ;; Binary data between 1 and 255 bytes long
+      (setq size (string-bytes val)
+            c-val (ffi-make-c-string val)))
+     ((= opt zmq-LINGER)
+      (setq size (ffi--type-size :int)
+            c-val (let ((c-val (ffi-allocate :int)))
+                    (ffi--mem-set c-val :int val)
+                    c-val)))
+     (t (error "Socket option not handled yet.")))
+    (unwind-protect
+        (zmq--setsockopt sock opt c-val size)
+      (ffi-free c-val))))
+
+;;; Utility
+
+(zmq--ffi-function-wrapper "has" :int [:pointer] internal)
+(zmq--ffi-function-wrapper "version" :void [:pointer :pointer :pointer] internal)
+
+(defun zmq-has (capability)
+  (with-ffi-string (capability capability)
+    (= (zmq--has capability) 1)))
+
+(defun zmq-version ()
+  (with-ffi-temporaries ((major :int)
+                         (minor :int)
+                         (patch :int))
+    (zmq--version major minor patch)
+    (mapconcat (lambda (x) (number-to-string (ffi--mem-ref x :int)))
+               (list major minor patch)
+               ".")))
+
+;;; Subprocceses
+
+(defmacro zmq-async-process-environment (variables &rest body)
+  (declare (indent 1))
+  (let ((variable-forms
+         (seq-map (lambda (opt) `(setq-default
+                             ,opt ,(if (listp (symbol-value opt))
+                                       `(quote ,(symbol-value opt))
+                                     (symbol-value opt))))
+                  (seq-filter #'boundp variables))))
+    `(progn
+       (push ,(file-name-directory (locate-library "ffi")) load-path)
+       (push ,(file-name-directory (locate-library "zmq")) load-path)
+       (require 'zmq)
+       ,@variable-forms
+       ,@body)))
+
+(defun zmq-start-subprocess ()
+
+  )
+
+(zmq-async-process-environment ()
+  (while t
+    ;; listen for messages from kernel
+    ))
+
+;; TODO: Reduce load time in subprocesses by splitting functions to separate
+;; files. For example `zmq-core' can have all of the context objects and socket
+;; API's
+(defmacro zmq-start-socket (sock sock-type endpoint &rest body)
+  (declare (indent 3))
+  (async-start
+   `(lambda ()
+      (push ,(file-name-directory (locate-library "ffi")) load-path)
+      (push ,(file-name-directory (locate-library "zmq")) load-path)
+      (require 'zmq)
+      (with-zmq-context ctx
+        (let ((,sock (zmq-socket ctx ,sock-type)))
+          (zmq-bind ,sock ,endpoint)
+          (unwind-protect
+              (progn ,@body)
+            (zmq-unbind ,sock ,endpoint)))))))
+
+;; zmq-bind-and-listen
+
+(defmacro with-zmq-context (ctx &rest body)
+  (declare (indent 1))
+  `(let ((,ctx (zmq-ctx-new)))
+     (unwind-protect
+         (progn ,@body)
+       (zmq-ctx-close))))
+
+(defun zmq-start-eventloop ()
+
+  )
+
+(provide 'zmq)
