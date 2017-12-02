@@ -67,6 +67,38 @@
                       ,body)
                  body))))))))
 
+(defmacro with-zmq-context (ctx &rest body)
+  (declare (indent 1) (debug t))
+  `(let ((,ctx (zmq-ctx-new)))
+     (unwind-protect
+         (progn ,@body)
+       (zmq-ctx-destroy ,ctx))))
+
+(defmacro with-zmq-socket (ctx sock type &rest body)
+  (declare (indent 3))
+  `(let ((,sock (zmq-socket ,ctx ,type)))
+     (unwind-protect
+         (progn ,@body)
+       ;; http://zguide.zeromq.org/page:all#Making-a-Clean-Exit
+       (zmq-setsockopt ,sock zmq-LINGER 1)
+       (zmq-close ,sock))))
+
+(defmacro with-zmq-msg (msg data &rest body)
+  (declare (indent 2) (debug t))
+  (let ((msg-init (cond
+                   ((and (integerp data) (> data 0))
+                    `(let ((,msg (zmq-msg-new)))
+                       (zmq-msg-init-size ,msg ,data)
+                       ,msg))
+                   ((stringp data) `(zmq-msg-init-data ,data))
+                   (t `(let ((,msg (zmq-msg-new)))
+                         (zmq-msg-init ,msg)
+                         ,msg)))))
+    `(let ((,msg ,msg-init))
+       (unwind-protect
+           (progn ,@body)
+         (zmq-msg-close ,msg)))))
+
 ;;; Error handling
 
 ;; These are used in `zmq--ffi-function-wrapper' so don't try to wrap them.
