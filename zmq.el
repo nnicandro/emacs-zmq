@@ -179,7 +179,6 @@
 
 (defun zmq--msg-init-data-free (data hint)
   ;; TODO: Thread safety? How will this function be called in emacs?
-  ()
   (ffi-free data))
 
 (defvar zmq--msg-init-data-free-fn
@@ -188,11 +187,6 @@
 
 (defun zmq-msg-new ()
   (ffi-allocate zmq-msg))
-
-(async-start
- (lambda ()
-   (let ((msg (zmq-msg-init-data "foobar")))
-     (zmq-msg-close msg))))
 
 ;; Actual message API
 
