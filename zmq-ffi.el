@@ -1,5 +1,6 @@
 (require 'ffi)
 (require 'zmq-constants)
+(require 'cl-lib)
 
 (define-ffi-library libzmq "libzmq")
 
