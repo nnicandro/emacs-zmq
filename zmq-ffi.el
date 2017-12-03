@@ -66,6 +66,47 @@
                       ,body)
                  body))))))))
 
+;;; Memory handling functions
+
+;; TODO: Better way to handle this
+;; http://zguide.zeromq.org/page:all#A-Minor-Note-on-Strings
+(defun zmq--get-bytes (buf len)
+  "Get the bytes in BUF as a multibyte string.
+
+The size of BUF must be at least 1+LEN. This is because BUF[LEN]
+is set to 0 in order to NULL terminate the string. See
+http://phst.github.io/emacs-modules.html#caveats-and-bugs"
+  ;; NOTE: that in elisp, strings can contain NULL characters The current
+  ;; implementation of the ffi library doesn't handle binary data in a
+  ;; symmetric way. `ffi-get-c-string' uses `strlen', which for binary data may
+  ;; not give expected results since `strlen' looks for the NULL byte to
+  ;; indicate the end of a string. `ffi-make-c-string' uses
+  ;; `copy_string_contents' from the emacs module which handles NULL bytes in
+  ;; an elisp string properly.
+  ;;
+  ;; TODO: For large amounts of binary data, it would be best to offload the
+  ;; work to the ffi c-module by instantiating a vector and setting the bytes.
+  ;; TODO: Added a new `ffi-get-bytes' function.
+  ;; Chop off the message and NULL terminate if larger than the buffer size.
+  (ffi--mem-set (ffi-pointer+ buf len) :char 0)
+  (ffi-get-bytes buf len))
+
+;; TODO: Implement an (ffi-set-bytes pointer string len) which copies
+;; lisp string to memory pointed to by pointer with len size.
+;; TODO: Need to convert to unibyte representation?
+(defun zmq--set-bytes (buf data)
+  "Set the contents of BUF to the string DATA.
+BUF must be large enough to hold (1+ (length data)) of bytes. If
+optional argument NONULL is non-nil, then a NULL byte is not set
+at the next buffer position after copying DATA. This means that
+BUF may have size (length data)."
+  (cl-loop for i from 0 to (1- (length data))
+           do (ffi--mem-set (ffi-pointer+ zmq--work-buffer i)
+                            :char (aref data i)))
+  (ffi--mem-set buf
+                (ffi-pointer+ buf (length data)
+                              :char 0)))
+
 ;;; Error handling
 
 ;; These are used in `zmq--ffi-function-wrapper' so don't try to wrap them.
