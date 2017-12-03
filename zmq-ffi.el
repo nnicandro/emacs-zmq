@@ -280,17 +280,6 @@ Otherwise just create a message without initializing it."
 (defun zmq-msg-more (message)
   (= (zmq--msg-more message) 1))
 
-(defun zmq-recv-multipart (socket)
-  (let ((res '()))
-    (with-zmq-msg part nil
-      (catch 'done
-        (while t
-          (zmq-msg-init part)
-          (zmq-msg-recv part socket 0)
-          (push (zmq-msg-data part) res)
-          (unless (zmq-msg-more part)
-            (throw 'done (mapconcat 'identity (nreverse res) ""))))))))
-
 ;;; Polling
 
 (zmq--ffi-function-wrapper "poll" :int [:pointer :int :long] internal)
@@ -365,21 +354,47 @@ Otherwise just create a message without initializing it."
   (when (cl-assert (user-ptrp buf))
     (zmq--send-const sock buf len (or flags 0))))
 
-(defun zmq-send (sock buf &optional flags)
-  (with-ffi-string (_buf buf)
-    (zmq--send sock _buf (length buf) (or flags 0))))
+(defun zmq-send (sock message &optional flags)
+  "Send a message on SOCK."
+  (let ((msg (zmq-msg-new message)))
+    (unwind-protect
+        (zmq-msg-send msg sock (or flags 0))
+      (zmq-msg-close msg))))
 
-(defun zmq-recv (sock buf len &optional flags)
-  (when (or (null buf) (cl-assert (user-ptrp buf)))
-    (let ((allocated (null buf))
-          (buf (or buf (ffi-allocate len))))
+(defun zmq-send-multipart (sock parts &optional flags)
+  "Send a multipart message with PARTS on SOCK with FLAGS."
+  (let ((msg (zmq-msg-new t)))
+    (unwind-protect
+        (while (car parts)
+          (zmq-msg-init-data msg (car parts))
+          (setq parts (cdr parts))
+          (when parts
+            (zmq-msg-set msg zmq-MORE 1))
+          (zmq-msg-send msg sock (or flags 0)))
+      (zmq-msg-close msg))))
+
+(defun zmq-recv (sock &optional flags)
+  "Receive a message from SOCK with FLAGS."
+  (let ((msg (zmq-msg-new)))
+    (unwind-protect
+        (progn
+          (zmq-msg-recv msg sock (or flags 0))
+          (zmq-msg-data msg))
+      (zmq-msg-close msg))))
+
+(defun zmq-recv-multipart (sock)
+  "Receive a multipart message from SOCK."
+  (let (res)
+    (let ((part (zmq-msg-new)))
       (unwind-protect
-          (let ((rlen (zmq--recv sock buf len (or flags 0))))
-            (when (> rlen (1- len))
-              (setq rlen (1- len)))
-            (zmq--get-bytes buf rlen))
-        (when allocated
-          (ffi-free buf))))))
+          (catch 'recvd
+            (while t
+              (zmq-msg-init part)
+              (zmq-msg-recv part sock 0)
+              (setq res (cons (zmq-msg-data part) res))
+              (unless (zmq-msg-more part)
+                (throw 'recvd (nreverse res)))))
+        (zmq-msg-close part)))))
 
 (defun zmq-setsockopt (sock option value)
   (let (size)
