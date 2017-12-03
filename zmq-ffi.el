@@ -116,7 +116,6 @@ BUF may have size (length data)."
 ;;; Error handling
 
 ;; These are used in `zmq--ffi-function-wrapper' so don't try to wrap them.
-
 (define-ffi-function zmq-errno "zmq_errno" :int [] libzmq)
 (define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq)
 
@@ -200,11 +199,11 @@ BUF may have size (length data)."
 (zmq--ffi-function-wrapper "msg_size" :size_t ((message :pointer)))
 
 (defun zmq--msg-init-data-free (data hint)
-  ;; TODO: Thread safety? How will this function be called in emacs?
   (ffi-free data))
 
 (defvar zmq--msg-init-data-free-fn
-  (ffi-make-closure (ffi--prep-cif :void [:pointer :pointer]) 'zmq--msg-init-data-free)
+  (ffi-make-closure (ffi--prep-cif :void [:pointer :pointer])
+                    'zmq--msg-init-data-free)
   "Function pointer for use in `zmq-msg-init-data'.")
 
 (defun zmq-msg-new (&optional init-val)
