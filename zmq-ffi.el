@@ -215,10 +215,10 @@ which is used to set `zmq--buf'."
 (zmq--ffi-function-wrapper "msg_more" :int [:pointer] internal)
 (zmq--ffi-function-wrapper "msg_move" :int ((dest :pointer) (src :pointer)))
 (zmq--ffi-function-wrapper "msg_recv"
-  :int ((message :pointer) (socket :pointer) (flags :int)))
+  :int ((message :pointer) (sock :pointer) (flags :int)))
 (zmq--ffi-function-wrapper "msg_routing_id" :uint32 ((message :pointer)))
 (zmq--ffi-function-wrapper "msg_send"
-  :int ((message :pointer) (socket :pointer) (flags :int)))
+  :int ((message :pointer) (sock :pointer) (flags :int)))
 (zmq--ffi-function-wrapper "msg_set_routing_id"
   :int ((message :pointer) (routing-id :int)))
 (zmq--ffi-function-wrapper "msg_set"
@@ -344,22 +344,22 @@ Otherwise just create a message without initializing it."
 
 (zmq--ffi-function-wrapper "socket" :pointer ((context :pointer) (type :int)))
 (zmq--ffi-function-wrapper "socket_monitor"
-  :int ((socket :pointer) (endpoint :string) (events :int)))
+  :int ((sock :pointer) (endpoint :string) (events :int)))
 
-(zmq--ffi-function-wrapper "bind" :int ((socket :pointer) (endpoint :string)))
-(zmq--ffi-function-wrapper "unbind" :int ((socket :pointer) (endpoint :string)))
+(zmq--ffi-function-wrapper "bind" :int ((sock :pointer) (endpoint :string)))
+(zmq--ffi-function-wrapper "unbind" :int ((sock :pointer) (endpoint :string)))
 
 (zmq--ffi-function-wrapper "getsockopt"
-  :int ((socket :pointer) (option :int) (value :pointer) (len :pointer)) internal)
+  :int ((sock :pointer) (option :int) (value :pointer) (len :pointer)) internal)
 (zmq--ffi-function-wrapper "setsockopt"
   :int [:pointer :int :pointer :size_t] internal)
 
 (zmq--ffi-function-wrapper "connect"
-  :int ((socket :pointer) (endpoint :string)))
+  :int ((sock :pointer) (endpoint :string)))
 (zmq--ffi-function-wrapper "disconnect"
-  :int ((socket :pointer) (endpoint :string)))
+  :int ((sock :pointer) (endpoint :string)))
 
-(zmq--ffi-function-wrapper "close" :int ((socket :pointer)))
+(zmq--ffi-function-wrapper "close" :int ((sock :pointer)))
 
 (defun zmq-send-const (sock buf len &optional flags)
   (when (cl-assert (user-ptrp buf))
@@ -381,7 +381,7 @@ Otherwise just create a message without initializing it."
         (when allocated
           (ffi-free buf))))))
 
-(defun zmq-setsockopt (socket option value)
+(defun zmq-setsockopt (sock option value)
   (let (size)
     (cond
      ;; INT
@@ -447,12 +447,12 @@ Otherwise just create a message without initializing it."
         (zmq--set-buf value))
        (t (error "Unsupported value length."))))
      (t (error "Socket option not handled yet.")))
-    (zmq--setsockopt socket option zmq--buf size)))
+    (zmq--setsockopt sock option zmq--buf size)))
 
-(defun zmq-getsockopt (socket option)
+(defun zmq-getsockopt (sock option)
   (with-ffi-temporaries ((len :size_t))
     (ffi--mem-set len :size_t (ffi--type-size zmq-work-buffer))
-    (zmq--getsockopt socket option zmq--buf len)
+    (zmq--getsockopt sock option zmq--buf len)
     (cond
      ;; INT
      ((member option (list zmq-HANDSHAKE_IVL zmq-BACKLOG
