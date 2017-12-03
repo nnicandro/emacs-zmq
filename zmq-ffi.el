@@ -272,8 +272,7 @@ an unitinitialized message."
 
 (defun zmq-msg-gets (message property)
   (with-ffi-string (prop (encode-coding-string property 'utf-8))
-    (encode-coding-string
-     (ffi-get-c-string (zmq--msg-gets message prop)) 'utf-8)))
+    (ffi-get-c-string (zmq--msg-gets message prop))))
 
 (defun zmq-msg-init-data (message data)
   (let ((buf (ffi-make-c-string data)))
