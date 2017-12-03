@@ -1,4 +1,5 @@
 (require 'zmq-ffi)
+(require 'cl-lib)
 
 ;;
 
