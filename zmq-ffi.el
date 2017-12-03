@@ -298,18 +298,22 @@ Otherwise just create a message without initializing it."
 (defun zmq-pollitem-new (&rest args)
   (let ((item (ffi-allocate zmq-pollitem))
         (val nil))
-    (setf (zmq-pollitem-socket item) (if (setq val (plist-get args :socket))
-                                         val
-                                       (ffi-null-pointer)))
-    (setf (zmq-pollitem-fd item) (if (setq val (plist-get args :fd))
-                                     val
-                                   -1))
-    (setf (zmq-pollitem-fd item) (if (setq val (plist-get args :events))
-                                     val
-                                   0))
-    (setf (zmq-pollitem-fd item) (if (setq val (plist-get args :revents))
-                                     val
-                                   0))
+    (setf (zmq-pollitem-sock item)
+          (if (setq val (plist-get args :sock))
+              val
+            (ffi-null-pointer)))
+    (setf (zmq-pollitem-fd item)
+          (if (setq val (plist-get args :fd))
+              val
+            -1))
+    (setf (zmq-pollitem-fd item)
+          (if (setq val (plist-get args :events))
+              val
+            0))
+    (setf (zmq-pollitem-fd item)
+          (if (setq val (plist-get args :revents))
+              val
+            0))
     item))
 
 (defun zmq-poll (items timeout)
