@@ -344,16 +344,19 @@ Otherwise just create a message without initializing it."
   (with-ffi-string (_buf buf)
     (zmq--send sock _buf (string-bytes buf) (or flags 0))))
 
-(defun zmq-recv (sock len &optional flags buf)
-  (unless (null buf) (cl-assert (user-ptrp buf)))
-  (let ((buf (or buf (ffi-allocate len)))
-        (allocated (null buf)))
-    (zmq--recv sock buf len (or flags 0))
-    (prog1 (ffi-get-c-string buf)
-      (when allocated
-        (ffi-free buf)))))
+(defun zmq-recv (sock buf len &optional flags)
+  (when (or (null buf) (cl-assert (user-ptrp buf)))
+    (let ((allocated (null buf))
+          (buf (or buf (ffi-allocate len))))
+      (unwind-protect
+          (let ((rlen (zmq--recv sock buf len (or flags 0))))
+            (when (> rlen (1- len))
+              (setq rlen (1- len)))
+            (zmq--get-bytes buf rlen))
+        (when allocated
+          (ffi-free buf))))))
 
-(defun zmq-setsockopt (sock opt val)
+(defun zmq-setsockopt (socket option value)
   (let (size c-val)
     (cond
      ((= opt zmq-SUBSCRIBE)
