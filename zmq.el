@@ -38,16 +38,39 @@
   `(let ((,ctx (zmq-ctx-new)))
      (unwind-protect
          (progn ,@body)
-       (zmq-ctx-destroy ,ctx))))
+       (zmq-ctx-term ,ctx))))
 
-(defmacro with-zmq-socket (ctx sock type &rest body)
-  (declare (indent 3))
-  `(let ((,sock (zmq-socket ,ctx ,type)))
-     (unwind-protect
-         (progn ,@body)
-       ;; http://zguide.zeromq.org/page:all#Making-a-Clean-Exit
-       (zmq-setsockopt ,sock zmq-LINGER 1)
-       (zmq-close ,sock))))
+(defmacro with-zmq-socket (ctx sock type &optional options &rest body)
+  "Run BODY with a new socket, SOCK, that has type, TYPE.
+
+The context, CTX, is used to instantiate the socket. Any socket
+OPTIONS will be set before running BODY. After BODY has run, the
+LINGER option of the socket is set to 0 before the socket is
+finally closed."
+  (declare (indent zmq--indent-4))
+  (let ((sock-options
+         (if (and (listp options)
+                  ;; Ensure options is a list of bindings (in the sense of let)
+                  (null (cl-find-if-not
+                         (lambda (x) (and (listp x) (= (length x) 2)))
+                         options)))
+             (cl-loop
+              for (option value) in options
+              collect `(zmq-setsockopt ,sock ,option ,value))
+           ;; Otherwise options must be part of body
+           (setq body (cons options body))
+           nil)))
+    `(let ((,sock (zmq-socket ,ctx ,type)))
+       (unwind-protect
+           (progn
+             ,@sock-options
+             ,@body)
+         ;; http://zguide.zeromq.org/page:all#Making-a-Clean-Exit
+         ;;
+         ;; NOTE: Alternatively set zmq-BLOCKY on the context before creating a
+         ;; socket
+         (zmq-setsockopt ,sock zmq-LINGER 0)
+         (zmq-close ,sock)))))
 
 (defmacro with-zmq-msg (msg data &rest body)
   (declare (indent 2) (debug t))
