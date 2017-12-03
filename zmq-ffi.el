@@ -15,6 +15,12 @@
 
 (define-ffi-array zmq-msg :uchar 64)
 
+(defconst zmq--work-buffer-size 256)
+(defconst zmq--work-buffer (ffi-allocate zmq--work-buffer-size)
+  "A buffer used internally by `zmq'
+
+See `zmq-getsockopt'.")
+
 ;;; FFI wrapper
 
 ;; Flag value:
@@ -359,22 +365,131 @@ Otherwise just create a message without initializing it."
 (defun zmq-setsockopt (socket option value)
   (let (size c-val)
     (cond
-     ((= opt zmq-SUBSCRIBE)
-      (setq size (string-bytes val)
-            c-val (ffi-make-c-string val)))
-     ((= opt zmq-ROUTING_ID)
-      ;; Binary data between 1 and 255 bytes long
-      (setq size (string-bytes val)
-            c-val (ffi-make-c-string val)))
-     ((= opt zmq-LINGER)
-      (setq size (ffi--type-size :int)
-            c-val (let ((c-val (ffi-allocate :int)))
-                    (ffi--mem-set c-val :int val)
-                    c-val)))
+     ;; INT
+     ((member option (list zmq-BACKLOG zmq-CONNECT_TIMEOUT zmq-LINGER
+                           zmq-RCVTIMEO zmq-HANDSHAKE_IVL zmq-HEARTBEAT_IVL
+                           zmq-HEARTBEAT_TIMEOUT zmq-HEARTBEAT_TTL
+                           zmq-MULTICAST_HOPS zmq-MULTICAST_MAXTPDU
+                           zmq-USE_FD zmq-RATE zmq-RCVBUF zmq-RCVHWM
+                           zmq-RCVTIMEO zmq-RECONNECT_IVL zmq-RECONNECT_IVL_MAX
+                           zmq-RECOVERY_IVL zmq-TCP_KEEPALIVE
+                           zmq-TCP_KEEPALIVE_CNT zmq-TCP_KEEPALIVE_IDLE
+                           zmq-TCP_KEEPALIVE_INTVL zmq-TCP_MAXRT zmq-TOS
+                           zmq-VMCI_CONNECT_TIMEOUT))
+      (setq size (ffi--type-size :int))
+      (ffi--mem-set zmq--work-buffer :int value))
+     ;; UINT64
+     ((member option (list zmq-AFFINITY zmq-VMCI_BUFFER_SIZE
+                           zmq-VMCI_BUFFER_MAX_SIZE zmq-VMCI_BUFFER_MIN_SIZE))
+      (setq size (ffi--type-size :uint64))
+      (ffi--mem-set zmq--work-buffer :uint64 value))
+     ;; INT64
+     ((member option (list zmq-MAXMSGSIZE))
+      (setq size (ffi--type-size :int64))
+      (ffi--mem-set zmq--work-buffer :int64 value))
+     ;; INT with BOOL values
+     ((member option (list zmq-CONFLATE zmq-CURVE_SERVER
+                           zmq-GSSAPI_PLAINTEXT zmq-GSSAPI_SERVER
+                           zmq-IMMEDIATE zmq-INVERT_MATCHING zmq-IPV6
+                           zmq-PLAIN_SERVER zmq-PROBE_ROUTER zmq-REQ_CORRELATE
+                           zmq-REQ_RELAXED zmq-ROUTER_HANDOVER
+                           zmq-ROUTER_MANDATORY zmq-ROUTER_RAW zmq-SNDBUF
+                           zmq-SNDHWM zmq-SNDTIMEO zmq-STREAM_NOTIFY
+                           zmq-XPUB_VERBOSE zmq-XPUB_VERBOSER zmq-XPUB_MANUAL
+                           zmq-XPUB_NODROP))
+      (setq size (ffi--type-size :int))
+      (ffi--mem-set zmq--work-buffer :int (if value 1 0)))
+     ;; STRING
+     ((member option (list zmq-SUBSCRIBE zmq-GSSAPI_PRINCIPAL
+                           zmq-GSSAPI_SERVICE_PRINCIPAL zmq-PLAIN_PASSWORD
+                           zmq-PLAIN_USERNAME zmq-SOCKS_PROXY zmq-ZAP_DOMAIN))
+      (setq size (1+ (length value)))
+      (unless (< size zmq--work-buffer-size)
+        (error "Length of value too long."))
+      (zmq--set-bytes zmq--work-buffer value))
+     ;; BINARY
+     ((member option (list zmq-CONNECT_ROUTING_ID zmq-ROUTING_ID zmq-SUBSCRIBE
+                           zmq-UNSUBSCRIBE zmq-XPUB_WELCOME_MSG))
+      (setq size (length value))
+      ;; account for extra null byte added in `zmq--set-bytes'
+      (unless (< (1+ size) zmq--work-buffer-size)
+        (error "Length of value too long."))
+      (zmq--set-bytes zmq--work-buffer value))
+     ;; CURVE
+     ((member option (list zmq-CURVE_PUBLICKEY zmq-CURVE_SECRETKEY
+                           zmq-CURVE_SERVERKEY))
+      (cond
+       ((= (length value) 32)
+        ;; don't copy the NULL byte
+        (setq size 32)
+        (zmq--set-bytes zmq--work-buffer value))
+       ((= (length value) 40)
+        (setq size 41)
+        (zmq--set-bytes zmq--work-buffer value))
+       (t (error "Unsupported value length."))))
      (t (error "Socket option not handled yet.")))
-    (unwind-protect
-        (zmq--setsockopt sock opt c-val size)
-      (ffi-free c-val))))
+    (zmq--setsockopt socket option c-val size)))
+
+(defun zmq-getsockopt (socket option)
+  (let ((value zmq--work-buffer))
+    (with-ffi-temporaries ((len :size_t))
+      (ffi--mem-set len :size_t zmq--work-buffer-size)
+      (zmq--getsockopt socket option value len)
+      (cond
+       ;; INT
+       ((member option (list zmq-HANDSHAKE_IVL zmq-BACKLOG
+                             zmq-CONNECT_TIMEOUT zmq-EVENTS
+                             zmq-ROUTING_ID zmq-LINGER zmq-MECHANISM
+                             zmq-MULTICAST_HOPS zmq-MULTICAST_MAXTPDU
+                             zmq-PLAIN_SERVER zmq-USE_FD zmq-RATE zmq-RCVBUF
+                             zmq-RCVHWM zmq-RCVTIMEO zmq-RECONNECT_IVL
+                             zmq-RECONNECT_IVL_MAX zmq-RECOVERY_IVL
+                             zmq-SNDBUF zmq-SNDHWM zmq-SNDTIMEO
+                             zmq-TCP_KEEPALIVE zmq-TCP_KEEPALIVE_CNT
+                             zmq-TCP_KEEPALIVE_IDLE zmq-TCP_KEEPALIVE_INTVL
+                             zmq-TCP_MAXRT zmq-TOS zmq-TYPE
+                             zmq-VMCI_CONNECT_TIMEOUT))
+        (ffi--mem-ref value :int))
+       ;; UINT64
+       ((member option (list zmq-AFFINITY zmq-VMCI_BUFFER_SIZE
+                             zmq-VMCI_BUFFER_MIN_SIZE
+                             zmq-VMCI_BUFFER_MAX_SIZE))
+        (ffi--mem-ref value :uint64))
+       ;; INT64
+       ((= option zmq-MAXMSGSIZE)
+        (ffi--mem-ref value :int64))
+       ;; TODO: Different on windows
+       ((= option zmq-FD)
+        (ffi--mem-ref value :int))
+       ;; INT with BOOL values
+       ((member option (list zmq-IMMEDIATE zmq-INVERT_MATCHING
+                             zmq-IPV6 zmq-GSSAPI_PLAINTEXT
+                             zmq-GSSAPI_SERVER
+                             zmq-RCVMORE))
+        (= (ffi--mem-ref value :int) 1))
+       ;; BOOL
+       ((= option zmq-THREAD_SAFE)
+        (ffi--mem-ref value :bool))
+       ;; STRINGS
+       ((member option (list zmq-GSSAPI_PRINCIPAL zmq-GSSAPI_SERVICE_PRINCIPAL
+                             zmq-LAST_ENDPOINT zmq-PLAIN_PASSWORD
+                             zmq-PLAIN_USERNAME zmq-SOCKS_PROXY
+                             zmq-ZAP_DOMAIN))
+        (ffi-get-c-string value))
+       ;; CURVE
+       ((member option (list zmq-CURVE_PUBLICKEY zmq-CURVE_SECRETKEY
+                             zmq-CURVE_SERVERKEY))
+        (let ((len (ffi--mem-ref len :size_t)))
+          (cond
+           ;; TODO: What happens when the value is NULL (the default)? Does
+           ;; zmq--getsockopt error out in that case?
+           ((= len 0) nil)
+           ((= len 32)
+            (zmq--get-bytes value 32))
+           ((= len 41)
+            (ffi-get-c-string value))
+           (t (error "Unsupported value length.")))))
+       (t (error "Socket option not handled yet."))))))
 
 ;;; Utility
 
