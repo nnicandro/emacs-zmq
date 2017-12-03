@@ -130,7 +130,7 @@ BUF may have size (length data)."
 
 (zmq--ffi-function-wrapper "ctx_new" :pointer [] nil noerror)
 (zmq--ffi-function-wrapper "ctx_set"
-  :int ((context :pointer) (option :int) (val :int)))
+  :int ((context :pointer) (option :int) (value :int)))
 (zmq--ffi-function-wrapper "ctx_get" :int ((context :pointer) (option :int)))
 (zmq--ffi-function-wrapper "ctx_term" :int ((context :pointer)))
 (zmq--ffi-function-wrapper "ctx_shutdown" :int ((context :pointer)))
