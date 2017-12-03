@@ -329,9 +329,8 @@ Otherwise just create a message without initializing it."
 (zmq--ffi-function-wrapper "bind" :int ((socket :pointer) (endpoint :string)))
 (zmq--ffi-function-wrapper "unbind" :int ((socket :pointer) (endpoint :string)))
 
-;; TODO: Internalize this
 (zmq--ffi-function-wrapper "getsockopt"
-  :int ((socket :pointer) (option :int) (value :pointer) (len :pointer)))
+  :int ((socket :pointer) (option :int) (value :pointer) (len :pointer)) internal)
 (zmq--ffi-function-wrapper "setsockopt"
   :int [:pointer :int :pointer :size_t] internal)
 
