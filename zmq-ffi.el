@@ -146,15 +146,15 @@ BUF may have size (length data)."
 
 (defun zmq-z85-decode (data)
   (with-ffi-string (_data data)
-    (with-ffi-temporary (decoded (ceiling (* 0.8 (string-bytes data))))
+    (with-ffi-temporary (decoded (ceiling (* 0.8 (length data))))
       (when (ffi-pointer= decoded (zmq--z85-decode decoded _data))
         (ffi-get-c-string decoded)))))
 
 (defun zmq-z85-encode (data)
   (with-ffi-string (_data data)
-    (with-ffi-temporary (encoded (+ (ceiling (* 1.25 (string-bytes data))) 1))
+    (with-ffi-temporary (encoded (+ (ceiling (* 1.25 (length data))) 1))
       (when (ffi-pointer= encoded (zmq--z85-encode
-                                   encoded _data (string-bytes data)))
+                                   encoded _data (length data)))
         (ffi-get-c-string encoded)))))
 
 (defun zmq-curve-keypair ()
@@ -257,7 +257,7 @@ Otherwise just create a message without initializing it."
 (defun zmq-msg-init-data (message data)
   (let ((buf (ffi-make-c-string data)))
     (zmq--msg-init-data
-     message buf (string-bytes data)
+     message buf (length data)
      zmq--msg-init-data-free-fn (ffi-null-pointer))
     message))
 
@@ -348,7 +348,7 @@ Otherwise just create a message without initializing it."
 
 (defun zmq-send (sock buf &optional flags)
   (with-ffi-string (_buf buf)
-    (zmq--send sock _buf (string-bytes buf) (or flags 0))))
+    (zmq--send sock _buf (length buf) (or flags 0))))
 
 (defun zmq-recv (sock buf len &optional flags)
   (when (or (null buf) (cl-assert (user-ptrp buf)))
