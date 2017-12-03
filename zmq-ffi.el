@@ -52,13 +52,28 @@ See `zmq-getsockopt' and `zmq-set-sockopt'.")
                          finally do (setq arg-types (apply #'vector types)))
                       (cl-loop repeat (length arg-types)
                                collect (cl-gensym))))
-              (string-bindings (cl-loop
-                                for i from 0 to (1- (length arg-types))
-                                when (eq (aref arg-types i) :string) do
-                                (aset arg-types i :pointer) and
-                                collect (let ((arg (nth i args)))
-                                          (list arg arg))))
+              ;; Handle special `:string' arguments which gets converted into
+              ;; `:pointer' and wrapped using `with-ffi-strings' when calling
+              ;; the function.
+              ;;
+              ;; So if the arg-types is ((arg1 :string) (arg2 :pointer))
+              ;; the resulting form is
+              ;;
+              ;; (with-ffi-strings ((arg1 (encode-coding-string arg1 'utf-8)))
+              ;;   <body>)
+              ;;
+              ;; Which copies arg1 to a c-string pointer and and is available
+              ;; as arg1 in <body>.
+              (string-bindings
+               (cl-loop
+                for i from 0 to (1- (length arg-types))
+                when (eq (aref arg-types i) :string)
+                do (aset arg-types i :pointer)
+                and collect (let ((arg (nth i args)))
+                              (list arg `(encode-coding-string ,arg 'utf-8)))))
               (body `(let ((ret (,ffi-name ,@args)))
+                       ;; Depending on the return-type, check if an error is
+                       ;; set.
                        (if ,(cl-case return-type
                               (:pointer '(ffi-pointer-null-p ret))
                               (:int '(= ret -1))
