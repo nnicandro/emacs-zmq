@@ -201,16 +201,23 @@ BUF may have size (length data)."
   (ffi-make-closure (ffi--prep-cif :void [:pointer :pointer]) 'zmq--msg-init-data-free)
   "Function pointer for use in `zmq-msg-init-data'.")
 
-(defun zmq-msg-new ()
-  (ffi-allocate zmq-msg))
+(defun zmq-msg-new (&optional init-val)
+  "Create a new message, and optionally initialize it.
 
-;; Actual message API
+If INIT-VAL is a string, initialize the message with the string
+data. If INIT-VAL is an integer, initialize the message to be
+INIT-VAL in size. If INIT-VAL is t, initialize an empty message.
+Otherwise just create a message without initializing it."
+  (let ((msg (ffi-allocate zmq-msg)))
+    (cond
+     ((stringp init-val) (zmq-msg-init-data msg init-val))
+     ((integerp init-val) (zmq-msg-init-size msg init-val))
+     ((eq init-val t) (zmq-msg-init msg)))
+    msg))
 
 (defun zmq-msg-close (message)
   (unwind-protect
       (zmq--msg-close message)
-    ;; TODO: Is freeing this OK after a close? The above function doesn't
-    ;; actually release the resources of message.
     (ffi-free message)))
 
 (defun zmq-msg-copy (message)
@@ -241,9 +248,8 @@ BUF may have size (length data)."
     (encode-coding-string
      (ffi-get-c-string (zmq--msg-gets message prop)) 'utf-8)))
 
-(defun zmq-msg-init-data (data)
-  (let* ((message (zmq-msg-new))
-         (buf (ffi-make-c-string data)))
+(defun zmq-msg-init-data (message data)
+  (let ((buf (ffi-make-c-string data)))
     (zmq--msg-init-data
      message buf (string-bytes data)
      zmq--msg-init-data-free-fn (ffi-null-pointer))
