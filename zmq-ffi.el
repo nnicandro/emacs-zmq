@@ -499,3 +499,7 @@ Otherwise just create a message without initializing it."
                ".")))
 
 (provide 'zmq-ffi)
+
+;; Local Variables:
+;; byte-compile-warnings: (not unresolved)
+;; End:
