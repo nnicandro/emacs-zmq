@@ -56,9 +56,7 @@
                               (:int '(= ret -1))
                               ;; Just return without checking for errors
                               (t nil))
-                           ,(if noerror 'nil
-                              '(error (ffi-get-c-string
-                                       (zmq-strerror (zmq-errno)))))
+                           ,(if noerror 'nil '(zmq-error-handler))
                          ret))))
          `(progn
             (define-ffi-function ,ffi-name ,c-name ,return-type ,arg-types libzmq)
@@ -74,6 +72,12 @@
 
 (define-ffi-function zmq-errno "zmq_errno" :int [] libzmq)
 (define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq)
+
+(defun zmq-error-handler ()
+  (let* ((errno (zmq-errno))
+         (err (assoc errno zmq-error-alist)))
+    (signal (or (cdr err) 'zmq-ERROR)
+            (ffi-get-c-string (zmq-strerror errno)))))
 
 ;;; Contexts
 
