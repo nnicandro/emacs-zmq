@@ -79,6 +79,30 @@ finally closed."
          (progn ,@body)
        (zmq-msg-close ,msg))))
 
+(defun zmq--bind-connect-endpoint (bind sock-type endpoint options fun)
+  (let ((conn-fun (if bind 'zmq-bind 'zmq-connect))
+        (sock-options (cl-loop
+                       for (option value) in options
+                       collect `(zmq-setsockopt sock ,option ,value))))
+    `(zmq-start-process
+      (lambda (ctx)
+        (let ((fun ,(if (symbolp fun) (symbol-function fun)
+                      fun)))
+          (with-zmq-socket ctx sock ,sock-type
+            ,@sock-options
+            (,conn-fun sock ,endpoint)
+            (funcall fun ctx sock)))))))
+
+(defmacro zmq-connect-to-endpoint (sock-type endpoint options fun)
+  (declare (indent zmq--indent-3))
+  (zmq--bind-connect-endpoint nil sock-type endpoint options fun))
+
+(defmacro zmq-bind-to-endpoint (sock-type endpoint options fun)
+  "Start a subprocess with a socket bound to ENDPOINT and run
+FUN."
+  (declare (indent zmq--indent-3))
+  (zmq--bind-connect-endpoint 'bind sock-type endpoint options fun))
+
 ;;; Subprocceses
 ;; TODO: Use `process-put' and `process-get' to control `zmq' subprocesses.
 
