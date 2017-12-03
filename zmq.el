@@ -2,6 +2,36 @@
 (require 'cl-lib)
 
 ;;
+(defun zmq--indent (nspecial pos state)
+  (let ((here (point))
+        (nargs 0)
+        (col nil))
+    (goto-char (1+ (nth 1 state)))
+    (setq col (1- (current-column)))
+    (forward-sexp)
+    (catch 'parsed-enough
+      (while (< (point) (nth 2 state))
+        (forward-sexp)
+        (setq nargs (1+ nargs))
+        (when (>= nargs nspecial)
+          (throw 'parsed-enough t))))
+    (goto-char pos)
+    (prog1
+        ;; Allow the third argument (and preceding arguments) to indent to 4 if
+        ;; followed by another argument. Otherwise the third argument indents
+        ;; to 2. This is to handle socket options lists which may or may not be
+        ;; present.
+        (+ (if (and (< nargs nspecial)
+                    (search-forward "((" (line-end-position) t))
+               4 2)
+           col)
+      (goto-char here))))
+
+(defun zmq--indent-3 (pos state)
+  (zmq--indent 3 pos state))
+
+(defun zmq--indent-4 (pos state)
+  (zmq--indent 4 pos state))
 
 (defmacro with-zmq-context (ctx &rest body)
   (declare (indent 1) (debug t))
