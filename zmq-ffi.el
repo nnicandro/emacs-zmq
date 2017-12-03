@@ -342,8 +342,8 @@ Otherwise just create a message without initializing it."
 (zmq--ffi-function-wrapper "close" :int ((socket :pointer)))
 
 (defun zmq-send-const (sock buf len &optional flags)
-  (cl-assert (user-ptrp buf))
-  (zmq--send-const sock buf len (or flags 0)))
+  (when (cl-assert (user-ptrp buf))
+    (zmq--send-const sock buf len (or flags 0))))
 
 (defun zmq-send (sock buf &optional flags)
   (with-ffi-string (_buf buf)
