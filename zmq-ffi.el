@@ -232,7 +232,7 @@ Otherwise just create a message without initializing it."
         (progn
           (zmq--msg-copy dest message)
           dest)
-      (error (ffi-free dest)))))
+      (error (zmq-msg-close dest)))))
 
 (defun zmq-msg-data (message)
   (let ((data (zmq--msg-data message)))
