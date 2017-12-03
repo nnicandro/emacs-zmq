@@ -259,11 +259,11 @@ an unitinitialized message."
 
 (defun zmq-msg-copy (message)
   (let ((dest (zmq-msg-new)))
-    (condition-case nil
+    (unwind-protect
         (progn
           (zmq--msg-copy dest message)
           dest)
-      (error (zmq-msg-close dest)))))
+      (zmq-msg-close dest))))
 
 (defun zmq-msg-data (message)
   (let ((data (zmq--msg-data message)))
