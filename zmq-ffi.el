@@ -237,17 +237,7 @@ Otherwise just create a message without initializing it."
 (defun zmq-msg-data (message)
   (let ((data (zmq--msg-data message)))
     (when data
-      (if (= (ffi--mem-ref (ffi-pointer+ data (1- (zmq-msg-size message)))
-                           :uint8)
-             0)
-          ;; Assume the message data is a NULL terminated string
-          (ffi-get-c-string data)
-        ;; Convert to a binary representation otherwise
-        (apply #'unibyte-string
-               (cl-loop
-                for i from 0 to (1- (zmq-msg-size message))
-                collect (ffi--mem-ref (ffi-pointer+ data i)
-                                      :unit8)))))))
+      (zmq--get-bytes data (zmq-msg-size message)))))
 
 (defun zmq-msg-gets (message property)
   (with-ffi-string (prop (encode-coding-string property 'utf-8))
