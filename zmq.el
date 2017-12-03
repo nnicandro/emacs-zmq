@@ -80,11 +80,92 @@ finally closed."
        (zmq-msg-close ,msg))))
 
 ;;; Subprocceses
+;; TODO: Use `process-put' and `process-get' to control `zmq' subprocesses.
 
+(defun zmq-subprocess-validate-function (sexp)
+  "Called in subprocesses to validate the function passed to it.
+If a function is not valid, no work will be performed and the
+error will be sent to the subprocess' buffer."
+  (unless (functionp sexp)
+    (signal 'void-function
+            "Can only run functions in subprocess."))
+  (unless (member (length (cadr sexp)) '(0 1))
+    (signal 'wrong-number-of-arguments
+            "Functions can only be passed a context or nothing.")))
+
+(defun zmq-subprocess-start-function (fun &optional wrap-context &rest args)
+  (if wrap-context
       (with-zmq-context ctx
+        (apply fun ctx args))
+    (apply fun args)))
 
+(defun zmq-init-subprocess ()
+  (if noninteractive
+      (let ((coding-system-for-write 'utf8-unix))
+        ;; TODO: Better error handling
+        (condition-case err
+            (let* ((sexp (read (decode-coding-string
+                                ;; read from stdin without prompting
+                                (base64-decode-string (read-minibuffer ""))
+                                'utf-8-unix))))
+              (setq sexp (eval sexp))
+              (zmq-subprocess-validate-function sexp)
+              (zmq-subprocess-start-function
+               sexp (= (length (cadr sexp)) 1)))
+          (error (prin1 err) (prin1 "\n"))))
+    (error "Only run this in a subprocess.")))
 
+(defun zmq-subprocess-sentinel (process event)
+  (cond
+   ;; TODO: Handle other events
+   ((or (string= event "finished\n")
+        (string-prefix-p "exited" event)
+        (string-prefix-p "killed" event))
+    (with-current-buffer (process-buffer process)
+      (when (or (not (buffer-modified-p))
+                (= (point-min) (point-max)))
+        (kill-buffer (process-buffer process)))))))
 
+;; Adapted from `async--insert-sexp' in the `async' package :)
+(defun zmq-subprocess-send (process sexp)
+  (declare (indent 1))
+  (let ((print-circle t)
+        (print-escape-nonascii t)
+        print-level print-length)
+    (with-temp-buffer
+      (prin1 sexp (current-buffer))
+      (encode-coding-region (point-min) (point-max) 'utf-8-unix)
+      (base64-encode-region (point-min) (point-max) t)
+      (goto-char (point-min)) (insert ?\")
+      (goto-char (point-max)) (insert ?\" ?\n)
+      (process-send-region process (point-min) (point-max)))))
 
+(defun zmq-start-process (sexp)
+  (cond
+   ((functionp sexp)
+    (when (or (not (listp sexp))
+              (eq (car sexp) 'function))
+      (setq sexp (symbol-function sexp))))
+   (t (error "Can only send functions to processes.")))
+  (unless (member (length (cadr sexp)) '(0 1))
+    (error "Invalid function to send to process, can only have 0 or 1 arguments."))
+  (let* ((process-connection-type nil)
+         (coding-system-for-read 'utf-8-unix)
+         (process (make-process
+                   :name "zmq"
+                   :buffer (generate-new-buffer " *zmq*")
+                   :connection-type 'pipe
+                   :sentinel #'zmq-subprocess-sentinel
+                   :command (list
+                             (file-truename
+                              (expand-file-name invocation-name
+                                                invocation-directory))
+                             "-Q" "-batch"
+                             "-L" (file-name-directory (locate-library "ffi"))
+                             "-L" (file-name-directory (locate-library "zmq"))
+                             "-l" (locate-library "zmq")
+                             "-f" "zmq-init-subprocess"))))
+    (zmq-subprocess-send process (macroexpand-all sexp))
+    process))
 
 (provide 'zmq)
