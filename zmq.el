@@ -73,21 +73,11 @@ finally closed."
          (zmq-close ,sock)))))
 
 (defmacro with-zmq-msg (msg data &rest body)
-  (declare (indent 2) (debug t))
-  (let ((msg-init (cond
-                   ((and (integerp data) (> data 0))
-                    `(let ((,msg (zmq-msg-new)))
-                       (zmq-msg-init-size ,msg ,data)
-                       ,msg))
-                   ((stringp data) `(zmq-msg-init-data ,data))
-                   (t `(let ((,msg (zmq-msg-new)))
-                         (zmq-msg-init ,msg)
-                         ,msg)))))
-    `(let ((,msg ,msg-init))
-       (unwind-protect
-           (progn ,@body)
-         (zmq-msg-close ,msg)))))
-
+  (declare (indent 2))
+  `(let ((,msg (zmq-msg-new ,data)))
+     (unwind-protect
+         (progn ,@body)
+       (zmq-msg-close ,msg))))
 
 ;;; Subprocceses
 
