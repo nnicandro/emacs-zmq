@@ -102,7 +102,9 @@ See `zmq-getsockopt' and `zmq-set-sockopt'.")
   "Set the contents of BUF to DATA.
 
 DATA must be a string and BUF must be a pointer to memory which
-can hold at least (1+ (string-bytes DATA)) of bytes.
+can hold at least (1+ (string-bytes DATA)) of bytes. If DATA is a
+multibyte string, it is first encoded to UTF-8 before copying to
+BUF.
 
 After copying DATA, an extra NULL byte is added at
 BUF[(string-bytes DATA)]. This is so that BUF contains a valid
@@ -131,7 +133,7 @@ primitive types such as `:int' or `:char' and VALUE must be
 non-nil and should have the type corresponding to TYPE-OR-VALUE.
 
 If VALUE is nil, then TYPE-OR-VALUE is assumed to be a string
-which is used to set `zmq--buf'."
+that is used to to set `zmq--buf'."
   (cond
    ((and (null value) (stringp type-or-value))
     (setq value type-or-value)
@@ -238,13 +240,16 @@ which is used to set `zmq--buf'."
 
 If INIT-VAL is a string, initialize the message with the string
 data. If INIT-VAL is an integer, initialize the message to be
-INIT-VAL in size. If INIT-VAL is t, initialize an empty message.
-Otherwise just create a message without initializing it."
+INIT-VAL in size. Otherwise, initialize an empty message but only
+if INIT-VAL is not t. In the case that INIT-VAL is t, just return
+an unitinitialized message."
   (let ((msg (ffi-allocate zmq-msg)))
     (cond
      ((stringp init-val) (zmq-msg-init-data msg init-val))
      ((integerp init-val) (zmq-msg-init-size msg init-val))
-     ((eq init-val t) (zmq-msg-init msg)))
+     ((null init-val) (zmq-msg-init msg))
+     ((eq init-val t))
+     (t (error "Can't initialize message with %s" init-val)))
     msg))
 
 (defun zmq-msg-close (message)
@@ -351,6 +356,7 @@ Otherwise just create a message without initializing it."
 (zmq--ffi-function-wrapper "close" :int ((sock :pointer)))
 
 (defun zmq-send-const (sock buf len &optional flags)
+  "Send LEN bytes from a constant memory BUF on SOCK with FLAGS."
   (when (cl-assert (user-ptrp buf))
     (zmq--send-const sock buf len (or flags 0))))
 
@@ -397,6 +403,7 @@ Otherwise just create a message without initializing it."
         (zmq-msg-close part)))))
 
 (defun zmq-setsockopt (sock option value)
+  "Set SOCK OPTION to VALUE."
   (let (size)
     (cond
      ;; INT
@@ -465,6 +472,7 @@ Otherwise just create a message without initializing it."
     (zmq--setsockopt sock option zmq--buf size)))
 
 (defun zmq-getsockopt (sock option)
+  "Get SOCK OPTION."
   (with-ffi-temporaries ((len :size_t))
     (ffi--mem-set len :size_t (ffi--type-size zmq-work-buffer))
     (zmq--getsockopt sock option zmq--buf len)
@@ -531,10 +539,12 @@ Otherwise just create a message without initializing it."
   :void [:pointer :pointer :pointer] internal)
 
 (defun zmq-has (capability)
+  "Does ZMQ have CAPABILITY?"
   (with-ffi-string (capability capability)
     (= (zmq--has capability) 1)))
 
 (defun zmq-version ()
+  "Get the version of ZMQ."
   (with-ffi-temporaries ((major :int)
                          (minor :int)
                          (patch :int))
