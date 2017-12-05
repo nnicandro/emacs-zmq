@@ -1,8 +1,10 @@
-(require 'ffi)
-(require 'zmq-constants)
 (require 'cl-lib)
-
-(define-ffi-library libzmq "libzmq")
+(require 'zmq-constants)
+(eval-and-compile
+  ;; Have these available at compile time to generate error codes during
+  ;; compilation.
+  (require 'ffi)
+  (define-ffi-library libzmq "libzmq"))
 
 ;;; Types
 
@@ -88,6 +90,45 @@ See `zmq-getsockopt' and `zmq-set-sockopt'.")
                    `(with-ffi-strings ,string-bindings
                       ,body)
                  body))))))))
+;; TODO: Create proper elisp type errors for example:
+;;
+;;     zmq-ETERM -> zmq-context-terminated
+(defmacro zmq--define-errors ()
+  "Generate error symbols.
+
+This macro defines an alist `zmq-error-alist' which has elements
+with the form:
+
+    (errno . errsym)
+
+The alist is used in `zmq-error-handler' to associate the error
+numbers returned by `zmq-errno' to their elisp equivalent error
+symbol. This is so that we can properly signal the correct error
+in emacs when an error occurs in ZMQ."
+  ;; Defined in zmq.h
+  (let* ((HAUSNUMERO 156384712)
+         (native-errors (list (cons (+ HAUSNUMERO 51) 'zmq-EFSM)
+                              (cons  (+ HAUSNUMERO 52) 'zmq-ENOCOMPATPROTO)
+                              (cons  (+ HAUSNUMERO 53) 'zmq-ETERM)
+                              (cons  (+ HAUSNUMERO 54) 'zmq-EMTHREAD)))
+         ;; Hack to get the error codes on the system.
+         (c-errors
+          (eval (read
+                 (shell-command-to-string
+                  (concat
+                   "python -c "
+                   "\"import errno; "
+                   "print('\\'(' + '\\n'.join(['(%d . zmq-%s)' "
+                   "% (i, errno.errorcode[i]) "
+                   "for i in errno.errorcode.keys()]) + ')')\"")))))
+         (errors (append c-errors native-errors)))
+    `(progn
+       (defconst zmq-error-alist (quote ,errors))
+       (define-error 'zmq-ERROR "An error occured in ZMQ" 'error)
+       ,@(cl-loop
+          for (errno . errsym) in errors
+          collect `(define-error ',errsym
+                     ,(ffi-get-c-string (zmq-strerror errno)) 'zmq-ERROR)))))
 
 ;;; Memory handling functions
 
@@ -146,13 +187,19 @@ that is used to to set `zmq--buf'."
 
 ;; These are used in `zmq--ffi-function-wrapper' so don't try to wrap them.
 (define-ffi-function zmq-errno "zmq_errno" :int [] libzmq)
-(define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq)
+;; Used in the `zmq--define-errors' macro.
+(eval-and-compile
+  (define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq))
 
-(defun zmq-error-handler ()
+(zmq--define-errors)
+
+(defun zmq-error-handler (&rest data)
+  "Called in the wrapped ZMQ functions when an error occurs.
+This function raises the proper error depedning on `zmq-errno'"
   (let* ((errno (zmq-errno))
-         (err (assoc errno zmq-error-alist)))
-    (signal (or (cdr err) 'zmq-ERROR)
-            (ffi-get-c-string (zmq-strerror errno)))))
+         (errsym (or (cdr (assoc errno zmq-error-alist))
+                     'zmq-ERROR)))
+    (signal errsym (list (get errsym 'error-message)))))
 
 ;;; Contexts
 

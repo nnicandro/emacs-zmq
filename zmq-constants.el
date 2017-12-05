@@ -133,29 +133,8 @@
 (defconst zmq-POLLPRI 8)
 (defconst zmq-POLLITEMS_DFLT 16)
 
-;; errno handling
-
-;; Defined in zmq.h
-(defconst zmq-HAUSNUMERO 156384712)
-
-(defconst zmq-error-alist
-  ;; Native zmq errors
-  `((,(+ zmq-HAUSNUMERO 51) . zmq-EFSM)
-    (,(+ zmq-HAUSNUMERO 52) . zmq-ENOCOMPATPROTO)
-    (,(+ zmq-HAUSNUMERO 53) . zmq-ETERM)
-    (,(+ zmq-HAUSNUMERO 54) . zmq-EMTHREAD)
-    ;; POSIX C errors
-    ;;
-    ;; FIXME: Hack to get the error codes on the system. Is there any alternative?
-    ,@(eval
-       (read
-        (shell-command-to-string
-         (concat "python -c "
-                 "\""
-                 "import errno; "
-                 "print('\\'(' + '\\n'.join(['(%d . zmq-%s)' % (i, errno.errorcode[i])"
-                 " for i in errno.errorcode.keys()]) + ')')"
-                 "\"")))))
-  "Associates error codes with an error symbol.")
+;;; errno handling
+;; Note error constants are defined in zmq-ffi.el since we currently use
+;; `zmq-strerror' to generate error symbols during compile time.
 
 (provide 'zmq-constants)
