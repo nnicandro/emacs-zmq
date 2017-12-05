@@ -272,23 +272,21 @@ passed to `zmq--set-bytes'."
 
 ;;; Utility functions
 
-(eval-and-compile (zmq--ffi-wrapper "has" :int [:pointer] noerror))
-(zmq--ffi-wrapper "version" :void [:pointer :pointer :pointer] noerror)
+(eval-and-compile
+  (zmq--ffi-wrapper "has" :int [:string] noerror)
+  (zmq--ffi-wrapper "version" :void [:pointer :pointer :pointer] noerror)
 
-(defun zmq-has (capability)
-  "Does ZMQ have CAPABILITY?"
-  (with-ffi-string (capability capability)
-    (= (zmq--has capability) 1)))
+  (defun zmq-has (capability)
+    "Does ZMQ have CAPABILITY?"
+    (= (zmq--has capability)))
 
-(defun zmq-version ()
-  "Get the version of ZMQ."
-  (with-ffi-temporaries ((major :int)
-                         (minor :int)
-                         (patch :int))
-    (zmq--version major minor patch)
-    (mapconcat (lambda (x) (number-to-string (ffi--mem-ref x :int)))
-               (list major minor patch)
-               ".")))
+  (defun zmq-version ()
+    "Get the version of ZMQ."
+    (with-ffi-temporaries ((major :int)
+                           (minor :int)
+                           (patch :int))
+      (zmq--version major minor patch)
+      (format "%d.%d.%d" major minor patch))))
 
 ;;; Error handling
 
