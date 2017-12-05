@@ -80,7 +80,7 @@
                      buf)
   "A buffer used internally by `zmq'
 
-See `zmq-getsockopt' and `zmq-set-sockopt'.")
+See `zmq-getsockopt' and `zmq-setsockopt'.")
 
 ;;; FFI wrapper
 
@@ -198,7 +198,7 @@ The alist is used in `zmq-error-handler' to associate the error
 numbers returned by `zmq-errno' to their elisp equivalent error
 symbol. This is so that we can properly signal the correct error
 in emacs when an error occurs in ZMQ."
-  ;; Defined in zmq.h
+  ;; Defined in libzmq/include/zmq.h
   (let* ((HAUSNUMERO 156384712)
          (native-errors (list (cons (+ HAUSNUMERO 51) 'zmq-EFSM)
                               (cons  (+ HAUSNUMERO 52) 'zmq-ENOCOMPATPROTO)
@@ -255,8 +255,6 @@ c-string and you will get the wrong data if you attempt to call
   (dotimes (i (length data))
     (ffi--mem-set (ffi-pointer+ buf i) :char (aref data i)))
   ;; NOTE: http://zguide.zeromq.org/page:all#A-Minor-Note-on-Strings
-  ;; Also note that
-  ;; Assume BUF can hold an extra byte
   (ffi--mem-set (ffi-pointer+ buf (length data)) :char 0))
 
 (defun zmq--set-buf (type-or-value &optional value)
@@ -266,8 +264,8 @@ If TYPE-OR-VALUE is non-nil, then it can only be one of the
 primitive types such as `:int' or `:char' and VALUE must be
 non-nil and should have the type corresponding to TYPE-OR-VALUE.
 
-If VALUE is nil, then TYPE-OR-VALUE is assumed to be a string
-that is used to to set `zmq--buf'."
+If VALUE is nil, then TYPE-OR-VALUE must be a string which is
+passed to `zmq--set-bytes'."
   (cond
    ((and (null value) (stringp type-or-value))
     (setq value type-or-value)
