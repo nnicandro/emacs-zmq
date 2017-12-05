@@ -183,6 +183,26 @@ that is used to to set `zmq--buf'."
     (ffi--mem-set zmq--buf type-or-value value))
    (t (signal 'wrong-type-argument nil))))
 
+;;; Utility functions
+
+(eval-and-compile (zmq--ffi-wrapper "has" :int [:pointer] noerror))
+(zmq--ffi-wrapper "version" :void [:pointer :pointer :pointer] noerror)
+
+(defun zmq-has (capability)
+  "Does ZMQ have CAPABILITY?"
+  (with-ffi-string (capability capability)
+    (= (zmq--has capability) 1)))
+
+(defun zmq-version ()
+  "Get the version of ZMQ."
+  (with-ffi-temporaries ((major :int)
+                         (minor :int)
+                         (patch :int))
+    (zmq--version major minor patch)
+    (mapconcat (lambda (x) (number-to-string (ffi--mem-ref x :int)))
+               (list major minor patch)
+               ".")))
+
 ;;; Error handling
 
 ;; These are used in `zmq--ffi-function-wrapper' so don't try to wrap them.
@@ -577,27 +597,6 @@ an unitinitialized message."
           (ffi-get-c-string zmq--buf))
          (t (error "Unsupported value length.")))))
      (t (error "Socket option not handled yet.")))))
-
-;;; Utility
-
-(zmq--ffi-function-wrapper "has" :int [:pointer] internal)
-(zmq--ffi-function-wrapper "version"
-  :void [:pointer :pointer :pointer] internal)
-
-(defun zmq-has (capability)
-  "Does ZMQ have CAPABILITY?"
-  (with-ffi-string (capability capability)
-    (= (zmq--has capability) 1)))
-
-(defun zmq-version ()
-  "Get the version of ZMQ."
-  (with-ffi-temporaries ((major :int)
-                         (minor :int)
-                         (patch :int))
-    (zmq--version major minor patch)
-    (mapconcat (lambda (x) (number-to-string (ffi--mem-ref x :int)))
-               (list major minor patch)
-               ".")))
 
 (provide 'zmq-ffi)
 
