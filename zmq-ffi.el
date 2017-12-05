@@ -227,10 +227,10 @@ in emacs when an error occurs in ZMQ."
 
 (defun zmq--get-bytes (buf size)
   "Get SIZE bytes of BUF and return a `string'."
-  (let ((i size) data)
-    (while (>= (setq i (1- i)) 0)
-      (setq data (cons (ffi--mem-ref (ffi-pointer+ buf i) :char) data)))
-    (apply #'string data)))
+  (let (data)
+    (while (>= (setq size (1- size)) 0)
+      (setq data (cons (ffi--mem-ref (ffi-pointer+ buf size) :char) data)))
+    (apply #'unibyte-string data)))
 
 (defun zmq--set-bytes (buf data)
   "Set the contents of BUF to DATA.
@@ -248,10 +248,6 @@ terminating NULL. Note the distinction between c-strings and
 elisp strings, if DATA has NULL bytes then it is not a valid
 c-string and you will get the wrong data if you attempt to call
 `ffi-make-c-string' on BUF after setting its bytes."
-  (unless (stringp data)
-    (error "Data can only be a string."))
-  (setq data (encode-coding-string data 'utf-8))
-  ;; data is now a `unibyte-string'
   (dotimes (i (length data))
     (ffi--mem-set (ffi-pointer+ buf i) :char (aref data i)))
   ;; NOTE: http://zguide.zeromq.org/page:all#A-Minor-Note-on-Strings
