@@ -25,7 +25,7 @@ Accessed this variable through `current-zmq-context'.")
         ;; to 2. This is to handle socket options lists which may or may not be
         ;; present.
         (+ (if (and (< nargs nspecial)
-                    (search-forward "((" (line-end-position) t))
+                    (re-search-forward "^[ \t]*([ \t]*(" (line-end-position) t))
                4 2)
            col)
       (goto-char here))))
