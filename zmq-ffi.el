@@ -218,7 +218,7 @@ in emacs when an error occurs in ZMQ."
 ;;; Memory handling functions
 
 (defun zmq--get-bytes (buf size)
-  "Get SIZE bytes of BUF and return a `string'."
+  "Get SIZE bytes of BUF and return a `unibyte-string'."
   (let (data)
     (while (>= (setq size (1- size)) 0)
       (setq data (cons (ffi--mem-ref (ffi-pointer+ buf size) :char) data)))
@@ -228,22 +228,9 @@ in emacs when an error occurs in ZMQ."
   "Set the contents of BUF to DATA.
 
 DATA must be a string and BUF must be a pointer to memory which
-can hold at least (1+ (string-bytes DATA)) of bytes. If DATA is a
-multibyte string, it is first encoded to UTF-8 before copying to
-BUF.
-
-After copying DATA, an extra NULL byte is added at
-BUF[(string-bytes DATA)]. This is so that BUF contains a valid
-c-string if DATA has no NULL bytes and also a valid elisp string
-if DATA contains NULL bytes. Both types of strings require a
-terminating NULL. Note the distinction between c-strings and
-elisp strings, if DATA has NULL bytes then it is not a valid
-c-string and you will get the wrong data if you attempt to call
-`ffi-make-c-string' on BUF after setting its bytes."
+can hold at least (length DATA) of bytes."
   (dotimes (i (length data))
-    (ffi--mem-set (ffi-pointer+ buf i) :char (aref data i)))
-  ;; NOTE: http://zguide.zeromq.org/page:all#A-Minor-Note-on-Strings
-  (ffi--mem-set (ffi-pointer+ buf (length data)) :char 0))
+    (ffi--mem-set (ffi-pointer+ buf i) :char (aref data i))))
 
 (defun zmq--set-buf (buf type-or-value &optional value)
   "Set `buf' depending on TYPE-OR-VALUE and VALUE.
