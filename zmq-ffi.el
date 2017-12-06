@@ -562,11 +562,11 @@ MESSAGE should be an initialized message."
       (unwind-protect
           (catch 'recvd
             (while t
-              (zmq-init-message part)
               (zmq-recv-message part sock)
-              (setq res (cons (zmq-message part) res))
+              (setq res (cons (zmq-message-data part) res))
               (unless (zmq-message-more-p part)
-                (throw 'recvd (nreverse res)))))
+                (throw 'recvd (nreverse res)))
+              (zmq-init-message part)))
         (zmq-close-message part)))))
 
 ;; See `zmq-socket' type.
