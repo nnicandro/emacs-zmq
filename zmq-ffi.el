@@ -548,12 +548,13 @@ MESSAGE should be an initialized message."
 (zmq--ffi-wrapper "recv" :int [:socket :pointer :size_t :int])
 (defun zmq-recv (sock &optional flags)
   "Receive a message from SOCK with FLAGS."
-  (let ((msg (zmq-message)))
+  ;; NOTE: Uses `zmq--msg-recv' instead of `zmq--recv'
+  (let ((message (zmq-message)))
     (unwind-protect
         (progn
-          (zmq-msg-recv msg sock (or flags 0))
-          (zmq-message msg))
-      (zmq-close-message msg))))
+          (zmq--msg-recv message sock (or flags 0))
+          (zmq-message-data message))
+      (zmq-close-message message))))
 
 (defun zmq-recv-multipart (sock)
   "Receive a multipart message from SOCK."
