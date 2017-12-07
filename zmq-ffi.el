@@ -604,7 +604,9 @@ MESSAGE should be an initialized message."
   (zmq--close sock))
 
 (zmq--ffi-wrapper "setsockopt" :int [:socket :int :pointer :size_t])
-(defun zmq-setsockopt (sock option value)
+(zmq--ffi-wrapper "getsockopt" :int ((sock :socket) (option :int) (value :pointer) (len :pointer)))
+
+(defun zmq-socket-set (sock option value)
   "Set SOCK OPTION to VALUE."
   (let (size)
     (with-ffi-temporary (buf zmq-work-buffer)
@@ -708,8 +710,7 @@ MESSAGE should be an initialized message."
        (t (error "Socket option not handled yet.")))
       (zmq--setsockopt sock option buf size))))
 
-(zmq--ffi-wrapper "getsockopt" :int ((sock :socket) (option :int) (value :pointer) (len :pointer)))
-(defun zmq-getsockopt (sock option)
+(defun zmq-socket-get (sock option)
   "Get SOCK OPTION."
   (with-ffi-temporaries ((len :size_t)
                          (buf zmq-work-buffer))
