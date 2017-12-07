@@ -266,8 +266,11 @@ If TYPE-OR-VALUE is non-nil, then it can only be one of the
 primitive types such as `:int' or `:char' and VALUE must be
 non-nil and should have the type corresponding to TYPE-OR-VALUE.
 
-If VALUE is nil, then TYPE-OR-VALUE must be a string which is
-passed to `zmq--set-bytes'."
+If VALUE is nil, then TYPE-OR-VALUE must be a string or vector
+and is passed to `zmq--set-bytes'. When TYPE-OR-VALUE is a
+string, it should not contain any multi-byte characters. When a
+vector, it should be a vector of integers. Each integer being
+between 0-255, i.e. only big enough to be represented as a byte."
   (cond
    ((and (null value) (stringp type-or-value))
     (setq value type-or-value)
