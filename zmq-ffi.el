@@ -9,29 +9,36 @@
 
 ;;; Types
 
-;; TODO: The fd field is different on windows
-(define-ffi-struct zmq-pollitem
 (define-ffi-array zmq--msg-t :char 64)
+
+(define-ffi-struct zmq--poller-event-t
+  (socket :type :pointer)
+  (fd :type :int)
+  (user-data :type :pointer)
+  (events :type :short))
+
+(define-ffi-struct zmq--pollitem-t
   (socket :type :pointer)
   (fd :type :int)
   (events :type :short)
   (revents :type :short))
 (define-ffi-array zmq-work-buffer :char 256)
+
+(cl-defstruct (zmq-pollitem
+               (:constructor zmq-pollitem))
+  (socket nil)
+  (fd -1)
+  (events 0)
+  (revents 0))
+
 (cl-defstruct (zmq-poller
+               (:constructor nil)
                (:constructor
                 zmq-poller
                 (&aux (-ptr (or (zmq--poller-new)
                                 (error "Poller not created."))))))
-  (-ptr nil :read-only t))
-
-(cl-defstruct (zmq-poller-event
-               (:constructor
-                zmq-poller-event
-                (socket events &optional fd user-data)))
-  (socket nil :read-only t)
-  (fd -1 :read-only t)
-  (user-data (ffi-null-pointer) :read-only t)
-  (events 0))
+  (-ptr nil :read-only t)
+  (-socks-fds nil))
 
 (cl-defstruct (zmq-context
                (:constructor
@@ -505,37 +512,158 @@ PROPERTY is a keyword and can only be one of
 
 ;;; Polling
 
+(defun zmq--split-poll-events (events)
+  (cl-loop
+   for e in `(,zmq-POLLIN ,zmq-POLLOUT ,zmq-POLLERR)
+   if (/= (logand e events) 0) collect e))
+
 (zmq--ffi-wrapper "poll" :int [:pointer :int :long])
 
-(defun zmq-pollitem-new (&rest args)
-  (let ((item (ffi-allocate zmq-pollitem))
-        (val nil))
-    (setf (zmq-pollitem-sock item)
-          (if (setq val (plist-get args :sock))
-              val
-            (ffi-null-pointer)))
-    (setf (zmq-pollitem-fd item)
-          (if (setq val (plist-get args :fd))
-              val
-            -1))
-    (setf (zmq-pollitem-fd item)
-          (if (setq val (plist-get args :events))
-              val
-            0))
-    (setf (zmq-pollitem-fd item)
-          (if (setq val (plist-get args :revents))
-              val
-            0))
-    item))
-
 (defun zmq-poll (items timeout)
-  (let ((pointer-size (ffi--type-size :pointer)))
-    (with-ffi-temporary (head (* (length items) pointer-size))
-      (cl-loop
-       with pointer = head
-       for item in items do (ffi--mem-set pointer :pointer item)
-       (setq pointer (ffi-pointer+ pointer pointer-size)))
-      (zmq--poll head (length items) timeout))))
+  "Poll the list of `zmq-poll-item's in ITEMS until TIMEOUT."
+  (when (> (length items) 0)
+    (let ((size (ffi--type-size zmq--pollitem-t))
+          (found 0))
+      (with-ffi-temporary (head (* (length items) size))
+        ;; Construct zmq-pollitem-t objects
+        (cl-loop
+         with pointer = head
+         for item in items do
+         (setf (zmq--pollitem-t-socket pointer)
+               (if (zmq-pollitem-socket item)
+                   (zmq-socket--ptr (zmq-pollitem-socket item))
+                 (ffi-null-pointer)))
+         (setf (zmq--pollitem-t-fd pointer)
+               (zmq-pollitem-fd item))
+         (setf (zmq--pollitem-t-events pointer)
+               (let ((events (zmq-pollitem-events item)))
+                 (if (listp events) (apply #'logior events)
+                   events)))
+         (setf (zmq--pollitem-t-revents pointer)
+               0)
+         (setq pointer (ffi-pointer+ pointer size)))
+        (setq found (zmq--poll head (length items) timeout))
+        (when (> found 0)
+          (cl-loop
+           with pointer = head
+           for item in items
+           for revents = (zmq--pollitem-t-revents pointer)
+           if (> revents 0) collect
+           (cons (if (ffi-pointer-null-p (zmq--pollitem-t-socket pointer))
+                     (zmq--pollitem-t-fd pointer)
+                   (zmq--pollitem-t-socket pointer))
+                 (zmq--split-poll-events revents))
+           and do (setq pointer (ffi-pointer+ pointer size))))))))
+
+;; TODO: Handle windows machines
+;; See `zmq-poller' type
+(zmq--ffi-wrapper "poller_new" :pointer [])
+
+(zmq--ffi-wrapper "poller_destroy" :int ((pollerp :pointer)))
+(defun zmq-poller-destroy (poller)
+  (let ((ptr (zmq-poller--ptr poller)))
+    (with-ffi-temporary (pptr :pointer)
+      (ffi--mem-set pptr :pointer (ffi-pointer+ ptr 0))
+      (zmq--poller-destroy pptr))))
+
+(zmq--ffi-wrapper "poller_add" :int ((poller :poller) (sock :socket) (user-data :pointer) (events :short)))
+(zmq--ffi-wrapper "poller_add_fd" :int ((poller :poller) (fd :int) (user-data :pointer) (events :short)))
+(zmq--ffi-wrapper "poller_modify" :int ((poller :poller) (sock :socket) (events :short)))
+(zmq--ffi-wrapper "poller_modify_fd" :int ((poller :poller) (fd :int) (events :short)))
+(zmq--ffi-wrapper "poller_remove" :int ((poller :poller) (sock :socket)))
+(zmq--ffi-wrapper "poller_remove_fd" :int ((poller :poller) (fd :int)))
+
+(defun zmq-poller-add (poller sock-or-fd events &optional user-data)
+  (let ((events (if (listp events) (apply #'logior events)
+                  events)))
+    (when (condition-case err
+              (zmq-poller-modify poller sock-or-fd events)
+            (zmq-EINVAL t)
+            (error (signal (car err) (cdr err))))
+      (setq user-data (or user-data (ffi-null-pointer)))
+      (if (integerp sock-or-fd)
+          (zmq--poller-add-fd poller sock-or-fd user-data events)
+        (zmq--poller-add poller sock-or-fd user-data events))
+      (setf (zmq-poller--socks-fds poller)
+            (cons sock-or-fd (zmq-poller--socks-fds poller))))))
+
+(defun zmq-poller-modify (poller sock-or-fd events)
+  (let ((events (if (listp events) (apply #'logior events)
+                  events)))
+    (if (integerp sock-or-fd)
+        (zmq--poller-modify-fd poller sock-or-fd events)
+      (zmq--poller-modify poller sock-or-fd events))))
+
+(defun zmq-poller-remove (poller sock-or-fd)
+  (when (condition-case err
+            (progn
+              (if (integerp sock-or-fd)
+                  (zmq--poller-remove-fd poller sock-or-fd)
+                (zmq--poller-remove poller sock-or-fd))
+              t)
+          (zmq-EINVAL nil)
+          (error (signal (car err) (cdr err))))
+    (setf (zmq-poller--socks-fds poller)
+          (cl-remove sock-or-fd (zmq-poller--socks-fds poller)
+                     :test (lambda (a b)
+                             (or (zmq-socket-equal a b)
+                                 (and (integerp a) (integerp b) (= a b))))))))
+
+(defun zmq-poller-register (poller sock-or-fd events)
+  (zmq-poller-add poller sock-or-fd events))
+
+(defun zmq-poller-unregister (poller sock-or-fd)
+  (zmq-poller-remove poller sock-or-fd))
+
+(zmq--ffi-wrapper "poller_wait" :int ((poller :poller) (event :pointer) (timeout :long)))
+(zmq--ffi-wrapper "poller_wait_all" :int ((poller :poller) (events :pointer) (nevents :int) (timeout :long)))
+
+(defun zmq--poller-event-trigger (poller event)
+  (let ((esock (zmq--poller-event-t-socket event)))
+    (or (unless (ffi-pointer-null-p esock)
+          (cl-loop
+           for s in (zmq-poller--socks-fds poller)
+           when (and (zmq-socket-p s) (ffi-pointer= (zmq-socket--ptr s) esock))
+           return s))
+        (zmq--poller-event-t-fd event))))
+
+(defun zmq-poller-wait (poller timeout)
+  "Poll for an event with POLLER until TIMEOUT.
+
+If an event occured within TIMEOUT, return the `zmq-poller-event'
+representing the event. Otherwise return nil."
+  (with-ffi-temporaries ((e zmq--poller-event-t))
+    (condition-case err
+        (when (>= (zmq--poller-wait poller e timeout) 0)
+          (cons (zmq--poller-event-trigger poller e)
+                (zmq--split-poll-events (zmq--poller-event-t-events e))))
+      (zmq-ETIMEDOUT nil)
+      (error (signal (car err) (cdr err))))))
+
+(defun zmq-poller-wait-all (poller nevents timeout)
+  "Wait for NEVENTS events using POLLER and until TIMEOUT.
+
+If events occured within TIMEOUT, return a list of
+`zmq-poller-event' objects for those events. Note that the length
+of this list may be less than NEVENTS if less that NEVENTS events
+occurred within TIMEOUT."
+  (let ((size (ffi--type-size zmq--poller-event-t)))
+    (with-ffi-temporaries ((es (* size nevents)))
+      (condition-case err
+          (let ((found (zmq--poller-wait-all poller es nevents timeout))
+                (events nil)
+                (e nil))
+            (while (>= (setq found (1- found)) 0)
+              ;; TODO: What about user-data?
+              (setq
+               e (ffi-pointer+ es (* found size))
+               events (cons (cons (zmq--poller-event-trigger poller e)
+                                  (zmq--split-poll-events
+                                   (zmq--poller-event-t-events e)))
+                            events)))
+            events)
+        (zmq-ETIMEDOUT nil)
+        (error (signal (car err) (cdr err)))))))
 
 ;;; Proxy
 
