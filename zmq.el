@@ -291,7 +291,7 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
                 (end-of-file
                  (prog1 nil
                    (let ((pending (buffer-string)))
-                     (unless (string-empty-p pending)
+                     (unless (> (length pending) 0)
                        (process-put
                         process :pending-output pending))))))))
     (when sexp
