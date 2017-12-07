@@ -101,6 +101,20 @@ finally closed."
          (progn ,@body)
        (zmq-close-message ,message))))
 
+(defvar zmq-current-poller nil
+  "Dynamically bound in `with-zmq-poller'. Access through
+`current-zmq-poller'.")
+
+(defun current-zmq-poller ()
+  zmq-current-poller)
+
+(defmacro with-zmq-poller (&rest body)
+  `(let* ((--poller-- (zmq-poller))
+          (zmq-current-poller --poller--))
+     (unwind-protect
+         (progn ,@body)
+       (zmq-poller-destroy --poller--))))
+
 ;; TODO: Use this somewhere else
 ;; (sock-options (cl-loop
 ;;                for (option value) in options
