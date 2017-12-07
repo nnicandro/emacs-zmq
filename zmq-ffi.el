@@ -11,11 +11,11 @@
 
 ;; TODO: The fd field is different on windows
 (define-ffi-struct zmq-pollitem
+(define-ffi-array zmq--msg-t :char 64)
   (socket :type :pointer)
   (fd :type :int)
   (events :type :short)
   (revents :type :short))
-(define-ffi-array zmq-msg :char 64)
 (define-ffi-array zmq-work-buffer :char 256)
 (cl-defstruct (zmq-poller
                (:constructor
@@ -58,16 +58,14 @@
       (&optional
        size-or-data &aux
        (-ptr (let ((val size-or-data)
-                   (msg (ffi-allocate zmq-msg)))
+                   (msg (ffi-allocate zmq--msg-t)))
                (cond
                 ((stringp val)
-                 (zmq--msg-init-data msg val))
-                ((integerp val)
-                 (zmq--msg-init-size msg val))
-                ((null val)
-                 (zmq--msg-init msg))
-                ;; Special case, don't initialize at all
-                ((eq val t))
+                 (if (= (length val) 0) (zmq--msg-init msg)
+                   (zmq--msg-init-size msg (length val))
+                   (zmq--set-buf (zmq--msg-data msg) val)))
+
+                ((null val))
                 (t (ffi-free msg)
                    (signal 'wrong-type-argument
                            (list (format "Can't initialize message with %s"
