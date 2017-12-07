@@ -17,8 +17,8 @@
   (ert-info ("Test key encryption")
     (when (zmq-has "curve")
       (cl-destructuring-bind (public-key . secret-key) (zmq-curve-keypair)
-        (should (should (string= (zmq-z85-decode (zmq-z85-encode public-key))
-                                 public-key)))
+        (should (string= (zmq-z85-decode (zmq-z85-encode public-key))
+                         public-key))
         (should (string= public-key (zmq-curve-public secret-key)))))))
 
 (ert-deftest zmq-contexts ()
@@ -26,70 +26,107 @@
   (let (ctx)
     ;; TODO: Create mock socket object to connect with
     (ert-info ("Test creating contexts")
-      (setq ctx (zmq-ctx-new)))
+      (setq ctx (zmq-context)))
     (ert-info ("Test setting and getting context properties")
-      (zmq-ctx-set ctx zmq-MAX_MSGSZ 100)
-      (should (= (zmq-ctx-get ctx zmq-MAX_MSGSZ) 100)))
+      (zmq-set-option ctx zmq-MAX_MSGSZ 100)
+      (should (= (zmq-get-option ctx zmq-MAX_MSGSZ) 100)))
     (ert-info ("Test context termination")
-      (zmq-ctx-term ctx))))
+      (zmq-terminate-context ctx))))
+
 
 (ert-deftest zmq-sockets ()
   :tags '(zmq sockets)
-  (ert-info ("Connections")
-    (let* ((addr "tcp://127.0.0.1:5580")
-           (ctx (zmq-ctx-new))
-           (s1 (zmq-socket ctx zmq-PAIR))
-           (s2 (zmq-socket ctx zmq-PAIR)))
-      (unwind-protect
-          (progn
-            (zmq-bind s1 addr)
-            (zmq-setsockopt s1 zmq-LINGER 0)
-            (zmq-connect s2 addr)
-            (zmq-setsockopt s2 zmq-LINGER 0)
-            (sleep-for 1)
-            (should (= (zmq-send s1 "ABC") 3))
-            (should (string= (zmq-recv s2 5) "ABC"))
-            (ert-info ("Message sending")
-              ;; TODO: Test message free
-              (let ((msg (zmq-msg-init-data "ABD"))
-                    (rmsg (zmq-msg-new)))
-                (unwind-protect
-                    (progn
-                      (should (= (zmq-msg-send msg s1 0) 3))
-                      (zmq-msg-init rmsg)
-                      (zmq-msg-recv rmsg s2 0)
-                      (should (string= (zmq-msg-data rmsg) "ABD")))
-                  (zmq-msg-close msg)
-                  (zmq-msg-close rmsg)))))
-        (zmq-close s1)
-        (zmq-close s2)
-        (zmq-ctx-term ctx)))))
-
-;; https://github.com/zeromq/pyzmq/blob/master/examples/poll/pair.py
+  (with-zmq-context
+    (let ((ctx (current-zmq-context)))
+      (ert-info ("Creating sockets")
+        (let ((s (zmq-socket ctx zmq-PUB)))
+          (should-error
+           (zmq-bind s "photon://a")
+           :type 'zmq-EPROTONOSUPPORT)
+          (should-error
+           (zmq-connect s "photon://a")
+           :type 'zmq-EPROTONOSUPPORT)
+          (should-error
+           (zmq-bind s "tcp://")
+           :type 'zmq-EINVAL)
+          (zmq-close s)))
+      (ert-info ("Convenience functions")
+        (ert-info ("zmq-bind-to-random-port")
+          (with-zmq-socket sock zmq-PUB
+            (should-error
+             (zmq-bind-to-random-port sock "tcp:*")
+             :type 'zmq-EINVAL)
+            (should-error
+             (zmq-bind-to-random-port sock "rand://")
+             :type 'zmq-EPROTONOSUPPORT))))
+      (ert-info ("Socket options")
+        (ert-info ("Routing ID")
+          (with-zmq-socket sock zmq-PULL
+            (let ((identity "identity\0\0"))
+              (zmq-set-option sock zmq-ROUTING_ID identity)
+              (should (equal (zmq-get-option sock zmq-ROUTING_ID)
+                             identity)))))
+        (ert-info ("Unicode options")
+          (cl-destructuring-bind (p . s)
+              (zmq-create-bound-pair ctx zmq-PUB zmq-SUB)
+            (unwind-protect
+                (let ((topic "tést"))
+                  (should-error
+                   (zmq-set-option s zmq-SUBSCRIBE topic)
+                   :type 'wrong-type-argument)
+                  (should-error
+                   (zmq-set-option s zmq-ROUTING_ID topic)
+                   :type 'wrong-type-argument)
+                  (zmq-socket-set-encoded s zmq-ROUTING_ID topic 'utf-16)
+                  (should-error
+                   (zmq-set-option s zmq-AFFINITY topic)
+                   :type 'wrong-type-argument)
+                  (should-error
+                   (zmq-socket-get-decoded s zmq-SUBSCRIBE)
+                   :type 'zmq-EINVAL)
+                  (should (equal (zmq-socket-get-decoded s zmq-ROUTING_ID 'utf-16)
+                                 topic)))
+              (zmq-close p)
+              (zmq-close s))))))))
 (ert-deftest zmq-polling ()
   :tags '(zmq polling)
-  (let* ((addr "tcp://127.0.0.1:5556")
-         (ctx (zmq-ctx-new))
-         (s1 (zmq-socket ctx zmq-PAIR))
-         (s2 (zmq-socket ctx zmq-PAIR)))
-    (unwind-protect
-        (progn
-          (zmq-bind s1 addr)
-          (zmq-connect s2 addr)
-          (sleep-for 2)
-          (let ((items (mapcar (lambda (s) (zmq-pollitem-new
-                                  :socket s
-                                  :events (logior zmq-POLLIN zmq-POLLOUT)))
-                          (list s1 s2))))
-            (zmq-poll items 100)
-            (should (= (zmq-pollitem-revents (nth 0 items)) zmq-POLLOUT))
-            (should (= (zmq-pollitem-revents (nth 1 items)) zmq-POLLOUT))))
-      (while (not (condition-case nil
-                      (progn
-                        (zmq-close s1)
-                        (zmq-close s2)
-                        (zmq-ctx-term ctx)
-                        t)
-                    (error (sleep-for 1) nil)))))))
+  (let* ((addr "tcp://127.0.0.1"))
+    (with-zmq-context
+      ;; https://github.com/zeromq/pyzmq/blob/master/examples/poll/pubsub.py
+      (ert-info ("Polling on PUB/SUB sockets")
+        (cl-destructuring-bind (p . s)
+            (zmq-create-bound-pair (current-zmq-context) zmq-PUB zmq-SUB addr)
+          (unwind-protect
+              (with-zmq-poller
+               (let ((poller (current-zmq-poller))
+                     (events nil))
+
+                 ;; Allow sockets to connect
+                 (sleep-for 1.0)
+
+                 ;; Subscribe to all incoming messages
+                 (zmq-socket-set s zmq-SUBSCRIBE "")
+
+                 (zmq-poller-register poller p (list zmq-POLLIN zmq-POLLOUT))
+                 (zmq-poller-register poller s (list zmq-POLLIN zmq-POLLOUT))
+
+                 (setq events (zmq-poller-wait-all poller 10 100))
+                 (should (equal (cdr (assoc p events)) zmq-POLLOUT))
+                 (should-not (assoc s events))
+
+                 (zmq-send p "msg1")
+                 (setq events (zmq-poller-wait-all poller 10 100))
+                 (should (equal (cdr (assoc p events)) zmq-POLLOUT))
+
+                 (sleep-for 0.5)
+
+                 (setq events (zmq-poller-wait-all poller 10 1000))
+                 (should (equal (cdr (assoc s events)) zmq-POLLIN))
+
+                 (zmq-recv s)
+                 (setq events (zmq-poller-wait-all poller 10 100))
+                 (should-not (cdr (cl-assoc s events)))))
+            (zmq-close s)
+            (zmq-close p)))))))
 
 (provide 'zmq-tests)
