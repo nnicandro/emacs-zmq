@@ -140,6 +140,51 @@ FUN."
   (zmq-start-process
    (zmq--bind-connect-endpoint 'bind sock-type endpoint fun)))
 
+;;; Socket functions
+
+(defun zmq-bind-to-random-port (sock addr &optional min-port max-port max-tries)
+  "Bind SOCK to ADDR on a random port.
+
+ADDR must be an address string without the port that will be
+passed to `zmq-bind' if a port is found. Optional arguments
+MIN-PORT (inclusive) and MAX-PORT (exclusive) give a range that
+the port number will have if `zmq-bind' succeeds within
+MAX-TRIES. MIN-PORT defaults to 49152, MAX-PORT defaults to
+65536, and MAX-TRIES defaults to 100. If `zmq-bind' succeded the
+port that was bound is returned, otherwise nil is returned."
+  (setq min-port (or min-port 49152)
+        max-port (or max-port 65536)
+        max-tries (or max-tries 100))
+  (let (port)
+    (catch 'bound
+      (dotimes (i max-tries)
+        (setq port (+ (cl-random (- max-port min-port)) min-port))
+        (condition-case err
+            (progn
+              (zmq-bind sock (format "%s:%d" addr port))
+              (throw 'bound port))
+          ((zmq-EACCES zmq-EADDRINUSE)
+           (when (eq (car err) 'zmq-EADDRINUSE)
+             (unless (eq system-type 'windows-nt)
+               (signal (car err) (cdr err)))))
+          (error (signal (car err) (cdr err))))))))
+
+(defun zmq-send-encoded (sock str &optional coding-system)
+  (setq coding-system (or coding-system 'utf-8))
+  (zmq-send sock (encode-coding-string str coding-system)))
+
+(defun zmq-recv-decoded (sock &optional coding-system)
+  (setq coding-system (or coding-system 'utf-8))
+  (decode-coding-string (zmq-recv sock) coding-system))
+
+(defun zmq-socket-set-encoded (sock option value &optional coding-system)
+  (setq coding-system (or coding-system 'utf-8))
+  (zmq-set-option sock option (encode-coding-string value coding-system)))
+
+(defun zmq-socket-get-decoded (sock option &optional coding-system)
+  (setq coding-system (or coding-system 'utf-8))
+  (decode-coding-string (zmq-get-option sock option) coding-system))
+
 ;;; Subprocceses
 ;; TODO: Use `process-put' and `process-get' to control `zmq' subprocesses.
 
