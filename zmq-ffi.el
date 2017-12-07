@@ -491,7 +491,7 @@ PROPERTY is a keyword and can only be one of
 `zmq-message-properties'."
   (let ((prop (cdr (assoc property zmq-message-properties))))
     (unless prop
-      (signal 'args-out-of-range (list (mapcar #'car zmq-message-properties))))
+      (signal 'args-out-of-range (list (mapcar #'car zmq-message-properties) prop)))
     (with-ffi-string (prop (encode-coding-string prop 'utf-8))
       (ffi-get-c-string (zmq--msg-gets message prop)))))
 
