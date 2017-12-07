@@ -73,7 +73,7 @@ finally closed."
                          options)))
              (cl-loop
               for (option value) in options
-              collect `(zmq-setsockopt ,sock ,option ,value))
+              collect `(zmq-set-option ,sock ,option ,value))
            ;; Otherwise options must be part of body
            (setq body (cons options body))
            nil)))
@@ -89,7 +89,7 @@ finally closed."
          ;;
          ;; NOTE: Alternatively set zmq-BLOCKY on the context before creating a
          ;; socket
-         (zmq-setsockopt ,sock zmq-LINGER 0)
+         (zmq-set-option ,sock zmq-LINGER 0)
          (zmq-close ,sock)))))
 
 ;; FIXME: Freeing initialized messages doesn't work due to how closures work.
@@ -99,7 +99,7 @@ finally closed."
   `(let ((,message (zmq-message ,data)))
      (unwind-protect
          (progn ,@body)
-       (zmq-close-message ,msg))))
+       (zmq-close-message ,message))))
 
 ;; TODO: Use this somewhere else
 ;; (sock-options (cl-loop
