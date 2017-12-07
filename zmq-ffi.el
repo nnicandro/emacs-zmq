@@ -610,15 +610,23 @@ MESSAGE should be an initialized message."
     (with-ffi-temporary (buf zmq-work-buffer)
       (cond
        ;; INT
-       ((member option (list zmq-BACKLOG zmq-CONNECT_TIMEOUT zmq-LINGER
-                             zmq-RCVTIMEO zmq-HANDSHAKE_IVL zmq-HEARTBEAT_IVL
-                             zmq-HEARTBEAT_TIMEOUT zmq-HEARTBEAT_TTL
-                             zmq-MULTICAST_HOPS zmq-MULTICAST_MAXTPDU
-                             zmq-USE_FD zmq-RATE zmq-RCVBUF zmq-RCVHWM
-                             zmq-RCVTIMEO zmq-RECONNECT_IVL zmq-RECONNECT_IVL_MAX
-                             zmq-RECOVERY_IVL zmq-TCP_KEEPALIVE
-                             zmq-TCP_KEEPALIVE_CNT zmq-TCP_KEEPALIVE_IDLE
-                             zmq-TCP_KEEPALIVE_INTVL zmq-TCP_MAXRT zmq-TOS
+       ((member option (list zmq-BACKLOG zmq-RATE
+                             zmq-RECOVERY_IVL zmq-SNDHWM
+                             zmq-SNDBUF zmq-SNDTIMEO zmq-RCVHWM
+                             zmq-RCVBUF zmq-RCVTIMEO zmq-LINGER
+                             zmq-RECONNECT_IVL
+                             zmq-RECONNECT_IVL_MAX
+                             zmq-MULTICAST_HOPS
+                             zmq-MULTICAST_MAXTPDU
+                             zmq-CONNECT_TIMEOUT
+                             zmq-HANDSHAKE_IVL zmq-HEARTBEAT_IVL
+                             zmq-HEARTBEAT_TIMEOUT
+                             zmq-HEARTBEAT_TTL zmq-USE_FD
+                             zmq-TCP_KEEPALIVE
+                             zmq-TCP_KEEPALIVE_CNT
+                             zmq-TCP_KEEPALIVE_IDLE
+                             zmq-TCP_KEEPALIVE_INTVL
+                             zmq-TCP_MAXRT zmq-TOS
                              zmq-VMCI_CONNECT_TIMEOUT))
         (unless (integerp value)
           (signal 'wrong-type-argument (list 'integerp value)))
@@ -627,14 +635,15 @@ MESSAGE should be an initialized message."
         (zmq--set-buf buf :int value))
        ;; UINT64
        ((member option (list zmq-AFFINITY zmq-VMCI_BUFFER_SIZE
-                             zmq-VMCI_BUFFER_MAX_SIZE zmq-VMCI_BUFFER_MIN_SIZE))
+                             zmq-VMCI_BUFFER_MAX_SIZE
+                             zmq-VMCI_BUFFER_MIN_SIZE))
         (unless (integerp value)
           (signal 'wrong-type-argument (list 'integerp value)))
 
         (setq size (ffi--type-size :uint64))
         (zmq--set-buf buf :uint64 value))
        ;; INT64
-       ((member option (list zmq-MAXMSGSIZE))
+       ((= option zmq-MAXMSGSIZE)
         (unless (integerp value)
           (signal 'wrong-type-argument (list 'integerp value)))
 
@@ -642,13 +651,15 @@ MESSAGE should be an initialized message."
         (zmq--set-buf buf :int64 value))
        ;; INT with BOOL values
        ((member option (list zmq-CONFLATE zmq-CURVE_SERVER
-                             zmq-GSSAPI_PLAINTEXT zmq-GSSAPI_SERVER
-                             zmq-IMMEDIATE zmq-INVERT_MATCHING zmq-IPV6
-                             zmq-PLAIN_SERVER zmq-PROBE_ROUTER zmq-REQ_CORRELATE
-                             zmq-REQ_RELAXED zmq-ROUTER_HANDOVER
-                             zmq-ROUTER_MANDATORY zmq-ROUTER_RAW zmq-SNDBUF
-                             zmq-SNDHWM zmq-SNDTIMEO zmq-STREAM_NOTIFY
-                             zmq-XPUB_VERBOSE zmq-XPUB_VERBOSER zmq-XPUB_MANUAL
+                             zmq-GSSAPI_PLAINTEXT
+                             zmq-GSSAPI_SERVER zmq-IMMEDIATE
+                             zmq-INVERT_MATCHING zmq-IPV6
+                             zmq-PLAIN_SERVER zmq-PROBE_ROUTER
+                             zmq-REQ_CORRELATE zmq-REQ_RELAXED
+                             zmq-ROUTER_HANDOVER
+                             zmq-ROUTER_MANDATORY zmq-ROUTER_RAW
+                             zmq-STREAM_NOTIFY zmq-XPUB_VERBOSE
+                             zmq-XPUB_VERBOSER zmq-XPUB_MANUAL
                              zmq-XPUB_NODROP))
         (unless (booleanp value)
           (signal 'wrong-type-argument (list 'booleanp value)))
@@ -656,9 +667,11 @@ MESSAGE should be an initialized message."
         (setq size (ffi--type-size :int))
         (zmq--set-buf buf :int64 (if value 1 0)))
        ;; STRING
-       ((member option (list zmq-GSSAPI_PRINCIPAL zmq-GSSAPI_SERVICE_PRINCIPAL
-                             zmq-PLAIN_PASSWORD zmq-PLAIN_USERNAME
-                             zmq-SOCKS_PROXY zmq-ZAP_DOMAIN))
+       ((member option (list zmq-GSSAPI_PRINCIPAL
+                             zmq-GSSAPI_SERVICE_PRINCIPAL
+                             zmq-PLAIN_PASSWORD
+                             zmq-PLAIN_USERNAME zmq-SOCKS_PROXY
+                             zmq-ZAP_DOMAIN))
         (when (multibyte-string-p value)
           (signal 'wrong-type-argument (list '(not multibyte-string-p) value)))
 
@@ -667,8 +680,10 @@ MESSAGE should be an initialized message."
           (error "Length of value too long."))
         (zmq--set-buf buf value))
        ;; BINARY
-       ((member option (list zmq-CONNECT_ROUTING_ID zmq-ROUTING_ID zmq-SUBSCRIBE
-                             zmq-UNSUBSCRIBE zmq-XPUB_WELCOME_MSG))
+       ((member option (list zmq-CONNECT_ROUTING_ID
+                             zmq-ROUTING_ID zmq-SUBSCRIBE
+                             zmq-UNSUBSCRIBE
+                             zmq-XPUB_WELCOME_MSG))
         (when (multibyte-string-p value)
           (signal 'wrong-type-argument (list '(not multibyte-string-p) value)))
 
@@ -678,7 +693,8 @@ MESSAGE should be an initialized message."
           (error "Length of value too long."))
         (zmq--set-buf buf value))
        ;; CURVE
-       ((member option (list zmq-CURVE_PUBLICKEY zmq-CURVE_SECRETKEY
+       ((member option (list zmq-CURVE_PUBLICKEY
+                             zmq-CURVE_SECRETKEY
                              zmq-CURVE_SERVERKEY))
         (cond
          ((= (length value) 32)
@@ -701,23 +717,30 @@ MESSAGE should be an initialized message."
     (zmq--getsockopt sock option buf len)
     (cond
      ;; INT
-     ((member option (list zmq-HANDSHAKE_IVL zmq-BACKLOG
-                           zmq-CONNECT_TIMEOUT zmq-EVENTS
-                           zmq-LINGER zmq-MECHANISM
-                           zmq-MULTICAST_HOPS zmq-MULTICAST_MAXTPDU
-                           zmq-PLAIN_SERVER zmq-USE_FD zmq-RATE zmq-RCVBUF
-                           zmq-RCVHWM zmq-RCVTIMEO zmq-RECONNECT_IVL
-                           zmq-RECONNECT_IVL_MAX zmq-RECOVERY_IVL
-                           zmq-SNDBUF zmq-SNDHWM zmq-SNDTIMEO
-                           zmq-TCP_KEEPALIVE zmq-TCP_KEEPALIVE_CNT
-                           zmq-TCP_KEEPALIVE_IDLE zmq-TCP_KEEPALIVE_INTVL
-                           zmq-TCP_MAXRT zmq-TOS zmq-TYPE
+     ((member option (list zmq-MECHANISM
+                           zmq-BACKLOG zmq-RATE
+                           zmq-RECOVERY_IVL zmq-SNDHWM
+                           zmq-SNDBUF zmq-SNDTIMEO zmq-RCVHWM
+                           zmq-RCVBUF zmq-RCVTIMEO zmq-LINGER
+                           zmq-RECONNECT_IVL
+                           zmq-RECONNECT_IVL_MAX
+                           zmq-MULTICAST_HOPS
+                           zmq-MULTICAST_MAXTPDU
+                           zmq-CONNECT_TIMEOUT
+                           zmq-HANDSHAKE_IVL zmq-HEARTBEAT_IVL
+                           zmq-HEARTBEAT_TIMEOUT
+                           zmq-HEARTBEAT_TTL zmq-USE_FD
+                           zmq-TCP_KEEPALIVE
+                           zmq-TCP_KEEPALIVE_CNT
+                           zmq-TCP_KEEPALIVE_IDLE
+                           zmq-TCP_KEEPALIVE_INTVL
+                           zmq-TCP_MAXRT zmq-TOS
                            zmq-VMCI_CONNECT_TIMEOUT))
       (ffi--mem-ref buf :int))
      ;; UINT64
      ((member option (list zmq-AFFINITY zmq-VMCI_BUFFER_SIZE
-                           zmq-VMCI_BUFFER_MIN_SIZE
-                           zmq-VMCI_BUFFER_MAX_SIZE))
+                           zmq-VMCI_BUFFER_MAX_SIZE
+                           zmq-VMCI_BUFFER_MIN_SIZE))
       (ffi--mem-ref buf :uint64))
      ;; INT64
      ((= option zmq-MAXMSGSIZE)
@@ -727,8 +750,8 @@ MESSAGE should be an initialized message."
       (ffi--mem-ref buf :int))
      ;; INT with BOOL values
      ((member option (list zmq-IMMEDIATE zmq-INVERT_MATCHING
-                           zmq-IPV6 zmq-GSSAPI_PLAINTEXT
-                           zmq-GSSAPI_SERVER
+                           zmq-IPV6 zmq-PLAIN_SERVER
+                           zmq-GSSAPI_PLAINTEXT zmq-GSSAPI_SERVER
                            zmq-RCVMORE))
       (= (ffi--mem-ref buf :int) 1))
      ;; BOOL
@@ -744,7 +767,8 @@ MESSAGE should be an initialized message."
      ((= option zmq-ROUTING_ID)
       (zmq--get-bytes buf (ffi--mem-ref len :size_t)))
      ;; CURVE
-     ((member option (list zmq-CURVE_PUBLICKEY zmq-CURVE_SECRETKEY
+     ((member option (list zmq-CURVE_PUBLICKEY
+                           zmq-CURVE_SECRETKEY
                            zmq-CURVE_SERVERKEY))
       (let ((len (ffi--mem-ref len :size_t)))
         (cond
