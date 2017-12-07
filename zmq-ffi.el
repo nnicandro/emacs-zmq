@@ -125,12 +125,12 @@ be passed to the ffi function."
        when (setq st (assoc (aref arg-types i) type-struct))
        do (aset arg-types i :pointer)
        and collect
-       (let ((pred (make-symbol (concat (cdr st) "-p")))
+       (let ((pred (intern (concat (cdr st) "-p")))
              (arg (nth i args))
-             (unwrap (make-symbol (concat (cdr st) "--ptr"))))
-         `(if (,pred ,arg)
-              (setq ,arg (,unwrap ,arg))
-            (signal 'wrong-type-argument (list ',pred))))
+             (unwrap (intern (concat (cdr st) "--ptr"))))
+         ;; Note that calling cl functions already checks the type before
+         ;; accessing any struct fields.
+         `(setq ,arg (,unwrap ,arg)))
        into arg-checkers
        finally return (cons string-bindings arg-checkers)))))
 
@@ -656,25 +656,16 @@ PROPERTY is a keyword and can only be one of
                              zmq-TCP_KEEPALIVE_INTVL
                              zmq-TCP_MAXRT zmq-TOS
                              zmq-VMCI_CONNECT_TIMEOUT))
-        (unless (integerp value)
-          (signal 'wrong-type-argument (list 'integerp value)))
-
         (setq size (ffi--type-size :int))
         (zmq--set-buf buf :int value))
        ;; UINT64
        ((member option (list zmq-AFFINITY zmq-VMCI_BUFFER_SIZE
                              zmq-VMCI_BUFFER_MAX_SIZE
                              zmq-VMCI_BUFFER_MIN_SIZE))
-        (unless (integerp value)
-          (signal 'wrong-type-argument (list 'integerp value)))
-
         (setq size (ffi--type-size :uint64))
         (zmq--set-buf buf :uint64 value))
        ;; INT64
        ((= option zmq-MAXMSGSIZE)
-        (unless (integerp value)
-          (signal 'wrong-type-argument (list 'integerp value)))
-
         (setq size (ffi--type-size :int64))
         (zmq--set-buf buf :int64 value))
        ;; INT with BOOL values
