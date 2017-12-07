@@ -135,45 +135,73 @@ be passed to the ffi function."
        finally return (cons string-bindings arg-checkers)))))
 
 (defmacro zmq--ffi-wrapper (c-name return-type arg-types &optional noerror)
+  "Generate a FFI for a ZMQ function and wrap it with error handling.
+C-NAME is the C function name as a string and without the zmq_
+prefix. RETURN-TYPE is the return type as expected by
+`define-ffi-function'. ARG-TYPES can either be a vector of types,
+also in the sense of `define-ffi-function', or it can be a list of
+lists
+
+    ((arg1 :type1) (arg2 :type2) ...)
+
+where (arg1, arg2, ...) will be the argument names of the wrapped
+function and (:type1, :type2, ...) are the types for each
+argument in the FFI for the C function.
+
+If any of the types in ARG-TYPES are `:string', then it indicates
+that the corresponding argument is intended to be a string passed
+to the C function. If any of the ARG-TYPES are the special types
+`:message', `:socket', `:context', or `:poller', then it
+indicates that the corresponding argument is a `zmq-message',
+`zmq-socket', `zmq-context', or `zmq-poller' respectively.
+Whenever any of these types appear, the appropriate type checking
+will happen when calling the wrapped function.
+
+This macro defines the FFI function as zmq--<name>-1 and the
+wrapped function with error handling and type checking as
+zmq--<name> where <name> is C-NAME with all '_' characters
+replaced with '-'."
   (declare (debug t) (indent 1))
   (let* ((fname (subst-char-in-string ?_ ?- c-name))
          (c-name (concat "zmq_" c-name))
-         (ffi-name (make-symbol (concat "zmq--" fname "-1"))))
-    (macroexpand-all
-     (let* ((wrapped-name (make-symbol (concat "zmq--" fname)))
-            (args (if (listp arg-types)
-                      (cl-loop
-                       for (name type) in arg-types
-                       collect name and collect type into types
-                       finally do (setq arg-types (apply #'vector types)))
-                    (cl-loop repeat (length arg-types)
-                             collect (cl-gensym))))
-            (body `(let ((ret (,ffi-name ,@args)))
-                     ;; Depending on the return-type, check if an error is
-                     ;; set.
-                     (if ,(cl-case return-type
-                            (:pointer '(ffi-pointer-null-p ret))
-                            (:int '(= ret -1))
-                            ;; Just return without checking for errors
-                            (t nil))
-                         ,(if noerror 'nil '(zmq-error-handler))
-                       ret)))
-            bindings-checkers
-            string-bindings
-            arg-checkers)
-       (setq bindings-checkers (zmq--normalize-arg-types args arg-types)
-             string-bindings (car bindings-checkers)
-             arg-checkers (cdr bindings-checkers))
-       `(progn
-          (define-ffi-function
-            ,ffi-name ,c-name ,return-type ,arg-types libzmq)
-          (defun ,wrapped-name ,args
-            ,@(when arg-checkers
-                arg-checkers)
-            ,(if string-bindings
-                 `(with-ffi-strings ,string-bindings
-                    ,body)
-               body)))))))
+         (ffi-name (intern (concat "zmq--" fname "-1")))
+         (wrapped-name (intern (concat "zmq--" fname)))
+         (args (if (listp arg-types)
+                   ;; When list, assume it is of the form ((arg1 :type1) ...),
+                   ;; collect the argument names and set arg-types to a vector.
+                   (cl-loop
+                    for (name type) in arg-types
+                    collect name and collect type into types
+                    finally do (setq arg-types (apply #'vector types)))
+                 ;; Otherwise assume arg-types is already a vector and collect
+                 ;; generated argument names.
+                 (cl-loop repeat (length arg-types)
+                          collect (cl-gensym))))
+         (body `(let ((ret (,ffi-name ,@args)))
+                  ;; Depending on the return-type, check if an error is
+                  ;; set.
+                  (if ,(cl-case return-type
+                         (:pointer '(ffi-pointer-null-p ret))
+                         (:int '(= ret -1))
+                         ;; Just return without checking for errors
+                         (t nil))
+                      ,(if noerror 'nil '(zmq-error-handler))
+                    ret)))
+         bindings-checkers
+         string-bindings
+         arg-checkers)
+    (setq bindings-checkers (zmq--ffi-normalize-arg-types args arg-types)
+          string-bindings (car bindings-checkers)
+          arg-checkers (cdr bindings-checkers))
+    `(progn
+       (define-ffi-function ,ffi-name ,c-name ,return-type ,arg-types libzmq)
+       (defun ,wrapped-name ,args
+         ,@(when arg-checkers
+             arg-checkers)
+         ,(if string-bindings
+              `(with-ffi-strings ,string-bindings
+                 ,body)
+            body)))))
 
 ;; TODO: Create proper elisp type errors for example:
 ;;
