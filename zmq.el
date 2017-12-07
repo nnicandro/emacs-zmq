@@ -205,6 +205,18 @@ error will be sent to the subprocess' buffer."
         (apply fun (current-zmq-context) args))
     (apply fun args)))
 
+(defun zmq-flush (stream)
+  "Flush STREAM.
+
+STREAM can be one of `stdout', `stdin', or `stderr'."
+  (set-binary-mode stream t)
+  (set-binary-mode stream nil))
+
+(defun zmq-prin1 (sexp)
+  "Same as `prin1' but flush `stdout' afterwards."
+  (prin1 sexp)
+  (zmq-flush 'stdout))
+
 (defun zmq-init-subprocess ()
   (if noninteractive
       (let ((coding-system-for-write 'utf8-unix))
