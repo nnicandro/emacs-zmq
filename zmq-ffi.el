@@ -40,6 +40,7 @@
   (-socks-fds nil))
 
 (cl-defstruct (zmq-context
+               (:constructor nil)
                (:constructor
                 zmq-context
                 (&aux (-ptr (or (zmq--ctx-new)
@@ -49,13 +50,25 @@
 (cl-defstruct
     (zmq-socket
      (:constructor nil)
+     ;; Wrap sockets returned by poller events/item
+     (:constructor
+      zmq--poller-socket
+      (ptr &aux (-ptr (if (user-ptrp ptr) ptr
+                        (signal 'wrong-type-argument (list 'user-ptrp ptr))))))
      (:constructor
       zmq-socket
       (ctx type &aux (-ptr
-                      (unless (integerp type)
-                        (signal 'wrong-type-argument '(integerp)))
-                      (zmq--socket ctx type)))))
+                      (if (integerp type) (zmq--socket ctx type)
+                        (signal 'wrong-type-argument (list 'integerp type)))))))
   (-ptr nil :read-only t))
+
+;; Equality testing for sockets
+
+(defun zmq-socket-equal (a b)
+  "Determine if A and B are the same `zmq-socket'."
+  (and (zmq-socket-p a)
+       (zmq-socket-p b)
+       (ffi-pointer= (zmq-socket--ptr a) (zmq-socket--ptr b))))
 
 (cl-defstruct
     (zmq-message
