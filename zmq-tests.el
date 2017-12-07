@@ -33,6 +33,27 @@
     (ert-info ("Test context termination")
       (zmq-terminate-context ctx))))
 
+(ert-deftest zmq-send-unicode ()
+  :tags '(zmq unicode)
+  (ert-info ("Send unicode")
+    (let* ((addr "tcp://127.0.0.1")
+           (ctx (zmq-context)))
+      (unwind-protect
+          (cl-destructuring-bind (s1 . s2)
+              (zmq-create-bound-pair ctx zmq-PAIR zmq-PAIR)
+            (unwind-protect
+                (let ((u "çπ§")
+                      (s nil))
+                  (zmq-send-encoded s1 u)
+                  (setq s (zmq-recv s2))
+                  (should (equal s (encode-coding-string u 'utf-8)))
+                  (should (equal (decode-coding-string s 'utf-8) u))
+                  (zmq-send-encoded s1 u 'utf-16)
+                  (setq s (zmq-recv-decoded s2 'utf-16))
+                  (should (equal s u)))
+              (zmq-close s1)
+              (zmq-close s2)))
+        (zmq-terminate-context ctx)))))
 
 (ert-deftest zmq-sockets ()
   :tags '(zmq sockets)
