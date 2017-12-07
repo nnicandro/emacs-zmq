@@ -317,23 +317,23 @@ This function raises the proper error depedning on `zmq-errno'"
 
 ;; See the `zmq-context' type
 (zmq--ffi-wrapper "ctx_new" :pointer [] noerror)
-
 (zmq--ffi-wrapper "ctx_set" :int ((context :context) (option :int) (value :int)))
+(zmq--ffi-wrapper "ctx_get" :int ((context :context) (option :int)))
+(zmq--ffi-wrapper "ctx_term" :int ((context :context)))
+(zmq--ffi-wrapper "ctx_shutdown" :int ((context :context)))
+
 (defun zmq-context-set (context option value)
   "Set a CONTEXT OPTION."
   (zmq--ctx-set context option))
 
-(zmq--ffi-wrapper "ctx_get" :int ((context :context) (option :int)))
 (defun zmq-context-get (context option)
   "Get a CONTEXT OPTION."
   (zmq--ctx-get context option))
 
-(zmq--ffi-wrapper "ctx_term" :int ((context :context)))
 (defun zmq-terminate-context (context)
   "Terminate CONTEXT."
   (zmq--ctx-term context))
 
-(zmq--ffi-wrapper "ctx_shutdown" :int ((context :context)))
 (defun zmq-shutdown-context (context)
   "Shutdown CONTEXT."
   (zmq--ctx-shutdown context))
@@ -382,16 +382,49 @@ This function raises the proper error depedning on `zmq-errno'"
 
 ;;; Messages
 
-(zmq--ffi-wrapper "msg_close" :int [:message])
-(defun zmq-close-message (message)
-  "Close a MESSAGE."
-  (unless (zmq-message-p message)
-    (signal 'wrong-type-argument 'zmq-message-p))
-  (unwind-protect
-      (zmq--msg-close message)
-    (ffi-free (zmq-message--ptr message))))
+;; See `zmq-message' type
+(zmq--ffi-wrapper "msg_init" :int ((message :pointer)))
+;; Closures don't work in the ffi interface, so only msg_init_size is used
+;; (zmq--ffi-wrapper "msg_init_data"
+;;   :int ((message :pointer) (data :string) (len :size_t)
+;;         (free-fn :pointer) (hint :pointer)))
+(zmq--ffi-wrapper "msg_init_size" :int ((message :pointer) (size :size_t)))
 
+(defun zmq-init-message (message &optional data)
+  "Initialize a MESSAGE with DATA.
+
+DATA can be either a string, a vector, or nil.
+
+If DATA is a string it should not contain any multi-byte
+characters. If DATA is a vector it should be a vector of integers
+within the range 0-255, i.e. each element is a byte. In these two
+cases, MESSAGE is initialized with the contents of DATA. Finally,
+when DATA is nil, initialize an empty message."
+  (if (null data) (zmq--msg-init (zmq-message--ptr message))
+    (zmq--msg-init-size (zmq-message--ptr message) (length data))
+    (zmq--set-buf (zmq--msg-data message) data)))
+
+(zmq--ffi-wrapper "msg_recv" :int ((message :message) (sock :socket) (flags :int)))
+(zmq--ffi-wrapper "msg_send" :int ((message :message) (sock :socket) (flags :int)))
+
+(defun zmq-recv-message (message sock &optional flags)
+  "Receive a MESSAGE from SOCK with additional FLAGS.
+
+MESSAGE should be an initialized message."
+  (zmq--msg-recv message sock (or flags 0)))
+
+(defun zmq-send-message (message sock &optional flags)
+  "Send a MESSAGE on SOCK with additional FLAGS."
+  (zmq--msg-send message sock (or flags 0)))
+
+(zmq--ffi-wrapper "msg_move" :int ((dest :message) (src :message)))
 (zmq--ffi-wrapper "msg_copy" :int [:message :message])
+(zmq--ffi-wrapper "msg_close" :int [:message])
+
+(defun zmq-move-message (dest src)
+  "Move a message from SRC to DEST."
+  (zmq--msg-move dest src))
+
 (defun zmq-copy-message (message)
   "Copy a MESSAGE."
   (let ((dest (zmq-message)))
@@ -401,19 +434,29 @@ This function raises the proper error depedning on `zmq-errno'"
           dest)
       (zmq-close-message dest))))
 
+(defun zmq-close-message (message)
+  "Close a MESSAGE."
+  (unwind-protect
+      (zmq--msg-close message)
+    (ffi-free (zmq-message--ptr message))))
+
 (zmq--ffi-wrapper "msg_data" :pointer [:message] noerror)
+(zmq--ffi-wrapper "msg_size" :size_t ((message :message)))
+(zmq--ffi-wrapper "msg_more" :int [:message])
+
 (defun zmq-message-data (message)
   "Get the data of MESSAGE."
   (let ((data (zmq--msg-data message)))
     (when data
       (zmq--get-bytes data (zmq--msg-size message)))))
 
-(zmq--ffi-wrapper "msg_get" :int ((message :message) (property :int)))
-(defun zmq-message-get (message property)
-  "Get a PROPERTY of MESSAGE."
-  (zmq--msg-get message property))
+(defun zmq-message-size (message)
+  "Get the size of MESSAGE."
+  (zmq--msg-size message))
 
-(zmq--ffi-wrapper "msg_gets" :pointer [:message :pointer])
+(defun zmq-message-more-p (message)
+  "Does MESSAGE have more parts?"
+  (= (zmq--msg-more message) 1))
 
 (defconst zmq-message-properties '((:socket-type . "Socket-Type")
                                    (:identity . "Identity")
@@ -421,6 +464,23 @@ This function raises the proper error depedning on `zmq-errno'"
                                    (:peer-address . "Peer-Address"))
   "Alist with the available metadata properites that can be
 retrieved with `zmq-message-propery'.")
+
+(zmq--ffi-wrapper "msg_set" :int ((message :message) (property :int) (value :int)))
+(zmq--ffi-wrapper "msg_get" :int ((message :message) (property :int)))
+(zmq--ffi-wrapper "msg_gets" :pointer [:message :pointer])
+(zmq--ffi-wrapper "msg_routing_id" :uint32 ((message :message)))
+(zmq--ffi-wrapper "msg_set_routing_id" :int ((message :message) (id :int)))
+
+(defun zmq-message-set (message property value)
+  "Set a PROPERTY of MESSAGE to VALUE."
+  (when (and (booleanp value)
+             (= property zmq-MORE))
+    (setq value (if value 1 0)))
+  (zmq--msg-set message property value))
+
+(defun zmq-message-get (message property)
+  "Get a PROPERTY of MESSAGE."
+  (zmq--msg-get message property))
 
 (defun zmq-message-property (message property)
   "Get a metadata PROPERTY of MESSAGE.
@@ -433,81 +493,13 @@ PROPERTY is a keyword and can only be one of
     (with-ffi-string (prop (encode-coding-string prop 'utf-8))
       (ffi-get-c-string (zmq--msg-gets message prop)))))
 
-(zmq--ffi-wrapper "msg_more" :int [:pointer])
-(defun zmq-message-more-p (message)
-  "Does MESSAGE have more parts?"
-  (= (zmq--msg-more message) 1))
-
-;; See `zmq-message' type
-(zmq--ffi-wrapper "msg_init_data"
-  :int ((message :message) (data :string) (len :size_t)
-        (free-fn :pointer) (hint :pointer)))
-(zmq--ffi-wrapper "msg_init_size" :int ((message :message) (size :size_t)))
-(zmq--ffi-wrapper "msg_init" :int ((message :message)))
-
-(zmq--ffi-wrapper "msg_move" :int ((dest :message) (src :message)))
-(defun zmq-move-message (dest src)
-  "Move a message from SRC to DEST."
-  (zmq--msg-move dest src))
-
-(zmq--ffi-wrapper "msg_recv" :int ((message :message) (sock :pointer) (flags :int)))
-(defun zmq-recv-message (message sock &optional flags)
-  "Receive a MESSAGE from SOCK with additional FLAGS.
-
-MESSAGE should be an initialized message."
-  (zmq--msg-recv message sock (or flags 0)))
-
-(zmq--ffi-wrapper "msg_send" :int ((message :message) (sock :socket) (flags :int)))
-(defun zmq-send-message (message sock flags)
-  "Send a MESSAGE on SOCK with additional FLAGS."
-  (zmq--msg-send message sock (or flags 0)))
-
-(zmq--ffi-wrapper "msg_routing_id" :uint32 ((message :message)))
 (defun zmq-message-id (message)
   "Get the routing ID of MESSAGE."
   (zmq--msg-routing-id message))
 
-(zmq--ffi-wrapper "msg_set_routing_id" :int ((message :message) (id :int)))
 (defun zmq-message-set-id (message id)
   "Set the routing ID of MESSAGE."
   (zmq--msg-set-routing-id message id))
-
-(zmq--ffi-wrapper "msg_set" :int ((message :message) (property :int) (value :int)))
-(defun zmq-message-set (message property value)
-  "Set a PROPERTY of MESSAGE to VALUE."
-  (zmq--msg-set message property value))
-
-(zmq--ffi-wrapper "msg_size" :size_t ((message :message)))
-(defun zmq-message-size (message)
-  "Get the size of MESSAGE."
-  (zmq--msg-size message))
-
-(defun zmq--msg-init-data-free (data hint)
-  (while (= (zmq-atomic-counter-value zmq--pending-delete-semaphore) 0)
-    (sleep-for 0 1))
-  (zmq-atomic-counter-dec zmq--pending-delete-semaphore)
-  (ffi-free data)
-  (zmq-atomic-counter-inc zmq--pending-delete-semaphore)
-  (zmq-atomic-counter-dec zmq--pending-delete-counter))
-
-(defvar zmq--msg-init-data-free-fn
-  (ffi-make-closure (ffi--prep-cif :void [:pointer :pointer])
-                    'zmq--msg-init-data-free)
-  "Function pointer for use in `zmq-msg-init-data'.")
-
-(defun zmq-msg-init-data (message data)
-  ;; Closure's to lisp functions don't work exactly.
-  (error "Not yet implemented.")
-  (if (> (length data) 0)
-      (let* ((len (length data))
-             (buf (ffi-allocate len)))
-        (zmq--set-bytes buf data)
-        (zmq--msg-init-data
-         message buf len
-         zmq--msg-init-data-free-fn (ffi-null-pointer))
-        (zmq--atomic-counter-inc zmq--pending-delete-counter)
-        message)
-    (zmq-msg-init message)))
 
 ;;; Polling
 
@@ -554,79 +546,85 @@ MESSAGE should be an initialized message."
 
 ;;; Sockets
 
+;; See `zmq-socket' type.
+(zmq--ffi-wrapper "socket" :pointer ((context :context) (type :int)))
+(zmq--ffi-wrapper "socket_monitor" :int ((sock :socket) (endpoint :string) (events :int)))
+
+(defun zmq-socket-monitor (sock endpoint events)
+  "Monitor for SOCK EVENTs on ENDPOINT."
+  (zmq--socket-monitor sock endpoint events))
+
 (zmq--ffi-wrapper "send_const" :int [:socket :pointer :size_t :int])
+;; NOTE: `zmq-recv' actually use `zmq-recv-message'
+(zmq--ffi-wrapper "send" :int [:socket :string :size_t :int])
+(zmq--ffi-wrapper "recv" :int [:socket :pointer :size_t :int])
+
 (defun zmq-send-const (sock buf len &optional flags)
   "Send LEN bytes from a constant memory BUF on SOCK with FLAGS."
   (when (cl-assert (user-ptrp buf))
     (zmq--send-const sock buf len (or flags 0))))
 
-(zmq--ffi-wrapper "send" :int [:socket :pointer :size_t :int])
 (defun zmq-send (sock message &optional flags)
-  "Send a message on SOCK."
-  ;; NOTE: Try to avoid `zmq-msg-init-data' because closures don't work
-  ;; properly with the ffi interface.
-  (with-ffi-string (buf message)
-    (zmq--send sock buf (length message) (or flags 0))))
+  "Send a single message on SOCK."
+  (if (zmq-message-p message)
+      (zmq-send-message message sock flags)
+    (zmq--send sock message (length message) flags)))
 
-(defun zmq-send-multipart (sock parts &optional flags)
-  "Send a multipart message with PARTS on SOCK with FLAGS."
-  (while (car parts)
-    (zmq-send sock (car parts) (when (cdr parts) zmq-SNDMORE))))
-
-(zmq--ffi-wrapper "recv" :int [:socket :pointer :size_t :int])
 (defun zmq-recv (sock &optional flags)
-  "Receive a message from SOCK with FLAGS."
-  ;; NOTE: Uses `zmq--msg-recv' instead of `zmq--recv'
+  "Receive a single message from SOCK with FLAGS."
   (let ((message (zmq-message)))
     (unwind-protect
         (progn
-          (zmq--msg-recv message sock (or flags 0))
+          (zmq-recv-message message sock flags)
           (zmq-message-data message))
       (zmq-close-message message))))
 
-(defun zmq-recv-multipart (sock)
+(defun zmq-send-multipart (sock parts &optional flags)
+  "Send a multipart message with PARTS on SOCK with FLAGS."
+  (let ((part (zmq-message)) data)
+    (unwind-protect
+        (while (setq data (car parts))
+          (zmq-init-message part data)
+          (setq parts (cdr parts))
+          (zmq-message-set part zmq-MORE (not (null parts)))
+          (zmq-send-message part sock flags))
+      (zmq-close-message part))))
+
+(defun zmq-recv-multipart (sock &optional flags)
   "Receive a multipart message from SOCK."
-  (let (res)
-    (let ((part (zmq-message)))
-      (unwind-protect
-          (catch 'recvd
-            (while t
-              (zmq-recv-message part sock)
-              (setq res (cons (zmq-message-data part) res))
-              (unless (zmq-message-more-p part)
-                (throw 'recvd (nreverse res)))
-              (zmq-init-message part)))
-        (zmq-close-message part)))))
-
-;; See `zmq-socket' type.
-(zmq--ffi-wrapper "socket" :pointer ((context :context) (type :int)))
-
-(zmq--ffi-wrapper "socket_monitor" :int ((sock :socket) (endpoint :string) (events :int)))
-(defun zmq-socket-monitor (sock endpoint events)
-  "Monitor for SOCK EVENTs on ENDPOINT."
-  (zmq--socket-monitor sock endpoint events))
+  (let ((part (zmq-message)) res)
+    (unwind-protect
+        (catch 'recvd
+          (while t
+            (zmq-init-message part)
+            (zmq-recv-message part sock flags)
+            (setq res (cons (zmq-message-data part) res))
+            (unless (zmq-message-more-p part)
+              (throw 'recvd (nreverse res)))))
+      (zmq-close-message part))))
 
 (zmq--ffi-wrapper "bind" :int ((sock :socket) (endpoint :string)))
+(zmq--ffi-wrapper "unbind" :int ((sock :socket) (endpoint :string)))
+(zmq--ffi-wrapper "connect" :int ((sock :socket) (endpoint :string)))
+(zmq--ffi-wrapper "disconnect" :int ((sock :socket) (endpoint :string)))
+(zmq--ffi-wrapper "close" :int ((sock :socket)))
+
 (defun zmq-bind (sock endpoint)
   "Bind SOCK to ENDPOINT."
   (zmq--bind sock endpoint))
 
-(zmq--ffi-wrapper "unbind" :int ((sock :socket) (endpoint :string)))
 (defun zmq-unbind (sock endpoint)
   "UnBIND SOCK from ENDPOINT."
   (zmq--unbind sock endpoint))
 
-(zmq--ffi-wrapper "connect" :int ((sock :socket) (endpoint :string)))
 (defun zmq-connect (sock endpoint)
   "Connect SOCK to ENDPOINT."
   (zmq--connect sock endpoint))
 
-(zmq--ffi-wrapper "disconnect" :int ((sock :socket) (endpoint :string)))
 (defun zmq-disconnect (sock endpoint)
   "DisCONNECT SOCK from ENDPOINT."
   (zmq--disconnect sock endpoint))
 
-(zmq--ffi-wrapper "close" :int ((sock :socket)))
 (defun zmq-close (sock)
   "Close SOCK."
   (zmq--close sock))
