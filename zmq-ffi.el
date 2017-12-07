@@ -721,30 +721,6 @@ occurred within TIMEOUT."
           (zmq-message-data message))
       (zmq-close-message message))))
 
-(defun zmq-send-multipart (sock parts &optional flags)
-  "Send a multipart message with PARTS on SOCK with FLAGS."
-  (let ((part (zmq-message)) data)
-    (unwind-protect
-        (while (setq data (car parts))
-          (zmq-init-message part data)
-          (setq parts (cdr parts))
-          (zmq-message-set part zmq-MORE (not (null parts)))
-          (zmq-send-message part sock flags))
-      (zmq-close-message part))))
-
-(defun zmq-recv-multipart (sock &optional flags)
-  "Receive a multipart message from SOCK."
-  (let ((part (zmq-message)) res)
-    (unwind-protect
-        (catch 'recvd
-          (while t
-            (zmq-init-message part)
-            (zmq-recv-message part sock flags)
-            (setq res (cons (zmq-message-data part) res))
-            (unless (zmq-message-more-p part)
-              (throw 'recvd (nreverse res)))))
-      (zmq-close-message part))))
-
 (zmq--ffi-wrapper "bind" :int ((sock :socket) (endpoint :string)))
 (zmq--ffi-wrapper "unbind" :int ((sock :socket) (endpoint :string)))
 (zmq--ffi-wrapper "connect" :int ((sock :socket) (endpoint :string)))
