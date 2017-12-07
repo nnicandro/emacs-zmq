@@ -218,20 +218,24 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
   (zmq-flush 'stdout))
 
 (defun zmq-init-subprocess ()
-  (if noninteractive
-      (let ((coding-system-for-write 'utf8-unix))
-        ;; TODO: Better error handling
-        (condition-case err
-            (let* ((sexp (read (decode-coding-string
-                                ;; read from stdin without prompting
-                                (base64-decode-string (read-minibuffer ""))
-                                'utf-8-unix))))
-              (setq sexp (eval sexp))
-              (zmq-subprocess-validate-function sexp)
-              (zmq-subprocess-start-function
-               sexp (= (length (cadr sexp)) 1)))
-          (error (prin1 err) (prin1 "\n"))))
-    (error "Only run this in a subprocess.")))
+  (if (not noninteractive) (error "Not a subprocess.")
+    (prin1 '(start))
+    (condition-case err
+        (let ((coding-system-for-write 'utf-8-unix)
+              (cmd (read (decode-coding-string
+                          (base64-decode-string (read))
+                          'utf-8-unix))))
+          (cl-case (car cmd)
+            (eval (let ((sexp (cdr cmd)))
+                    (zmq-prin1 '(eval . "START"))
+                    (setq sexp (eval sexp))
+                    (zmq-subprocess-validate-function sexp)
+                    (zmq-subprocess-start-function
+                     sexp (= (length (cadr sexp)) 1))
+                    (zmq-prin1 '(eval . "STOP"))))
+            (stop (prin1 '(stop))
+                  (signal 'quit '(zmq-subprocess)))))
+      (error (prin1 (cons 'error err))))))
 
 (defun zmq-subprocess-sentinel (process event)
   (cond
@@ -243,6 +247,73 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
       (when (or (not (buffer-modified-p))
                 (= (point-min) (point-max)))
         (kill-buffer (process-buffer process)))))))
+
+(defun zmq-subprocess-echo-output (process output)
+  (when (buffer-live-p (process-buffer process))
+    (with-current-buffer (process-buffer process)
+      (let ((moving (= (point) (process-mark process))))
+        (save-excursion
+          (goto-char (process-mark process))
+          (insert output)
+          (set-marker (process-mark process) (point)))
+        (if moving (goto-char (process-mark process)))))))
+
+(defun zmq-subprocess-read-sexp (process)
+  ;; TODO: Don't rely on `current-buffer'
+  (let ((sexp (condition-case err
+                  (read (current-buffer))
+                (end-of-file
+                 (prog1 nil
+                   (let ((pending (buffer-string)))
+                     (unless (string-empty-p pending)
+                       (process-put
+                        process :pending-output pending))))))))
+    (when sexp
+      (goto-char (point-min))
+      (delete-region (point) (save-excursion (forward-sexp 1) (point))))
+    sexp))
+
+(defun zmq-subprocess-insert-output (process output)
+  (let ((pending (process-get process :pending-output)))
+    (when pending
+      (insert pending)
+      (process-put process :pending-output nil))
+    (insert output)))
+
+(defun zmq-subprocess-filter (process output)
+  (with-temp-buffer
+    (zmq-subprocess-insert-output process output)
+    (goto-char (point-min))
+    ;; TODO: Messages can cross output boundary
+    (let (sexp)
+      (while (setq sexp (zmq-subprocess-read-sexp process))
+        ;; Only lists are processed, anything that resolves into a symbol is
+        ;; text.
+        ;; TODO: Collect them and echo to output
+        (unless (symbolp sexp)
+          (message "Received %s from %s" sexp process)
+          (cond
+           ((consp sexp)
+            (let ((state (car sexp))
+                  (data (cdr sexp)))
+              (cond
+               ((eq state 'io-event)
+                (let* ((sock (cl-find-if (lambda (s) (= (zmq-socket-get s zmq-FD)
+                                                   (car data)))
+                                         (process-get process :io-sockets)))
+                       ;; See ZMQ_EVENTS
+                       ;; http://api.zeromq.org/4-2:zmq-getsockopt
+                       (sock-events (zmq-socket-get sock zmq-EVENTS))
+                       ;; Handled by sock-events
+                       (event (cdr data))
+                       (on-recv (process-get process :on-recv))
+                       (on-send (process-get process :on-send)))
+                  (when (and on-recv (/= (logand sock-events zmq-POLLIN) 0))
+                    (funcall on-recv (zmq-recv-multipart sock)))
+                  (when (and on-send (/= (logand sock-events zmq-POLLOUT) 0))
+                    ;; TODO: How to capture the sent message?
+                    (funcall on-send "<msg>"))))
+               ((eq state 'port) (process-put process :port data)))))))))))
 
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
@@ -268,12 +339,13 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
   (unless (member (length (cadr sexp)) '(0 1))
     (error "Invalid function to send to process, can only have 0 or 1 arguments."))
   (let* ((process-connection-type nil)
-         (coding-system-for-read 'utf-8-unix)
          (process (make-process
                    :name "zmq"
                    :buffer (generate-new-buffer " *zmq*")
                    :connection-type 'pipe
                    :sentinel #'zmq-subprocess-sentinel
+                   :filter #'zmq-subprocess-filter
+                   :coding-system 'no-conversion
                    :command (list
                              (file-truename
                               (expand-file-name invocation-name
@@ -283,7 +355,7 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
                              "-L" (file-name-directory (locate-library "zmq"))
                              "-l" (locate-library "zmq")
                              "-f" "zmq-init-subprocess"))))
-    (zmq-subprocess-send process (macroexpand-all sexp))
+    (zmq-subprocess-send process (cons 'eval (macroexpand-all sexp)))
     process))
 
 (provide 'zmq)
