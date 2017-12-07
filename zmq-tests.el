@@ -2,6 +2,16 @@
 (require 'ert)
 (require 'zmq)
 
+(defun zmq-create-bound-pair (ctx type1 type2 &optional interface)
+  (setq interface (or interface "tcp://127.0.0.1"))
+  (let ((s1 (zmq-socket ctx type1))
+        (s2 (zmq-socket ctx type2)))
+    (zmq-set-option s1 zmq-LINGER 0)
+    (zmq-set-option s2 zmq-LINGER 0)
+    (let ((port (zmq-bind-to-random-port s1 interface)))
+      (zmq-connect s2 (format "%s:%d" interface port)))
+    (cons s1 s2)))
+
 (ert-deftest zmq-encryption ()
   :tags '(zmq encryption)
   (ert-info ("Test key encryption")
