@@ -1,8 +1,9 @@
 (require 'cl-lib)
-(require 'zmq-constants)
+
 (eval-and-compile
   ;; Have these available at compile time to generate error codes during
   ;; compilation.
+  (require 'zmq-constants)
   (require 'ffi)
   (define-ffi-library libzmq "libzmq"))
 
@@ -297,13 +298,10 @@ passed to `zmq--set-bytes'."
 
 ;;; Error handling
 
-;; These are used in `zmq--ffi-wrapper' so don't try to wrap them.
 (define-ffi-function zmq-errno "zmq_errno" :int [] libzmq)
-;; Used in the `zmq--define-errors' macro.
 (eval-and-compile
-  (define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq))
-
-(zmq--define-errors)
+  (define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq)
+  (zmq--define-errors))
 
 (defun zmq-error-handler (&rest data)
   "Called in the wrapped ZMQ functions when an error occurs.
