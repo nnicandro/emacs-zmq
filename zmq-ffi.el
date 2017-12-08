@@ -520,7 +520,9 @@ PROPERTY is a keyword and can only be one of
     (unless prop
       (signal 'args-out-of-range (list (mapcar #'car zmq-message-properties) prop)))
     (with-ffi-string (prop (encode-coding-string prop 'utf-8))
-      (ffi-get-c-string (zmq--msg-gets message prop)))))
+      (decode-coding-string
+       (ffi-get-c-string (zmq--msg-gets message prop))
+       'utf-8))))
 
 (defun zmq-message-id (message)
   "Get the routing ID of MESSAGE."
