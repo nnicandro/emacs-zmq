@@ -449,13 +449,14 @@ MESSAGE should be an initialized message."
   (zmq--msg-move dest src))
 
 (defun zmq-copy-message (message)
-  "Copy a MESSAGE."
+  "Copy MESSAGE."
   (let ((dest (zmq-message)))
-    (unwind-protect
+    (condition-case err
         (progn
           (zmq--msg-copy dest message)
           dest)
-      (zmq-close-message dest))))
+      (error (zmq-close-message dest)
+             (signal (car err) (cdr err))))))
 
 (defun zmq-close-message (message)
   "Close a MESSAGE."
