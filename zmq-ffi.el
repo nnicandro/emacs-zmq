@@ -729,7 +729,7 @@ occurred within TIMEOUT."
   "Send a single message on SOCK."
   (if (zmq-message-p message)
       (zmq-send-message message sock flags)
-    (zmq--send sock message (length message) flags)))
+    (zmq--send sock message (length message) (or flags 0))))
 
 (defun zmq-recv (sock &optional flags)
   "Receive a single message from SOCK with FLAGS."
