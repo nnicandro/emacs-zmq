@@ -341,13 +341,16 @@ This function raises the proper error depedning on `zmq-errno'"
 (defun zmq-context-set (context option value)
   "Set a CONTEXT OPTION."
   (when (and (booleanp value)
-             (member option (list zmq-BLOCKY zmq-IPV6)))
+             (member option `(,zmq-BLOCKY ,zmq-IPV6)))
     (setq value (if value 1 0)))
   (zmq--ctx-set context option value))
 
 (defun zmq-context-get (context option)
   "Get a CONTEXT OPTION."
-  (zmq--ctx-get context option))
+  (let ((value (zmq--ctx-get context option)))
+    (if (member option `(,zmq-BLOCKY ,zmq-IPV6))
+        (= value 1)
+      value)))
 
 (defun zmq-terminate-context (context)
   "Terminate CONTEXT."
