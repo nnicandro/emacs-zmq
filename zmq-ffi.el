@@ -327,11 +327,12 @@ between 0-255, i.e. only big enough to be represented as a byte."
 
 (defun zmq-error-handler (&rest data)
   "Called in the wrapped ZMQ functions when an error occurs.
-This function raises the proper error depedning on `zmq-errno'"
+This function raises the proper error depending on `zmq-errno' by
+using `zmq-error-alist'."
   (let* ((errno (zmq-errno))
          (errsym (or (cdr (assoc errno zmq-error-alist))
                      'zmq-ERROR)))
-    (signal errsym (list (get errsym 'error-message)))))
+    (signal errsym data)))
 
 ;;; Contexts
 
@@ -471,7 +472,7 @@ MESSAGE should be an initialized message."
 ;; Used in `zmq-message' struct initialization
 (zmq--ffi-wrapper "msg_data" :pointer ((message-ptr :pointer)) noerror)
 (zmq--ffi-wrapper "msg_size" :size_t ((message :message)))
-(zmq--ffi-wrapper "msg_more" :int [:message])
+(zmq--ffi-wrapper "msg_more" :int ((message :message)))
 
 (defun zmq-message-data (message)
   "Get the data of MESSAGE."
@@ -518,7 +519,7 @@ retrieved with `zmq-message-propery'.")
 (defun zmq-message-property (message property)
   "Get a metadata PROPERTY of MESSAGE.
 
-PROPERTY is a keyword and can only be one of
+PROPERTY is a keyword and can only be one of those in
 `zmq-message-properties'."
   (let ((prop (cdr (assoc property zmq-message-properties))))
     (unless prop
@@ -703,7 +704,7 @@ occurred within TIMEOUT."
           (error (signal (car err) (cdr err))))))))
 
 ;;; Proxy
-
+;; TODO
 (zmq--ffi-wrapper "proxy_steerable"
   :int ((frontend :pointer) (backend :pointer)
         (capture :pointer) (control :pointer)))
