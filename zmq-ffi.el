@@ -24,11 +24,11 @@
   (revents :type :short))
 
 (cl-defstruct (zmq-pollitem
+               (:constructor nil)
                (:constructor zmq-pollitem))
   (socket nil)
   (fd -1)
-  (events 0)
-  (revents 0))
+  (events 0))
 
 (cl-defstruct (zmq-poller
                (:constructor nil)
@@ -527,7 +527,7 @@ PROPERTY is a keyword and can only be one of
 (zmq--ffi-wrapper "poll" :int [:pointer :int :long])
 
 (defun zmq-poll (items timeout)
-  "Poll the list of `zmq-poll-item's in ITEMS until TIMEOUT."
+  "Poll the list of `zmq-pollitem's in ITEMS until TIMEOUT."
   (when (> (length items) 0)
     (let ((size (ffi--type-size zmq--pollitem-t))
           (found 0))
@@ -546,8 +546,7 @@ PROPERTY is a keyword and can only be one of
                (let ((events (zmq-pollitem-events item)))
                  (if (listp events) (apply #'logior events)
                    events)))
-         (setf (zmq--pollitem-t-revents pointer)
-               0)
+         (setf (zmq--pollitem-t-revents pointer) 0)
          (setq pointer (ffi-pointer+ pointer size)))
         (setq found (zmq--poll head (length items) timeout))
         (when (> found 0)
@@ -558,7 +557,7 @@ PROPERTY is a keyword and can only be one of
            if (> revents 0) collect
            (cons (if (ffi-pointer-null-p (zmq--pollitem-t-socket pointer))
                      (zmq--pollitem-t-fd pointer)
-                   (zmq--pollitem-t-socket pointer))
+                   (zmq-pollitem-socket item))
                  (zmq--split-poll-events revents))
            and do (setq pointer (ffi-pointer+ pointer size))))))))
 
