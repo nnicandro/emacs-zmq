@@ -44,7 +44,13 @@ Accessed this variable through `current-zmq-context'.")
           (zmq-current-context --ctx--))
      (unwind-protect
          (progn ,@body)
-       (zmq-terminate-context --ctx--))))
+       (while (condition-case err
+                  (progn
+                    (zmq-terminate-context --ctx--)
+                    nil)
+                (zmq-EFAULT nil)
+                (zmq-EINTR t)
+                (error (signal (car err) (cdr err))))))))
 
 (defun current-zmq-context ()
   (when zmq-current-context
