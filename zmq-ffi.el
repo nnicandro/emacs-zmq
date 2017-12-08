@@ -308,7 +308,9 @@ between 0-255, i.e. only big enough to be represented as a byte."
                            (minor :int)
                            (patch :int))
       (zmq--version major minor patch)
-      (format "%d.%d.%d" major minor patch))))
+      (apply #'format "%d.%d.%d"
+             (mapcar (lambda (x) (ffi--mem-ref x :int))
+                (list major minor patch))))))
 
 ;;; Error handling
 
