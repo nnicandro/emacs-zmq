@@ -819,8 +819,8 @@ occurred within TIMEOUT."
         (when (multibyte-string-p value)
           (signal 'wrong-type-argument (list '(not multibyte-string-p) value)))
 
-        (setq size (1+ (length value)))
-        (unless (<= size (ffi--type-size buf-size))
+        (setq size (length value))
+        (unless (<= size buf-size)
           (error "Length of value too long."))
         (zmq--set-buf buf value))
        ;; BINARY
@@ -842,12 +842,13 @@ occurred within TIMEOUT."
                              zmq-CURVE_SERVERKEY))
         (cond
          ((= (length value) 32)
-          ;; don't copy the NULL byte
           (setq size 32)
           (zmq--set-buf buf value))
          ((= (length value) 40)
           (setq size 41)
-          (zmq--set-buf buf value))
+          (zmq--set-buf buf value)
+          ;; `zmq--set-buf' doesn't set the NULL byte
+          (ffi--mem-set (ffi-pointer+ buf 40) :char 0))
          (t (signal 'args-out-of-range (list 'zmq-CURVE value)))))
        (t (error "Socket option not handled yet.")))
       (zmq--setsockopt sock option buf size))))
@@ -857,8 +858,6 @@ occurred within TIMEOUT."
   (let ((buf-size 256))
     (with-ffi-temporaries ((len :size_t)
                            (buf buf-size))
-      (ffi--mem-set len :size_t buf-size)
-      (zmq--getsockopt sock option buf len)
       (cond
        ;; INT
        ((member option (list zmq-MECHANISM
@@ -880,50 +879,61 @@ occurred within TIMEOUT."
                              zmq-TCP_KEEPALIVE_INTVL
                              zmq-TCP_MAXRT zmq-TOS
                              zmq-VMCI_CONNECT_TIMEOUT))
+        (ffi--mem-set len :size_t (ffi--type-size :int))
+        (zmq--getsockopt sock option buf len)
         (ffi--mem-ref buf :int))
        ;; UINT64
        ((member option (list zmq-AFFINITY zmq-VMCI_BUFFER_SIZE
                              zmq-VMCI_BUFFER_MAX_SIZE
                              zmq-VMCI_BUFFER_MIN_SIZE))
+        (ffi--mem-set len :size_t (ffi--type-size :uint64))
+        (zmq--getsockopt sock option buf len)
         (ffi--mem-ref buf :uint64))
        ;; INT64
        ((= option zmq-MAXMSGSIZE)
+        (ffi--mem-set len :size_t (ffi--type-size :int64))
+        (zmq--getsockopt sock option buf len)
         (ffi--mem-ref buf :int64))
        ;; TODO: Different on windows
        ((= option zmq-FD)
+        (ffi--mem-set len :size_t (ffi--type-size :int))
+        (zmq--getsockopt sock option buf len)
         (ffi--mem-ref buf :int))
        ;; INT with BOOL values
        ((member option (list zmq-IMMEDIATE zmq-INVERT_MATCHING
-                             zmq-IPV6 zmq-PLAIN_SERVER
-                             zmq-GSSAPI_PLAINTEXT zmq-GSSAPI_SERVER
-                             zmq-RCVMORE))
+                             zmq-CONFLATE zmq-IPV6
+                             zmq-PLAIN_SERVER
+                             zmq-GSSAPI_PLAINTEXT
+                             zmq-GSSAPI_SERVER zmq-RCVMORE))
+        (ffi--mem-set len :size_t (ffi--type-size :int))
+        (zmq--getsockopt sock option buf len)
         (= (ffi--mem-ref buf :int) 1))
        ;; BOOL
        ((= option zmq-THREAD_SAFE)
+        (ffi--mem-set len :size_t (ffi--type-size :bool))
+        (zmq--getsockopt sock option buf len)
         (ffi--mem-ref buf :bool))
        ;; STRINGS
        ((member option (list zmq-GSSAPI_PRINCIPAL zmq-GSSAPI_SERVICE_PRINCIPAL
                              zmq-LAST_ENDPOINT zmq-PLAIN_PASSWORD
                              zmq-PLAIN_USERNAME zmq-SOCKS_PROXY
                              zmq-ZAP_DOMAIN))
+        (ffi--mem-set len :size_t buf-size)
+        (zmq--getsockopt sock option buf len)
         (ffi-get-c-string buf))
        ;; BINARY
-       ((= option zmq-ROUTING_ID)
+       ((member option (list zmq-ROUTING_ID))
+        (ffi--mem-set len :size_t buf-size)
+        (zmq--getsockopt sock option buf len)
         (zmq--get-bytes buf (ffi--mem-ref len :size_t)))
        ;; CURVE
        ((member option (list zmq-CURVE_PUBLICKEY
                              zmq-CURVE_SECRETKEY
                              zmq-CURVE_SERVERKEY))
-        (let ((len (ffi--mem-ref len :size_t)))
-          (cond
-           ;; TODO: What happens when the value is NULL (the default)? Does
-           ;; zmq--getsockopt error out in that case?
-           ((= len 0) nil)
-           ((= len 32)
-            (zmq--get-bytes buf 32))
-           ((= len 41)
-            (ffi-get-c-string buf))
-           (t (error "Unsupported value length.")))))
+        ;; Note that this always returns the string representation
+        (ffi--mem-set len :size_t 41)
+        (zmq--getsockopt sock option buf len)
+        (ffi-get-c-string buf))
        (t (error "Socket option not handled yet."))))))
 
 ;;; Setting/Getting options from contexts, sockets, messages
