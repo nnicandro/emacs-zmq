@@ -506,7 +506,10 @@ retrieved with `zmq-message-propery'.")
 
 (defun zmq-message-get (message property)
   "Get a PROPERTY of MESSAGE."
-  (zmq--msg-get message property))
+  (let ((value (zmq--msg-get message property)))
+    (if (= property zmq-MORE)
+        (= value 1)
+      value)))
 
 (defun zmq-message-property (message property)
   "Get a metadata PROPERTY of MESSAGE.
