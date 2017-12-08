@@ -405,12 +405,12 @@ This function raises the proper error depedning on `zmq-errno'"
 ;;; Messages
 
 ;; See `zmq-message' type
-(zmq--ffi-wrapper "msg_init" :int ((message :pointer)))
+(zmq--ffi-wrapper "msg_init" :int ((message-ptr :pointer)))
 ;; Closures don't work in the ffi interface, so only msg_init_size is used
 ;; (zmq--ffi-wrapper "msg_init_data"
 ;;   :int ((message :pointer) (data :string) (len :size_t)
 ;;         (free-fn :pointer) (hint :pointer)))
-(zmq--ffi-wrapper "msg_init_size" :int ((message :pointer) (size :size_t)))
+(zmq--ffi-wrapper "msg_init_size" :int ((message-ptr :pointer) (size :size_t)))
 
 (defun zmq-init-message (message &optional data)
   "Initialize a MESSAGE with DATA.
@@ -420,11 +420,12 @@ DATA can be either a string, a vector, or nil.
 If DATA is a string it should not contain any multi-byte
 characters. If DATA is a vector it should be a vector of integers
 within the range 0-255, i.e. each element is a byte. In these two
-cases, MESSAGE is initialized with the contents of DATA. Finally,
-when DATA is nil, initialize an empty message."
-  (if (null data) (zmq--msg-init (zmq-message--ptr message))
-    (zmq--msg-init-size (zmq-message--ptr message) (length data))
-    (zmq--set-buf (zmq--msg-data message) data)))
+cases, MESSAGE is initialized with the contents of DATA. When
+DATA is nil, initialize an empty message."
+  (let ((ptr (zmq-message--ptr message)))
+    (if (null data) (zmq--msg-init ptr)
+      (zmq--msg-init-size ptr (length data))
+      (zmq--set-buf (zmq--msg-data ptr) data))))
 
 (zmq--ffi-wrapper "msg_recv" :int ((message :message) (sock :socket) (flags :int)))
 (zmq--ffi-wrapper "msg_send" :int ((message :message) (sock :socket) (flags :int)))
@@ -462,13 +463,14 @@ MESSAGE should be an initialized message."
       (zmq--msg-close message)
     (ffi-free (zmq-message--ptr message))))
 
-(zmq--ffi-wrapper "msg_data" :pointer [:message] noerror)
+;; Used in `zmq-message' struct initialization
+(zmq--ffi-wrapper "msg_data" :pointer ((message-ptr :pointer)) noerror)
 (zmq--ffi-wrapper "msg_size" :size_t ((message :message)))
 (zmq--ffi-wrapper "msg_more" :int [:message])
 
 (defun zmq-message-data (message)
   "Get the data of MESSAGE."
-  (let ((data (zmq--msg-data message)))
+  (let ((data (zmq--msg-data (zmq-message--ptr message))))
     (when data
       (zmq--get-bytes data (zmq--msg-size message)))))
 
