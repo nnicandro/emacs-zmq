@@ -300,7 +300,7 @@ between 0-255, i.e. only big enough to be represented as a byte."
 
   (defun zmq-has (capability)
     "Does ZMQ have CAPABILITY?"
-    (= (zmq--has capability)))
+    (= (zmq--has capability) 1))
 
   (defun zmq-version ()
     "Get the version of ZMQ."
