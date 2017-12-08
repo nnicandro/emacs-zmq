@@ -285,12 +285,14 @@ string, it should not contain any multi-byte characters. When a
 vector, it should be a vector of integers. Each integer being
 between 0-255, i.e. only big enough to be represented as a byte."
   (cond
-   ((and (null value) (stringp type-or-value))
+   ((and (null value) (sequencep type-or-value))
     (setq value type-or-value)
     (zmq--set-bytes buf value))
    ((and value (keywordp type-or-value))
     (ffi--mem-set buf type-or-value value))
-   (t (signal 'wrong-type-argument nil))))
+   (t (signal 'wrong-type-argument
+              (if (null value) (list 'sequencep type-or-value)
+                (list 'keywordp type-or-value))))))
 
 ;;; Utility functions
 
