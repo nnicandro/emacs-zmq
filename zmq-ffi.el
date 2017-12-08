@@ -74,12 +74,11 @@
        (-ptr (let ((val size-or-data)
                    (msg (ffi-allocate zmq--msg-t)))
                (cond
-                ((stringp val)
+                ((sequencep val)
                  (if (= (length val) 0) (zmq--msg-init msg)
                    (zmq--msg-init-size msg (length val))
                    (zmq--set-buf (zmq--msg-data msg) val)))
-
-                ((null val))
+                ((null val) (zmq--msg-init msg))
                 (t (ffi-free msg)
                    (signal 'wrong-type-argument
                            (list (format "Can't initialize message with %s"
