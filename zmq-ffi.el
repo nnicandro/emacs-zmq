@@ -486,8 +486,9 @@ MESSAGE should be an initialized message."
 (defconst zmq-message-properties '((:socket-type . "Socket-Type")
                                    (:identity . "Identity")
                                    (:resource . "Resource")
-                                   (:peer-address . "Peer-Address"))
-  "Alist with the available metadata properites that can be
+                                   (:peer-address . "Peer-Address")
+                                   (:user-id . "User-Id"))
+  "Alist with the available metadata properties that can be
 retrieved with `zmq-message-propery'.")
 
 (zmq--ffi-wrapper "msg_set" :int ((message :message) (property :int) (value :int)))
