@@ -89,6 +89,16 @@
 ;;; FFI wrapper
 
 (eval-and-compile
+  (defconst zmq--gen-error-codes-command
+    "python -c \"
+import errno
+errs = ['(%d . zmq-%s)' % (i, errno.errorcode[i])
+        for i in errno.errorcode.keys()]
+print('\\'(' + '\\n'.join(errs) + ')')\""
+    "A command that should print a list of cons cells with the
+`car' being the error number and the `cdr' being the symbol
+used to define the error corresponding to the error number.")
+
   (defun zmq--ffi-normalize-arg-types (args arg-types)
     "Handle ARG-TYPES specific to ZMQ.
 
@@ -233,19 +243,13 @@ in emacs when an error occurs in ZMQ."
   ;; Defined in libzmq/include/zmq.h
   (let* ((HAUSNUMERO 156384712)
          (native-errors (list (cons (+ HAUSNUMERO 51) 'zmq-EFSM)
-                              (cons  (+ HAUSNUMERO 52) 'zmq-ENOCOMPATPROTO)
-                              (cons  (+ HAUSNUMERO 53) 'zmq-ETERM)
-                              (cons  (+ HAUSNUMERO 54) 'zmq-EMTHREAD)))
+                              (cons (+ HAUSNUMERO 52) 'zmq-ENOCOMPATPROTO)
+                              (cons (+ HAUSNUMERO 53) 'zmq-ETERM)
+                              (cons (+ HAUSNUMERO 54) 'zmq-EMTHREAD)))
          ;; Hack to get the error codes on the system.
          (c-errors
-          (eval (read
-                 (shell-command-to-string
-                  (concat
-                   "python -c "
-                   "\"import errno; "
-                   "print('\\'(' + '\\n'.join(['(%d . zmq-%s)' "
-                   "% (i, errno.errorcode[i]) "
-                   "for i in errno.errorcode.keys()]) + ')')\"")))))
+          (eval (read (shell-command-to-string
+                       zmq--gen-error-codes-command))))
          (errors (append c-errors native-errors)))
     `(progn
        (defconst zmq-error-alist (quote ,errors))
