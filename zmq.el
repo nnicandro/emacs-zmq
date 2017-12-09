@@ -254,11 +254,11 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
 
 (defun zmq-init-subprocess ()
   (if (not noninteractive) (error "Not a subprocess.")
-    (prin1 '(start))
     (condition-case err
         (let ((coding-system-for-write 'utf-8-unix)
               (cmd (read (decode-coding-string
-                          (base64-decode-string (read))
+                          (base64-decode-string
+                           (read-minibuffer ""))
                           'utf-8-unix))))
           (cl-case (car cmd)
             (eval (let ((sexp (cdr cmd)))
