@@ -460,7 +460,7 @@ retrieved with `zmq-message-propery'.")
 
 (zmq--ffi-wrapper "msg_set" :int ((message :message) (property :int) (value :int)))
 (zmq--ffi-wrapper "msg_get" :int ((message :message) (property :int)))
-(zmq--ffi-wrapper "msg_gets" :pointer ((message :message) (property :property)))
+(zmq--ffi-wrapper "msg_gets" :pointer ((message :message) (property :string)))
 (zmq--ffi-wrapper "msg_routing_id" :uint32 ((message :message)))
 (zmq--ffi-wrapper "msg_set_routing_id" :int ((message :message) (id :int)))
 
