@@ -23,69 +23,6 @@
   (events :type :short)
   (revents :type :short))
 
-(cl-defstruct (zmq-pollitem
-               (:constructor nil)
-               (:constructor zmq-pollitem))
-  (socket nil)
-  (fd -1)
-  (events 0))
-
-(cl-defstruct (zmq-poller
-               (:constructor nil)
-               (:constructor
-                zmq-poller
-                (&aux (-ptr (or (zmq--poller-new)
-                                (error "Poller not created."))))))
-  (-ptr nil :read-only t)
-  (-socks-fds nil))
-
-(cl-defstruct (zmq-context
-               (:constructor nil)
-               (:constructor
-                zmq-context
-                (&aux (-ptr (or (zmq--ctx-new)
-                                (error "Context not created."))))))
-  (-ptr nil :read-only t))
-
-(cl-defstruct
-    (zmq-socket
-     (:constructor nil)
-     (:constructor
-      zmq-socket
-      (ctx type &aux (-ptr
-                      (if (integerp type) (zmq--socket ctx type)
-                        (signal 'wrong-type-argument (list 'integerp type)))))))
-  (-ptr nil :read-only t))
-
-;; Equality testing for sockets
-
-(defun zmq-socket-equal (a b)
-  "Determine if A and B are the same `zmq-socket'."
-  (and (zmq-socket-p a)
-       (zmq-socket-p b)
-       (ffi-pointer= (zmq-socket--ptr a) (zmq-socket--ptr b))))
-
-(cl-defstruct
-    (zmq-message
-     (:constructor
-      zmq-message
-      (&optional
-       size-or-data &aux
-       (-ptr (let ((val size-or-data)
-                   (msg (ffi-allocate zmq--msg-t)))
-               (cond
-                ((sequencep val)
-                 (if (= (length val) 0) (zmq--msg-init msg)
-                   (zmq--msg-init-size msg (length val))
-                   (zmq--set-buf (zmq--msg-data msg) val)))
-                ((null val) (zmq--msg-init msg))
-                (t (ffi-free msg)
-                   (signal 'wrong-type-argument
-                           (list (format "Can't initialize message with %s"
-                                         val)))))
-               msg)))))
-  (-ptr nil :read-only t))
-
 ;;; FFI wrapper
 
 (eval-and-compile
@@ -336,6 +273,14 @@ using `zmq-error-alist'."
 
 ;;; Contexts
 
+(cl-defstruct (zmq-context
+               (:constructor nil)
+               (:constructor
+                zmq-context
+                (&aux (-ptr (or (zmq--ctx-new)
+                                (error "Context not created."))))))
+  (-ptr nil :read-only t))
+
 ;; See the `zmq-context' type
 (zmq--ffi-wrapper "ctx_new" :pointer [] noerror)
 (zmq--ffi-wrapper "ctx_set" :int ((context :context) (option :int) (value :int)))
@@ -409,13 +354,30 @@ using `zmq-error-alist'."
 
 ;;; Messages
 
-;; See `zmq-message' type
-(zmq--ffi-wrapper "msg_init" :int ((message-ptr :pointer)))
-;; Closures don't work in the ffi interface, so only msg_init_size is used
-;; (zmq--ffi-wrapper "msg_init_data"
-;;   :int ((message :pointer) (data :string) (len :size_t)
-;;         (free-fn :pointer) (hint :pointer)))
-(zmq--ffi-wrapper "msg_init_size" :int ((message-ptr :pointer) (size :size_t)))
+(cl-defstruct (zmq-message
+               (:constructor
+                zmq-message
+                (&optional
+                 data &aux
+                 (-ptr (let ((msg (ffi-allocate zmq--msg-t)))
+                         (cond
+                          ((sequencep data)
+                           (if (= (length data) 0) (zmq--msg-init msg)
+                             (zmq--msg-init-size msg (length data))
+                             (zmq--set-buf (zmq--msg-data msg) data)))
+                          ((null data) (zmq--msg-init msg))
+                          (t (ffi-free msg)
+                             (signal
+                              'wrong-type-argument
+                              (list (format "Can't initialize message with %s"
+                                            data)))))
+                         msg)))))
+  (-ptr nil :read-only t))
+
+(zmq--ffi-wrapper "msg_init" :int ((messagep :pointer)))
+(zmq--ffi-wrapper "msg_init_size" :int ((messagep :pointer) (size :size_t)))
+;; NOTE: Closures don't work in the ffi interface, so msg_init_data is not
+;; wrapped.
 
 (defun zmq-init-message (message &optional data)
   "Initialize a MESSAGE with DATA.
@@ -538,6 +500,22 @@ PROPERTY is a keyword and can only be one of those in
   (zmq--msg-set-routing-id message id))
 
 ;;; Polling
+
+(cl-defstruct (zmq-pollitem
+               (:constructor nil)
+               (:constructor zmq-pollitem))
+  (socket nil)
+  (fd -1)
+  (events 0))
+
+(cl-defstruct (zmq-poller
+               (:constructor nil)
+               (:constructor
+                zmq-poller
+                (&aux (-ptr (or (zmq--poller-new)
+                                (error "Poller not created."))))))
+  (-ptr nil :read-only t)
+  (-socks-fds nil))
 
 (defun zmq--split-poll-events (events)
   (cl-loop
@@ -714,6 +692,15 @@ occurred within TIMEOUT."
 
 ;;; Sockets
 
+(cl-defstruct (zmq-socket
+               (:constructor nil)
+               (:constructor
+                zmq-socket
+                (ctx type &aux (-ptr (if (integerp type) (zmq--socket ctx type)
+                                       (signal 'wrong-type-argument
+                                               (list 'integerp type)))))))
+  (-ptr nil :read-only t))
+
 ;; See `zmq-socket' type.
 (zmq--ffi-wrapper "socket" :pointer ((context :context) (type :int)))
 (zmq--ffi-wrapper "socket_monitor" :int ((sock :socket) (endpoint :string) (events :int)))
@@ -721,6 +708,14 @@ occurred within TIMEOUT."
 (defun zmq-socket-monitor (sock endpoint events)
   "Monitor for SOCK EVENTs on ENDPOINT."
   (zmq--socket-monitor sock endpoint events))
+
+;; Equality testing for sockets
+
+(defun zmq-socket-equal (a b)
+  "Determine if A and B are the same `zmq-socket'."
+  (and (zmq-socket-p a)
+       (zmq-socket-p b)
+       (ffi-pointer= (zmq-socket--ptr a) (zmq-socket--ptr b))))
 
 (zmq--ffi-wrapper "send_const" :int ((sock :socket) (buf :pointer) (len :size_t) (flags :int)))
 (zmq--ffi-wrapper "send" :int ((sock :socket) (message :string) (len :size_t) (flags :int)))
