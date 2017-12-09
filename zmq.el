@@ -394,39 +394,52 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
 
 ;;; Streams
 
+(defun zmq-subprocess-poll (items timeout)
+  (if (not noninteractive) (error "Not in a subprocess.")
+    (let ((events (condition-case err
+                      (zmq-poll items timeout)
+                    ;; TODO: This was the error that
+                    ;; `zmq-poller-wait' returned, is it the same
+                    ;; on all systems? Or is this a different
+                    ;; name since I am on a MAC
+                    (zmq-ETIMEDOUT nil)
+                    (error (signal (car err) (cdr err))))))
+      (when events
+        (while (cdr events)
+          ;; Only send the file-descriptor, since the events are read using the
+          ;; zmq-EVENTS property of the corresponding socket in the parent
+          ;; process.
+          (prin1 (cons 'io (caar events)))
+          (setq events (cdr events)))
+        (prin1 (cons 'io (car events)))
+        (zmq-flush 'stdout)))))
+
 (defun zmq-ioloop (socks on-recv on-send)
   (declare (indent 1))
   (unless (listp socks)
     (setq socks (list socks)))
-  (let* ((fds (mapcar (lambda (sock) (zmq-socket-get sock zmq-FD)) socks))
+  (let* ((items (mapcar (lambda (fd)
+                     (zmq-pollitem
+                      :fd fd
+                      :events (logior zmq-POLLIN zmq-POLLOUT)))
+                   (mapcar (lambda (sock) (zmq-socket-get sock zmq-FD))
+                      socks)))
          (process
           (zmq-start-process
            `(lambda ()
-              (let* ((items (list ,@(mapcar (lambda (fd)
-                                         `(zmq-pollitem
-                                           :fd ,fd
-                                           :events ,(logior zmq-POLLIN
-                                                            zmq-POLLOUT)))
-                                       fds))))
+              ;; Note that we can splice in `zmq-pollitem's here because they
+              ;; only contain primitive types, lists, and vectors.
+              (let* ((items ',items))
                 (while t
-                  (let ((events (condition-case err
-                                    (zmq-poll items 1000000)
-                                  ;; TODO: This was the error that
-                                  ;; `zmq-poller-wait' returned, is it the same
-                                  ;; on all systems? Or is this a different
-                                  ;; name since I am on a MAC
-                                  (zmq-ETIMEDOUT nil)
-                                  (error (signal (car err) (cdr err))))))
-                    (when events
-                      (while (cdr events)
-                        (prin1 (cons 'io-event (car events)))
-                        (setq events (cdr events)))
-                      (prin1 (cons 'io-event (car events)))
-                      (zmq-flush 'stdout))
-                    (sleep-for 10)
-                    ;; Handle communication between parent process. For
-                    ;; example receiving commands to do something else or quit.
-                    )))))))
+                  ;; Poll for 100 μs
+                  (zmq-subprocess-poll items 100)
+                  (when (input-pending-p)
+                    ;; TODO: Partial messages?
+                    (let ((cmd (read (decode-coding-string
+                                      (base64-decode-string (read))
+                                      'utf-8-unix))))
+                      (cl-case (car cmd)
+                        (modify-events (setq items (cdr cmd))))))))))))
     (process-put process :io-sockets socks)
     (process-put process :on-recv on-recv)
     (process-put process :on-send on-send)
