@@ -445,5 +445,26 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
     (process-put process :on-send on-send)
     process))
 
+(defun zmq-ioloop-modify-events (process items)
+  (let ((socks (process-get process :io-sockets)))
+    (if (null socks)
+        (error "Cannot modify non-ioloop process.")
+      (let ((non-item
+             (cl-find-if-not
+              (lambda (x)
+                (and (zmq-pollitem-p x)
+                     ;; Only modify events of sockets that PROCESS is polling.
+                     (let ((xsock (zmq-pollitem-socket x)))
+                       (if xsock
+                           (cl-member xsock socks :test #'zmq-socket-equal)
+                         (cl-member
+                          (zmq-pollitem-fd x) socks
+                          :test (lambda (xfd sock)
+                                  (= xfd (zmq-socket-get sock zmq-FD))))))))
+              items)))
+        (when non-item
+          (signal 'args-out-of-range
+                  (list "Attempting to modify socket not polled by subprocess.")))
+        (zmq-subprocess-send process (cons 'modify-events items))))))
 
 (provide 'zmq)
