@@ -391,4 +391,71 @@
               (zmq-close s)
               (zmq-close p))))))))
 
+(ert-deftest zmq-subprocess-filter ()
+  :tags '(zmq subprocess)
+  (let ((process (start-process "zmq-subprocess-test" nil "sleep" "1000"))
+        sexp)
+    (unwind-protect
+        (ert-info ("Reading sexp from process output")
+          (ert-info ("Reading a single sexp")
+            (with-temp-buffer
+              (zmq-subprocess-insert-output process "(event . \"foo\")")
+              (setq sexp (zmq-subprocess-read-sexp process))
+              (should (equal sexp '(event . "foo")))
+              (should-not (process-get process :pending-output))
+              (should (= (length (buffer-string)) 0))))
+          (ert-info ("Reading a partial sexp")
+            (with-temp-buffer
+              (zmq-subprocess-insert-output process "(event . \"foo\"")
+              (setq sexp (zmq-subprocess-read-sexp process))
+              (should-not sexp)
+              (should (equal (process-get process :pending-output) "(event . \"foo\""))))
+          (ert-info ("Reading pending output from partial sexp")
+            (with-temp-buffer
+              (zmq-subprocess-insert-output process ")(jelly . jam)")
+              (setq sexp (zmq-subprocess-read-sexp process))
+              (should (equal sexp '(event . "foo")))
+              (should (equal (buffer-string) "(jelly . jam)"))
+              (should-not (process-get process :pending-output)))))
+      (kill-process process))))
+
+(defvar zmq-subprocess-test-flag nil)
+
+(ert-deftest zmq-subprocess ()
+  :tags '(zmq subprocess)
+  (ert-info ("Subprocess wraps function with context")
+    (let* ((body
+            (quote ((when
+                        (condition-case nil
+                            (progn (current-zmq-context) t)
+                          (error (prin1 (cons 'test-result "no context")) nil))
+                      (prin1 (cons 'test-result "context")))
+                    (zmq-flush 'stdout))))
+           (test-filter
+            (lambda (process output)
+              (let (sexp)
+                (with-temp-buffer
+                  (zmq-subprocess-insert-output process output)
+                  (catch 'done
+                    (while (setq sexp (zmq-subprocess-read-sexp process))
+                      (when (and (consp sexp)
+                                 (eq (car sexp) 'test-result))
+                        (if zmq-subprocess-test-flag
+                            (should (equal (cdr sexp) "no context"))
+                          (should (equal (cdr sexp) "context")))
+                        (throw 'done t))))))
+              (when (process-live-p process)
+                (kill-process process))))
+           (process))
+      (setq
+       zmq-subprocess-test-flag t
+       process (zmq-start-process `(lambda () ,@body)))
+      (set-process-filter process test-filter)
+      (sleep-for 0.4)
+      (setq
+       zmq-subprocess-test-flag nil
+       process (zmq-start-process `(lambda (ctx) ,@body)))
+      (set-process-filter process test-filter)
+      (sleep-for 0.4))))
+
 (provide 'zmq-tests)
