@@ -292,62 +292,63 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
           (set-marker (process-mark process) (point)))
         (if moving (goto-char (process-mark process)))))))
 
-(defun zmq-subprocess-read-sexp (process)
-  ;; TODO: Don't rely on `current-buffer'
-  (let ((sexp (condition-case err
-                  (read (current-buffer))
-                (end-of-file
-                 (prog1 nil
-                   (let ((pending (buffer-string)))
-                     (unless (> (length pending) 0)
-                       (process-put
-                        process :pending-output pending))))))))
-    (when sexp
-      (goto-char (point-min))
-      (delete-region (point) (save-excursion (forward-sexp 1) (point))))
-    sexp))
+(defun zmq-subprocess-read (process output)
+  "Return a list of cons cells obtained from PROCESS' output.
+If the output has any text interlaced with cons cells, the text
+is ignored. This may happen for example, when calling `read'. The
+right way to read from the parent process from a zmq subprocess
+would be to call (read-minibuffer \"\")."
+  (with-temp-buffer
+    (let ((pending (process-get process :pending-output))
+          (last-valid (point))
+          (sexp nil)
+          (accum nil))
+      (when (> (length pending) 0)
+        (goto-char (point-min))
+        (insert pending)
+        (process-put process :pending-output ""))
+      (insert output)
+      (goto-char last-valid)
+      (while (setq sexp (condition-case err
+                            (read (current-buffer))
+                          (end-of-file (setq accum (nreverse accum)))))
+        (setq last-valid (point))
+        ;; Ignore printed text that may appear.
+        (unless (symbolp sexp)
+          (setq accum (cons sexp accum))))
+      (process-put process :pending-output (buffer-substring
+                                            last-valid (point-max)))
+      accum)))
 
-(defun zmq-subprocess-insert-output (process output)
-  (let ((pending (process-get process :pending-output)))
-    (when pending
-      (insert pending)
-      (process-put process :pending-output nil))
-    (insert output)))
+(defun zmq-subprocess-run-callbacks (process sock)
+  ;; Note the events are read from the corresponding socket of FD using the
+  ;; zmq-EVENTS option of fd's socket. See ZMQ_EVENTS:
+  ;; http://api.zeromq.org/4-2:zmq-getsockopt
+  (let ((sock-events (zmq-socket-get sock zmq-EVENTS))
+        (on-recv (process-get process :on-recv))
+        (on-send (process-get process :on-send)))
+    (when (and on-recv (/= (logand zmq-POLLIN sock-events) 0))
+      (funcall on-recv (zmq-recv-multipart sock)))
+    (when (and on-send (/= (logand zmq-POLLOUT sock-events) 0))
+      (when (same-class-p sock 'zmq-stream)
+        ;; TODO: How to capture the sent message?
+        ;; Have a proxy that between the sent events.
+        (funcall on-send (zmq-stream-send-queue sock 0))))))
 
 (defun zmq-subprocess-filter (process output)
-  (with-temp-buffer
-    (zmq-subprocess-insert-output process output)
-    (goto-char (point-min))
-    ;; TODO: Messages can cross output boundary
-    (let (sexp)
-      (while (setq sexp (zmq-subprocess-read-sexp process))
-        ;; Only lists are processed, anything that resolves into a symbol is
-        ;; text.
-        ;; TODO: Collect them and echo to output
-        (unless (symbolp sexp)
-          (message "Received %s from %s" sexp process)
-          (cond
-           ((consp sexp)
-            (let ((state (car sexp))
-                  (data (cdr sexp)))
-              (cond
-               ((eq state 'io-event)
-                (let* ((sock (cl-find-if (lambda (s) (= (zmq-socket-get s zmq-FD)
-                                                   (car data)))
-                                         (process-get process :io-sockets)))
-                       ;; See ZMQ_EVENTS
-                       ;; http://api.zeromq.org/4-2:zmq-getsockopt
-                       (sock-events (zmq-socket-get sock zmq-EVENTS))
-                       ;; Handled by sock-events
-                       (event (cdr data))
-                       (on-recv (process-get process :on-recv))
-                       (on-send (process-get process :on-send)))
-                  (when (and on-recv (/= (logand sock-events zmq-POLLIN) 0))
-                    (funcall on-recv (zmq-recv-multipart sock)))
-                  (when (and on-send (/= (logand sock-events zmq-POLLOUT) 0))
-                    ;; TODO: How to capture the sent message?
-                    (funcall on-send "<msg>"))))
-               ((eq state 'port) (process-put process :port data)))))))))))
+  (cl-loop
+   for (event . contents) in (zmq-subprocess-read process output) do
+   (cl-case event
+     (eval
+      (cond
+       ((equal contents "START") (process-put process :eval t))
+       ((equal contents "STOP") (process-put process :eval nil))))
+     (io
+      (let* ((fd contents)
+             (sock (cl-find-if (lambda (s) (= (zmq-socket-get s zmq-FD) fd))
+                               (process-get process :io-sockets))))
+        (zmq-subprocess-run-callbacks process sock)))
+     (port (process-put process :port contents)))))
 
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
