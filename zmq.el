@@ -107,19 +107,20 @@ finally closed."
          (progn ,@body)
        (zmq-close-message ,message))))
 
-(defvar zmq-current-poller nil
-  "Dynamically bound in `with-zmq-poller'. Access through
+(when (zmq-has "draft")
+  (defvar zmq-current-poller nil
+    "Dynamically bound in `with-zmq-poller'. Access through
 `current-zmq-poller'.")
 
-(defun current-zmq-poller ()
-  zmq-current-poller)
+  (defun current-zmq-poller ()
+    zmq-current-poller)
 
-(defmacro with-zmq-poller (&rest body)
-  `(let* ((--poller-- (zmq-poller))
-          (zmq-current-poller --poller--))
-     (unwind-protect
-         (progn ,@body)
-       (zmq-poller-destroy --poller--))))
+  (defmacro with-zmq-poller (&rest body)
+    `(let* ((--poller-- (zmq-poller))
+            (zmq-current-poller --poller--))
+       (unwind-protect
+           (progn ,@body)
+         (zmq-poller-destroy --poller--)))))
 
 ;;; Message functions
 
