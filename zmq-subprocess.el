@@ -3,16 +3,16 @@
 ;;; Subprocceses
 ;; TODO: Use `process-put' and `process-get' to control `zmq' subprocesses.
 
-(defun zmq-subprocess-validate-function (sexp)
-  "Called in subprocesses to validate the function passed to it.
-If a function is not valid, no work will be performed and the
-error will be sent to the subprocess' buffer."
-  (unless (functionp sexp)
-    (signal 'void-function
-            "Can only run functions in subprocess."))
+(defun zmq-subprocess-validate-sexp (sexp)
+  "Validate an sexp that will be sent to a subprocess."
+  (cond
+   ((functionp sexp)
+    (when (or (not (listp sexp))
+              (eq (car sexp) 'function))
+      (setq sexp (symbol-function sexp))))
+   (t (error "Can only send functions to processes.")))
   (unless (member (length (cadr sexp)) '(0 1))
-    (signal 'wrong-number-of-arguments
-            "Functions can only be passed a context or nothing.")))
+    (error "Invalid function to send to process, can only have 0 or 1 arguments.")))
 
 (defun zmq-subprocess-start-function (fun &optional wrap-context &rest args)
   (if wrap-context
@@ -44,7 +44,6 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
             (eval (let ((sexp (cdr cmd)))
                     (zmq-prin1 '(eval . "START"))
                     (setq sexp (eval sexp))
-                    (zmq-subprocess-validate-function sexp)
                     (zmq-subprocess-start-function
                      sexp (= (length (cadr sexp)) 1))
                     (zmq-prin1 '(eval . "STOP"))))
@@ -145,14 +144,8 @@ would be to call (read-minibuffer \"\")."
       (process-send-region process (point-min) (point-max)))))
 
 (defun zmq-start-process (sexp)
-  (cond
-   ((functionp sexp)
-    (when (or (not (listp sexp))
-              (eq (car sexp) 'function))
-      (setq sexp (symbol-function sexp))))
-   (t (error "Can only send functions to processes.")))
-  (unless (member (length (cadr sexp)) '(0 1))
-    (error "Invalid function to send to process, can only have 0 or 1 arguments."))
+  (setq sexp (macroexpand-all sexp))
+  (zmq-subprocess-validate-sexp sexp)
   (let* ((process-connection-type nil)
          (process (make-process
                    :name "zmq"
@@ -170,7 +163,7 @@ would be to call (read-minibuffer \"\")."
                              "-L" (file-name-directory (locate-library "zmq"))
                              "-l" (locate-library "zmq")
                              "-f" "zmq-init-subprocess"))))
-    (zmq-subprocess-send process (cons 'eval (macroexpand-all sexp)))
+    (zmq-subprocess-send process (cons 'eval sexp))
     process))
 
 ;;; Streams
