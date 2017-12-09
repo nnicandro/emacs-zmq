@@ -301,8 +301,8 @@ between 0-255, i.e. only big enough to be represented as a byte."
 ;;; Utility functions
 
 (eval-and-compile
-  (zmq--ffi-wrapper "has" :int [:string] noerror)
-  (zmq--ffi-wrapper "version" :void [:pointer :pointer :pointer] noerror)
+  (zmq--ffi-wrapper "has" :int ((capability :string)) noerror)
+  (zmq--ffi-wrapper "version" :void ((major :pointer) (minor :pointer) (patch :pointer)) noerror)
 
   (defun zmq-has (capability)
     "Does ZMQ have CAPABILITY?"
@@ -367,10 +367,10 @@ using `zmq-error-alist'."
 
 ;;; Encryption
 
-(zmq--ffi-wrapper "z85_decode" :pointer [:pointer :pointer] noerror)
-(zmq--ffi-wrapper "z85_encode" :pointer [:pointer :pointer :size_t] noerror)
-(zmq--ffi-wrapper "curve_keypair" :int [:pointer :pointer])
-(zmq--ffi-wrapper "curve_public" :int [:pointer :pointer])
+(zmq--ffi-wrapper "z85_decode" :pointer ((decoded :pointer) (str :pointer)) noerror)
+(zmq--ffi-wrapper "z85_encode" :pointer ((encoded :pointer) (str :pointer) (len :size_t)) noerror)
+(zmq--ffi-wrapper "curve_keypair" :int ((public :pointer) (secret :pointer)))
+(zmq--ffi-wrapper "curve_public" :int ((public :pointer) (secret :pointer)))
 
 (defun zmq-z85-decode (key)
   "Decode a z85 encoded KEY."
@@ -446,8 +446,8 @@ MESSAGE should be an initialized message."
   (zmq--msg-send message sock (or flags 0)))
 
 (zmq--ffi-wrapper "msg_move" :int ((dest :message) (src :message)))
-(zmq--ffi-wrapper "msg_copy" :int [:message :message])
-(zmq--ffi-wrapper "msg_close" :int [:message])
+(zmq--ffi-wrapper "msg_copy" :int ((dest :message) (src :message)))
+(zmq--ffi-wrapper "msg_close" :int ((message :message)))
 
 (defun zmq-move-message (dest src)
   "Move a message from SRC to DEST."
@@ -470,7 +470,7 @@ MESSAGE should be an initialized message."
     (ffi-free (zmq-message--ptr message))))
 
 ;; Used in `zmq-message' struct initialization
-(zmq--ffi-wrapper "msg_data" :pointer ((message-ptr :pointer)) noerror)
+(zmq--ffi-wrapper "msg_data" :pointer ((messagep :pointer)) noerror)
 (zmq--ffi-wrapper "msg_size" :size_t ((message :message)))
 (zmq--ffi-wrapper "msg_more" :int ((message :message)))
 
@@ -498,7 +498,7 @@ retrieved with `zmq-message-propery'.")
 
 (zmq--ffi-wrapper "msg_set" :int ((message :message) (property :int) (value :int)))
 (zmq--ffi-wrapper "msg_get" :int ((message :message) (property :int)))
-(zmq--ffi-wrapper "msg_gets" :pointer [:message :pointer])
+(zmq--ffi-wrapper "msg_gets" :pointer ((message :message) (property :property)))
 (zmq--ffi-wrapper "msg_routing_id" :uint32 ((message :message)))
 (zmq--ffi-wrapper "msg_set_routing_id" :int ((message :message) (id :int)))
 
@@ -544,7 +544,7 @@ PROPERTY is a keyword and can only be one of those in
    for e in `(,zmq-POLLIN ,zmq-POLLOUT ,zmq-POLLERR)
    if (/= (logand e events) 0) collect e))
 
-(zmq--ffi-wrapper "poll" :int [:pointer :int :long])
+(zmq--ffi-wrapper "poll" :int ((items :pointer) (len :int) (timeout :long)))
 
 (defun zmq-poll (items timeout)
   "Poll the list of `zmq-pollitem's in ITEMS until TIMEOUT."
@@ -722,10 +722,10 @@ occurred within TIMEOUT."
   "Monitor for SOCK EVENTs on ENDPOINT."
   (zmq--socket-monitor sock endpoint events))
 
-(zmq--ffi-wrapper "send_const" :int [:socket :pointer :size_t :int])
-;; NOTE: `zmq-recv' actually use `zmq-recv-message'
-(zmq--ffi-wrapper "send" :int [:socket :string :size_t :int])
-(zmq--ffi-wrapper "recv" :int [:socket :pointer :size_t :int])
+(zmq--ffi-wrapper "send_const" :int ((sock :socket) (buf :pointer) (len :size_t) (flags :int)))
+(zmq--ffi-wrapper "send" :int ((sock :socket) (message :string) (len :size_t) (flags :int)))
+;; NOTE: `zmq-recv' actually uses `zmq-recv-message'
+(zmq--ffi-wrapper "recv" :int ((sock :socket) (buf :pointer) (len :size_t) (flags :int)))
 
 (defun zmq-send-const (sock buf len &optional flags)
   "Send LEN bytes from a constant memory BUF on SOCK with FLAGS."
@@ -773,7 +773,7 @@ occurred within TIMEOUT."
   "Close SOCK."
   (zmq--close sock))
 
-(zmq--ffi-wrapper "setsockopt" :int [:socket :int :pointer :size_t])
+(zmq--ffi-wrapper "setsockopt" :int ((sock :socket) (option :int) (value :pointer) (len :size_t)))
 (zmq--ffi-wrapper "getsockopt" :int ((sock :socket) (option :int) (value :pointer) (len :pointer)))
 
 (defun zmq-socket-set (sock option value)
