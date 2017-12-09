@@ -331,10 +331,9 @@ would be to call (read-minibuffer \"\")."
     (when (and on-recv (/= (logand zmq-POLLIN sock-events) 0))
       (funcall on-recv (zmq-recv-multipart sock)))
     (when (and on-send (/= (logand zmq-POLLOUT sock-events) 0))
-      (when (same-class-p sock 'zmq-stream)
-        ;; TODO: How to capture the sent message?
-        ;; Have a proxy that between the sent events.
-        (funcall on-send (zmq-stream-send-queue sock 0))))))
+      ;; TODO: How to capture the sent message?
+      ;; Have a proxy that between the sent events.
+      (funcall on-send (zmq-stream-send-queue sock 0)))))
 
 (defun zmq-subprocess-filter (process output)
   (cl-loop
@@ -407,13 +406,12 @@ would be to call (read-minibuffer \"\")."
                     (zmq-ETIMEDOUT nil)
                     (error (signal (car err) (cdr err))))))
       (when events
-        (while (cdr events)
+        (while (car events)
           ;; Only send the file-descriptor, since the events are read using the
           ;; zmq-EVENTS property of the corresponding socket in the parent
           ;; process.
           (prin1 (cons 'io (caar events)))
           (setq events (cdr events)))
-        (prin1 (cons 'io (car events)))
         (zmq-flush 'stdout)))))
 
 (defun zmq-ioloop (socks on-recv on-send)
@@ -438,7 +436,7 @@ would be to call (read-minibuffer \"\")."
                   (when (input-pending-p)
                     ;; TODO: Partial messages?
                     (let ((cmd (read (decode-coding-string
-                                      (base64-decode-string (read))
+                                      (base64-decode-string (read-minibuffer ""))
                                       'utf-8-unix))))
                       (cl-case (car cmd)
                         (modify-events (setq items (cdr cmd))))))))))))
