@@ -99,15 +99,6 @@ finally closed."
          (zmq-set-option ,sock zmq-LINGER 0)
          (zmq-close ,sock)))))
 
-;; FIXME: Freeing initialized messages doesn't work due to how closures work.
-;; Maybe its time to implement a c-module for zmq?
-(defmacro with-zmq-message (message data &rest body)
-  (declare (debug t) (indent 2))
-  `(let ((,message (zmq-message ,data)))
-     (unwind-protect
-         (progn ,@body)
-       (zmq-close-message ,message))))
-
 (when (zmq-has "draft")
   (defvar zmq-current-poller nil
     "Dynamically bound in `with-zmq-poller'. Access through

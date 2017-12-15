@@ -294,27 +294,6 @@
                                topic))
                 (zmq-socket-set-encoded sock zmq-SUBSCRIBE topic 'utf-16)))))))))
 
-;; (setq proc (zmq-start-process
-;;             (lambda (ctx)
-;;               (zmq-ctx-set ctx zmq-BLOCKY 0)
-;;               ;; `with-zmq-socket' uses the `current-zmq-context' to
-;;               ;; instantiate a socket
-;;               (with-zmq-socket sock zmq-REP
-;;                 (let ((port (zmq-bind-to-random-port sock "tcp://127.0.0.1")))
-;;                   (when port
-;;                     (zmq-prin1 (cons :port port))
-;;                     (zmq-recv sock)
-;;                     (zmq-send sock "")
-;;                     (zmq-recv sock)))))))
-
-;; (zmq-connect-to-endpoint
-;;     zmq-REQ (format "tcp://127.0.0.1:%d" (process-get proc :port))
-;;   (lambda (ctx sock)
-;;     (zmq-prin1 (cons :ctx (zmq-ctx-get ctx zmq-BLOCKY)))
-;;     (zmq-send sock "foo")
-;;     (zmq-recv sock)
-;;     (zmq-send sock "bar")))
-
 (ert-deftest zmq-polling ()
   :tags '(zmq polling)
   (let* ((addr "tcp://127.0.0.1"))
