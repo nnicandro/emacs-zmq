@@ -894,6 +894,7 @@ occurred within TIMEOUT."
                              zmq-HANDSHAKE_IVL zmq-HEARTBEAT_IVL
                              zmq-HEARTBEAT_TIMEOUT
                              zmq-HEARTBEAT_TTL zmq-USE_FD
+                             zmq-EVENTS
                              zmq-TCP_KEEPALIVE
                              zmq-TCP_KEEPALIVE_CNT
                              zmq-TCP_KEEPALIVE_IDLE
