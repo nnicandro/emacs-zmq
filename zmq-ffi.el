@@ -213,28 +213,6 @@ can hold at least (length DATA) of bytes."
   (dotimes (i (length data))
     (ffi--mem-set (ffi-pointer+ buf i) :char (aref data i))))
 
-(defun zmq--set-buf (buf type-or-value &optional value)
-  "Set `buf' depending on TYPE-OR-VALUE and VALUE.
-
-If TYPE-OR-VALUE is non-nil, then it can only be one of the
-primitive types such as `:int' or `:char' and VALUE must be
-non-nil and should have the type corresponding to TYPE-OR-VALUE.
-
-If VALUE is nil, then TYPE-OR-VALUE must be a string or vector
-and is passed to `zmq--set-bytes'. When TYPE-OR-VALUE is a
-string, it should not contain any multi-byte characters. When a
-vector, it should be a vector of integers. Each integer being
-between 0-255, i.e. only big enough to be represented as a byte."
-  (cond
-   ((and (null value) (sequencep type-or-value))
-    (setq value type-or-value)
-    (zmq--set-bytes buf value))
-   ((and value (keywordp type-or-value))
-    (ffi--mem-set buf type-or-value value))
-   (t (signal 'wrong-type-argument
-              (if (null value) (list 'sequencep type-or-value)
-                (list 'keywordp type-or-value))))))
-
 ;;; Utility functions
 
 (eval-and-compile
@@ -364,7 +342,7 @@ using `zmq-error-alist'."
                           ((sequencep data)
                            (if (= (length data) 0) (zmq--msg-init msg)
                              (zmq--msg-init-size msg (length data))
-                             (zmq--set-buf (zmq--msg-data msg) data)))
+                             (zmq--set-bytes (zmq--msg-data msg) data)))
                           ((null data) (zmq--msg-init msg))
                           (t (ffi-free msg)
                              (signal
@@ -392,7 +370,7 @@ DATA is nil, initialize an empty message."
   (let ((ptr (zmq-message--ptr message)))
     (if (null data) (zmq--msg-init ptr)
       (zmq--msg-init-size ptr (length data))
-      (zmq--set-buf (zmq--msg-data ptr) data))))
+      (zmq--set-bytes (zmq--msg-data ptr) data))))
 
 (zmq--ffi-wrapper "msg_recv" :int ((message :message) (sock :socket) (flags :int)))
 (zmq--ffi-wrapper "msg_send" :int ((message :message) (sock :socket) (flags :int)))
@@ -797,17 +775,17 @@ occurred within TIMEOUT."
                              zmq-TCP_MAXRT zmq-TOS
                              zmq-VMCI_CONNECT_TIMEOUT))
         (setq size (ffi--type-size :int))
-        (zmq--set-buf buf :int value))
+        (ffi--mem-set buf :int value))
        ;; UINT64
        ((member option (list zmq-AFFINITY zmq-VMCI_BUFFER_SIZE
                              zmq-VMCI_BUFFER_MAX_SIZE
                              zmq-VMCI_BUFFER_MIN_SIZE))
         (setq size (ffi--type-size :uint64))
-        (zmq--set-buf buf :uint64 value))
+        (ffi--mem-set buf :uint64 value))
        ;; INT64
        ((= option zmq-MAXMSGSIZE)
         (setq size (ffi--type-size :int64))
-        (zmq--set-buf buf :int64 value))
+        (ffi--mem-set buf :int64 value))
        ;; INT with BOOL values
        ((member option (list zmq-CONFLATE zmq-CURVE_SERVER
                              zmq-GSSAPI_PLAINTEXT
@@ -824,7 +802,7 @@ occurred within TIMEOUT."
           (signal 'wrong-type-argument (list 'booleanp value)))
 
         (setq size (ffi--type-size :int))
-        (zmq--set-buf buf :int64 (if value 1 0)))
+        (ffi--mem-set buf :int64 (if value 1 0)))
        ;; STRING
        ((member option (list zmq-GSSAPI_PRINCIPAL
                              zmq-GSSAPI_SERVICE_PRINCIPAL
@@ -837,7 +815,7 @@ occurred within TIMEOUT."
         (setq size (length value))
         (unless (<= size buf-size)
           (error "Length of value too long."))
-        (zmq--set-buf buf value))
+        (zmq--set-bytes buf value))
        ;; BINARY
        ((member option (list zmq-CONNECT_ROUTING_ID
                              zmq-ROUTING_ID zmq-SUBSCRIBE
@@ -850,7 +828,7 @@ occurred within TIMEOUT."
         ;; account for extra null byte added in `zmq--set-bytes'
         (unless (<= size buf-size)
           (error "Length of value too long."))
-        (zmq--set-buf buf value))
+        (zmq--set-bytes buf value))
        ;; CURVE
        ((member option (list zmq-CURVE_PUBLICKEY
                              zmq-CURVE_SECRETKEY
@@ -858,11 +836,11 @@ occurred within TIMEOUT."
         (cond
          ((= (length value) 32)
           (setq size 32)
-          (zmq--set-buf buf value))
+          (zmq--set-bytes buf value))
          ((= (length value) 40)
           (setq size 41)
-          (zmq--set-buf buf value)
-          ;; `zmq--set-buf' doesn't set the NULL byte
+          (zmq--set-bytes buf value)
+          ;; `zmq--set-bytes' doesn't set the NULL byte
           (ffi--mem-set (ffi-pointer+ buf 40) :char 0))
          (t (signal 'args-out-of-range (list 'zmq-CURVE value)))))
        (t (error "Socket option not handled yet.")))
