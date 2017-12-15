@@ -123,33 +123,6 @@ finally closed."
            (progn ,@body)
          (zmq-poller-destroy --poller--)))))
 
-;;; Message functions
-
-(defun zmq-send-multipart (sock parts &optional flags)
-  "Send a multipart message with PARTS on SOCK with FLAGS."
-  (let ((part (zmq-message))
-        (data (car parts)))
-    (unwind-protect
-        (while data
-          (zmq-init-message part data)
-          (zmq-message-set part zmq-MORE (not (null (cdr parts))))
-          (zmq-send-message part sock flags)
-          (setq parts (cdr parts)
-                data (car parts)))
-      (zmq-close-message part))))
-
-(defun zmq-recv-multipart (sock &optional flags)
-  "Receive a multipart message from SOCK."
-  (let ((part (zmq-message)) res)
-    (unwind-protect
-        (catch 'recvd
-          (while t
-            (zmq-init-message part)
-            (zmq-recv-message part sock flags)
-            (setq res (cons (zmq-message-data part) res))
-            (unless (zmq-message-more-p part)
-              (throw 'recvd (nreverse res)))))
-      (zmq-close-message part))))
 
 ;; TODO: Use this somewhere else
 ;; (sock-options (cl-loop

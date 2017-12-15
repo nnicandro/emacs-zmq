@@ -375,6 +375,34 @@ DATA is nil, initialize an empty message."
 (zmq--ffi-wrapper "msg_recv" :int ((message :message) (sock :socket) (flags :int)))
 (zmq--ffi-wrapper "msg_send" :int ((message :message) (sock :socket) (flags :int)))
 
+(defun zmq-send-multipart (sock parts &optional flags)
+  "Send a multipart message with PARTS on SOCK with FLAGS."
+  (setq flags (or flags 0))
+  (let ((part (zmq-message))
+        (data (car parts)))
+    (unwind-protect
+        (while data
+          (zmq-init-message part data)
+          (zmq-send-message part sock (if (not (null (cdr parts)))
+                                          (logior flags zmq-SNDMORE)
+                                        flags))
+          (setq parts (cdr parts)
+                data (car parts)))
+      (zmq-close-message part))))
+
+(defun zmq-recv-multipart (sock &optional flags)
+  "Receive a multipart message from SOCK."
+  (let ((part (zmq-message)) res)
+    (unwind-protect
+        (catch 'recvd
+          (while t
+            (zmq-init-message part)
+            (zmq-recv-message part sock flags)
+            (setq res (cons (zmq-message-data part) res))
+            (unless (zmq-message-more-p part)
+              (throw 'recvd (nreverse res)))))
+      (zmq-close-message part))))
+
 (defun zmq-recv-message (message sock &optional flags)
   "Receive a MESSAGE from SOCK with additional FLAGS.
 
