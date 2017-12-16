@@ -89,45 +89,48 @@ would be to call (read-minibuffer \"\")."
         (process-put process :pending-output ""))
       (insert output)
       (goto-char last-valid)
-      (while (setq sexp (condition-case err
+      (while (setq sexp (condition-case nil
                             (read (current-buffer))
                           (end-of-file
                            (progn (setq accum (nreverse accum))
-                                  nil))))
+                                  nil))
+                          (invalid-read-syntax
+                           (signal 'error (format
+                                           "Invalid content: %s"
+                                           (buffer-substring (point)
+                                                             (point-max)))))))
         (setq last-valid (point))
-        ;; Ignore printed text that may appear.
+        ;; Ignore raw text which gets converted to symbols
         (unless (symbolp sexp)
           (setq accum (cons sexp accum))))
       (process-put process :pending-output (buffer-substring
                                             last-valid (point-max)))
       accum)))
 
-(defun zmq-subprocess-run-callbacks (process sock)
-  ;; Note the events are read from the corresponding socket of FD using the
-  ;; zmq-EVENTS option of fd's socket. See ZMQ_EVENTS:
-  ;; http://api.zeromq.org/4-2:zmq-getsockopt
-  (let ((sock-events (zmq-socket-get sock zmq-EVENTS))
-        (on-recv (process-get process :on-recv))
-        (on-send (process-get process :on-send)))
-    (when (and on-recv (/= (logand zmq-POLLIN sock-events) 0))
-      (funcall on-recv (zmq-recv-multipart sock)))
-    (when (and on-send (/= (logand zmq-POLLOUT sock-events) 0))
-      (funcall on-send (aref (zmq-socket-send-queue sock) 0)))))
+(defun zmq-subprocess-sentinel (process event)
+  (cond
+   ;; TODO: Handle other events
+   ((or (string= event "finished\n")
+        (string-prefix-p "exited" event)
+        (string-prefix-p "killed" event))
+    (with-current-buffer (process-buffer process)
+      (when (and (buffer-live-p (current-buffer))
+                 (or (not (buffer-modified-p))
+                     (= (point-min) (point-max))))
+        (kill-buffer))))))
+
+(define-error 'zmq-subprocess-error "Error in subprocess.")
 
 (defun zmq-subprocess-filter (process output)
-  (cl-loop
-   for (event . contents) in (zmq-subprocess-read process output) do
-   (cl-case event
-     (eval
-      (cond
-       ((equal contents "START") (process-put process :eval t))
-       ((equal contents "STOP") (process-put process :eval nil))))
-     (io
-      (let* ((fd contents)
-             (sock (cl-find-if (lambda (s) (= (zmq-socket-get s zmq-FD) fd))
-                               (process-get process :io-sockets))))
-        (zmq-subprocess-run-callbacks process sock)))
-     (port (process-put process :port contents)))))
+  (let ((filter (process-get process :filter)))
+    (when filter
+      (let ((stream (zmq-subprocess-read-output process output)))
+        (cl-loop
+         for event in stream
+         if (and (listp event) (eq (car event) 'error)) do
+         ;; TODO: Better way to handle this
+         (signal 'zmq-subprocess-error (cdr event))
+         and return nil else do (funcall filter event))))))
 
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
