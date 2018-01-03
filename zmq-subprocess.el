@@ -115,9 +115,9 @@ they are ignored."
                    :name "zmq"
                    :buffer (generate-new-buffer " *zmq*")
                    :connection-type 'pipe
-                   :sentinel #'zmq-subprocess-sentinel
-                   :filter #'zmq-subprocess-filter
                    :coding-system 'no-conversion
+                   :filter #'zmq-subprocess-filter
+                   :sentinel sentinel
                    :command (list
                              (file-truename
                               (expand-file-name invocation-name
@@ -127,6 +127,7 @@ they are ignored."
                              "-L" (file-name-directory (locate-library "zmq"))
                              "-l" (locate-library "zmq")
                              "-f" "zmq-init-subprocess"))))
+    (process-put process :filter event-filter)
     (zmq-subprocess-send process (macroexpand-all sexp))
     process))
 
