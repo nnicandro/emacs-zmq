@@ -31,10 +31,8 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
 
 (defun zmq-subprocess-read-output (process output)
   "Return a list of cons cells obtained from PROCESS' output.
-If the output has any text interlaced with cons cells, the text
-is ignored. This may happen for example, when calling `read'. The
-right way to read from the parent process from a zmq subprocess
-would be to call (read-minibuffer \"\")."
+If the output has any text or symbols interlaced with cons cells,
+they are ignored."
   (with-temp-buffer
     (let ((pending (process-get process :pending-output))
           (last-valid (point))
