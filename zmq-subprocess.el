@@ -3,23 +3,6 @@
 ;;; Subprocceses
 ;; TODO: Use `process-put' and `process-get' to control `zmq' subprocesses.
 
-(defun zmq-subprocess-validate-sexp (sexp)
-  "Validate an sexp that will be sent to a subprocess."
-  (cond
-   ((functionp sexp)
-    (when (or (not (listp sexp))
-              (eq (car sexp) 'function))
-      (setq sexp (symbol-function sexp))))
-   (t (error "Can only send functions to processes.")))
-  (unless (member (length (cadr sexp)) '(0 1))
-    (error "Invalid function to send to process, can only have 0 or 1 arguments.")))
-
-(defun zmq-subprocess-start-function (fun &optional wrap-context &rest args)
-  (if wrap-context
-      (with-zmq-context
-        (apply fun (current-zmq-context) args))
-    (apply fun args)))
-
 (defun zmq-flush (stream)
   "Flush STREAM.
 
@@ -34,45 +17,19 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
 
 (defun zmq-init-subprocess ()
   (if (not noninteractive) (error "Not a subprocess.")
-    (condition-case err
-        (let ((coding-system-for-write 'utf-8-unix)
-              (cmd (read (decode-coding-string
-                          (base64-decode-string
-                           (read-minibuffer ""))
-                          'utf-8-unix))))
-          (cl-case (car cmd)
-            (eval (let ((sexp (cdr cmd)))
-                    (zmq-prin1 '(eval . "START"))
-                    (setq sexp (eval sexp))
-                    (zmq-subprocess-start-function
-                     sexp (= (length (cadr sexp)) 1))
-                    (zmq-prin1 '(eval . "STOP"))))
-            (stop (prin1 '(stop))
-                  (signal 'quit '(zmq-subprocess)))))
-      (error (prin1 (cons 'error err))))))
+    (let* ((debug-on-event nil)
+           (debug-on-error nil)
+           (coding-system-for-write 'utf-8-unix)
+           (sexp (eval (zmq-subprocess-read)))
+           (wrap-context (= (length (cadr sexp)) 1)))
+      ;; TODO: Make this optional
+      (setq sexp (byte-compile sexp))
+      (if wrap-context
+          (with-zmq-context
+            (funcall sexp (current-zmq-context)))
+        (funcall sexp)))))
 
-(defun zmq-subprocess-sentinel (process event)
-  (cond
-   ;; TODO: Handle other events
-   ((or (string= event "finished\n")
-        (string-prefix-p "exited" event)
-        (string-prefix-p "killed" event))
-    (with-current-buffer (process-buffer process)
-      (when (or (not (buffer-modified-p))
-                (= (point-min) (point-max)))
-        (kill-buffer (process-buffer process)))))))
-
-(defun zmq-subprocess-echo-output (process output)
-  (when (buffer-live-p (process-buffer process))
-    (with-current-buffer (process-buffer process)
-      (let ((moving (= (point) (process-mark process))))
-        (save-excursion
-          (goto-char (process-mark process))
-          (insert output)
-          (set-marker (process-mark process) (point)))
-        (if moving (goto-char (process-mark process)))))))
-
-(defun zmq-subprocess-read (process output)
+(defun zmq-subprocess-read-output (process output)
   "Return a list of cons cells obtained from PROCESS' output.
 If the output has any text interlaced with cons cells, the text
 is ignored. This may happen for example, when calling `read'. The
@@ -146,9 +103,16 @@ would be to call (read-minibuffer \"\")."
       (goto-char (point-max)) (insert ?\" ?\n)
       (process-send-region process (point-min) (point-max)))))
 
-(defun zmq-start-process (sexp)
-  (setq sexp (macroexpand-all sexp))
-  (zmq-subprocess-validate-sexp sexp)
+(defun zmq-start-process (sexp &optional event-filter sentinel)
+  ;; TODO: Mention that closures are not supported
+  ;; Validate the sexp, it should be a function which takes 0 or 1 args.
+  (cond
+   ((functionp sexp)
+    (unless (listp sexp)
+      (setq sexp (symbol-function sexp))))
+   (t (error "Can only send functions to processes.")))
+  (unless (member (length (cadr sexp)) '(0 1))
+    (error "Invalid function to send to process, can only have 0 or 1 arguments."))
   (let* ((process-connection-type nil)
          (process (make-process
                    :name "zmq"
