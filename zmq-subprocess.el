@@ -35,15 +35,12 @@ If the output has any text or symbols interlaced with cons cells,
 they are ignored."
   (with-temp-buffer
     (let ((pending (process-get process :pending-output))
-          (last-valid (point))
-          (sexp nil)
-          (accum nil))
+          last-valid sexp accum)
       (when (> (length pending) 0)
-        (goto-char (point-min))
         (insert pending)
         (process-put process :pending-output ""))
       (insert output)
-      (goto-char last-valid)
+      (goto-char (point-min))
       (while (setq sexp (condition-case nil
                             (read (current-buffer))
                           (end-of-file
@@ -58,8 +55,10 @@ they are ignored."
         ;; Ignore raw text which gets converted to symbols
         (unless (symbolp sexp)
           (setq accum (cons sexp accum))))
-      (process-put process :pending-output (buffer-substring
-                                            last-valid (point-max)))
+      (process-put
+       process :pending-output (buffer-substring
+                                (or last-valid (point-min))
+                                (point-max)))
       accum)))
 
 (defun zmq-subprocess-sentinel (process event)
