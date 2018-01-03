@@ -127,7 +127,7 @@ they are ignored."
                              "-L" (file-name-directory (locate-library "zmq"))
                              "-l" (locate-library "zmq")
                              "-f" "zmq-init-subprocess"))))
-    (zmq-subprocess-send process (cons 'eval sexp))
+    (zmq-subprocess-send process (macroexpand-all sexp))
     process))
 
 ;;; Streams
