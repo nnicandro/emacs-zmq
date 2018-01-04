@@ -1,5 +1,4 @@
-(require 'zmq-ffi)
-(eval-when-compile (require 'cl))
+(require 'zmq)
 
 (define-error 'zmq-subprocess-error "Error in ZMQ subprocess")
 
