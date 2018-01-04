@@ -100,6 +100,14 @@ they are ignored."
       (goto-char (point-max)) (insert ?\" ?\n)
       (process-send-region process (point-min) (point-max)))))
 
+(defun zmq-subprocess-read ()
+  "Read a single s-expression from STDIN.
+Note this is only meant to be called from an emacs subprocess."
+  (if (not noninteractive) (error "Not in a subprocess.")
+    (read (decode-coding-string
+           (base64-decode-string (read-minibuffer ""))
+           'utf-8-unix))))
+
 (defun zmq-start-process (sexp &optional event-filter sentinel)
   ;; TODO: Mention that closures are not supported
   ;; Validate the sexp, it should be a function which takes 0 or 1 args.
