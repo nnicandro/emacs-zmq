@@ -958,35 +958,6 @@ occurred within TIMEOUT."
         (ffi-get-c-string buf))
        (t (error "Socket option not handled yet."))))))
 
-;;; Setting/Getting options from contexts, sockets, messages
-
-(defun zmq--set-get-option (set object option &optional value)
-  (let ((fun (cond
-              ((zmq-socket-p object)
-               (if set #'zmq-socket-set #'zmq-socket-get))
-              ((zmq-context-p object)
-               (if set #'zmq-context-set #'zmq-context-get))
-              ((zmq-message-p object)
-               (if set #'zmq-message-set #'zmq-message-get))
-              (t (signal 'wrong-type-argument
-                         (list
-                          '(zmq-socket-p zmq-context-p zmq-message-p)
-                          object))))))
-    (if set (funcall fun object option value)
-      (funcall fun object option))))
-
-(defun zmq-set-option (object option value)
-  "Set an OPTION of OBJECT to VALUE.
-
-OBJECT can be a `zmq-socket', `zmq-context', or a `zmq-message'."
-  (zmq--set-get-option 'set object option value))
-
-(defun zmq-get-option (object option)
-  "Get an OPTION of OBJECT.
-
-OBJECT can be a `zmq-socket', `zmq-context', or a `zmq-message'."
-  (zmq--set-get-option nil object option))
-
 (provide 'zmq-ffi)
 
 ;; Local Variables:
