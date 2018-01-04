@@ -462,11 +462,12 @@ PROPERTY is a keyword and can only be one of those in
 `zmq-message-properties'."
   (let ((prop (cdr (assoc property zmq-message-properties))))
     (unless prop
-      (signal 'args-out-of-range (list (mapcar #'car zmq-message-properties) prop)))
-    (with-ffi-string (prop (encode-coding-string prop 'utf-8))
-      (decode-coding-string
-       (ffi-get-c-string (zmq--msg-gets message prop))
-       'utf-8))))
+      (signal 'args-out-of-range
+              (list (mapcar #'car zmq-message-properties) prop)))
+    (decode-coding-string
+     (ffi-get-c-string (zmq--msg-gets
+                        message (encode-coding-string prop 'utf-8)))
+     'utf-8)))
 
 (defalias 'zmq-message-id 'zmq--msg-routing-id
   "Get the routing ID of MESSAGE.")
