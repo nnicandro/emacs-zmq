@@ -1,6 +1,5 @@
-(require 'cl-lib)
-
 (eval-and-compile
+  (require 'cl-lib)
   ;; Have these available at compile time to generate error codes during
   ;; compilation.
   (require 'zmq-constants)
