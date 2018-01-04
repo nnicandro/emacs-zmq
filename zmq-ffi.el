@@ -272,13 +272,11 @@ using `zmq-error-alist'."
         (= value 1)
       value)))
 
-(defun zmq-terminate-context (context)
-  "Terminate CONTEXT."
-  (zmq--ctx-term context))
+(defalias 'zmq-terminate-context #'zmq--ctx-term
+  "Terminate CONTEXT.")
 
-(defun zmq-shutdown-context (context)
-  "Shutdown CONTEXT."
-  (zmq--ctx-shutdown context))
+(defalias 'zmq-shutdown-context #'zmq--ctx-shutdown
+  "Shutdown CONTEXT.")
 
 ;;; Encryption
 
