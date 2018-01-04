@@ -94,12 +94,12 @@ be passed to the ffi function."
        finally return (cons string-bindings arg-checkers)))))
 
 (defmacro zmq--ffi-wrapper (c-name return-type arg-types &optional noerror)
-  "Generate a FFI for a ZMQ function and wrap it with error handling.
+  "Generate an FFI for a ZMQ function and wrap it with error handling.
 C-NAME is the C function name as a string and without the zmq_
 prefix. RETURN-TYPE is the return type as expected by
 `define-ffi-function'. ARG-TYPES can either be a vector of types,
-also in the sense of `define-ffi-function', or it can be a list of
-lists
+also in the sense of `define-ffi-function', or it can be a list
+of lists
 
     ((arg1 :type1) (arg2 :type2) ...)
 
@@ -127,17 +127,17 @@ replaced with '-'."
          (wrapped-name (intern (concat "zmq--" fname)))
          (args (if (listp arg-types)
                    ;; When list, assume it is of the form ((arg1 :type1) ...),
-                   ;; collect the argument names and set arg-types to a vector.
+                   ;; collect the argument names and set ARG-TYPES to a vector.
                    (cl-loop
                     for (name type) in arg-types
                     collect name and collect type into types
                     finally do (setq arg-types (apply #'vector types)))
-                 ;; Otherwise assume arg-types is already a vector and collect
+                 ;; Otherwise assume ARG-TYPES is already a vector and collect
                  ;; generated argument names.
                  (cl-loop repeat (length arg-types)
                           collect (cl-gensym))))
          (body `(let ((ret (,ffi-name ,@args)))
-                  ;; Depending on the return-type, check if an error is
+                  ;; Depending on the RETURN-TYPE, check if an error is
                   ;; set.
                   (if ,(cl-case return-type
                          (:pointer '(ffi-pointer-null-p ret))
@@ -340,14 +340,15 @@ using `zmq-error-alist'."
                  (-ptr (let ((msg (ffi-allocate zmq--msg-t)))
                          (cond
                           ((sequencep data)
+                           ;; NOTE (sequencep nil) evaluates to t. Also nil and
+                           ;; () are equivalent, but nil and [] are not.
                            (if (= (length data) 0) (zmq--msg-init msg)
                              (zmq--msg-init-size msg (length data))
                              (zmq--set-bytes (zmq--msg-data msg) data)))
-                          ((null data) (zmq--msg-init msg))
                           (t (ffi-free msg)
                              (signal
                               'wrong-type-argument
-                              (list (format "Can't initialize message with %s"
+                              (list (format "Can't initialize message with data (%s)"
                                             data)))))
                          msg)))))
   (-ptr nil :read-only t))
@@ -532,21 +533,26 @@ PROPERTY is a keyword and can only be one of those in
     (let ((size (ffi--type-size zmq--pollitem-t))
           (found 0))
       (with-ffi-temporary (head (* (length items) size))
-        ;; Construct zmq-pollitem-t objects
+        ;; Construct zmq--pollitem-t objects
         (cl-loop
          with pointer = head
          for item in items do
+         ;; socket
          (setf (zmq--pollitem-t-socket pointer)
                (if (zmq-pollitem-socket item)
                    (zmq-socket--ptr (zmq-pollitem-socket item))
                  (ffi-null-pointer)))
+         ;; fd
          (setf (zmq--pollitem-t-fd pointer)
                (zmq-pollitem-fd item))
+         ;; events
          (setf (zmq--pollitem-t-events pointer)
                (let ((events (zmq-pollitem-events item)))
                  (if (listp events) (apply #'logior events)
                    events)))
+         ;; revents
          (setf (zmq--pollitem-t-revents pointer) 0)
+         ;; increment pointer
          (setq pointer (ffi-pointer+ pointer size)))
         (setq found (zmq--poll head (length items) timeout))
         (when (> found 0)
@@ -648,10 +654,12 @@ arguments USER-DATA is currently ignored."
           (zmq--poller-event-t-fd event))))
 
   (defun zmq-poller-wait (poller timeout)
-    "Poll for an event with POLLER until TIMEOUT.
+    "Poll for an event with POLLER until TIMEOUT ms.
 
-If an event occured within TIMEOUT, return the `zmq-poller-event'
-representing the event. Otherwise return nil."
+If an event occures before TIMEOUT ms, return a cons
+cell (SOCK-OR-FD . EVENTS) where EVENTS is a list of events which
+occured before TIMEOUT. Otherwise return nil. If TIMEOUT is -1,
+wait forever."
     (with-ffi-temporaries ((e zmq--poller-event-t))
       (condition-case err
           (when (>= (zmq--poller-wait poller e timeout) 0)
@@ -661,12 +669,15 @@ representing the event. Otherwise return nil."
         (error (signal (car err) (cdr err))))))
 
   (defun zmq-poller-wait-all (poller nevents timeout)
-    "Wait for NEVENTS events using POLLER and until TIMEOUT.
+    "Wait until TIMEOUT for NEVENTS on POLLER.
 
-If events occured within TIMEOUT, return a list of
-`zmq-poller-event' objects for those events. Note that the length
-of this list may be less than NEVENTS if less that NEVENTS events
-occurred within TIMEOUT."
+If between 1 and NEVENTS events occured within TIMEOUT (measured
+in milliseconds) return a list of cons cells, each element having
+the form (SOCK-OR-FD . EVENTS). EVENTS is a list of events which
+occured on SOCK-OR-FD during the polling period. Note that the
+length of the returned list may be less than NEVENTS if less than
+NEVENTS events occurred within TIMEOUT. If TIMEOUT is -1, wait
+forever."
     (let ((size (ffi--type-size zmq--poller-event-t)))
       (with-ffi-temporaries ((es (* size nevents)))
         (condition-case err
@@ -716,7 +727,8 @@ occurred within TIMEOUT."
 
 (zmq--ffi-wrapper "send_const" :int ((sock :socket) (buf :pointer) (len :size_t) (flags :int)))
 (zmq--ffi-wrapper "send" :int ((sock :socket) (message :string) (len :size_t) (flags :int)))
-;; NOTE: `zmq-recv' actually uses `zmq-recv-message'
+;; NOTE: `zmq-recv' actually uses `zmq-recv-message' to let zmq handle any
+;; buffers needed to receive a message.
 (zmq--ffi-wrapper "recv" :int ((sock :socket) (buf :pointer) (len :size_t) (flags :int)))
 
 (defun zmq-send-const (sock buf len &optional flags)
@@ -839,7 +851,6 @@ occurred within TIMEOUT."
           (signal 'wrong-type-argument (list '(not multibyte-string-p) value)))
 
         (setq size (length value))
-        ;; account for extra null byte added in `zmq--set-bytes'
         (unless (<= size buf-size)
           (error "Length of value too long."))
         (zmq--set-bytes buf value))
