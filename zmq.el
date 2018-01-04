@@ -67,8 +67,7 @@ created context."
         (zmq-context-get zmq-current-context zmq-BLOCKY)
       (zmq-EFAULT (setq zmq-current-context nil))))
   (or zmq-current-context
-      ;; TODO: Better error
-      (signal 'zmq-ERROR '("No context available."))))
+      (setq zmq-current-context (zmq-context))))
 
 (defmacro with-zmq-socket (sock type &optional options &rest body)
   "Run BODY with a new socket, SOCK, with type, TYPE.
@@ -90,10 +89,7 @@ Note that the `current-zmq-context' is used to instantiate SOCK."
            ;; Otherwise options must be part of body
            (setq body (cons options body))
            nil)))
-    `(let* ((--ctx-- (current-zmq-context))
-            (,sock (if --ctx-- (zmq-socket --ctx-- ,type)
-                     ;; TODO: Better errors.
-                     (signal 'zmq-ERROR '("No `current-zmq-context'.")))))
+    `(let ((,sock (zmq-socket (current-zmq-context) ,type)))
        (unwind-protect
            (progn
              ,@sock-options
