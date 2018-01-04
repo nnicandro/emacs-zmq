@@ -1,4 +1,7 @@
 (require 'zmq-ffi)
+(eval-when-compile (require 'cl))
+
+(define-error 'zmq-subprocess-error "Error in ZMQ subprocess")
 
 ;;; Subprocceses
 ;; TODO: Use `process-put' and `process-get' to control `zmq' subprocesses.
@@ -72,8 +75,6 @@ they are ignored."
                  (or (not (buffer-modified-p))
                      (= (point-min) (point-max))))
         (kill-buffer))))))
-
-(define-error 'zmq-subprocess-error "Error in subprocess.")
 
 (defun zmq-subprocess-filter (process output)
   (let ((filter (process-get process :filter)))
