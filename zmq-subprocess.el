@@ -1,13 +1,11 @@
-(require 'zmq)
+;; TODO: Fix require's. `with-zmq-context' is required but `zmq-suprocess' is
+;; required in `zmq'
+(require 'zmq-ffi)
 
 (define-error 'zmq-subprocess-error "Error in ZMQ subprocess")
 
-;;; Subprocceses
-;; TODO: Use `process-put' and `process-get' to control `zmq' subprocesses.
-
 (defun zmq-flush (stream)
   "Flush STREAM.
-
 STREAM can be one of `stdout', `stdin', or `stderr'."
   (set-binary-mode stream t)
   (set-binary-mode stream nil))
@@ -24,7 +22,6 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
            (coding-system-for-write 'utf-8-unix)
            (sexp (eval (zmq-subprocess-read)))
            (wrap-context (= (length (cadr sexp)) 1)))
-      ;; TODO: Make this optional
       (setq sexp (byte-compile sexp))
       (if wrap-context
           (with-zmq-context
@@ -52,7 +49,7 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
                                            (buffer-substring (point)
                                                              (point-max)))))))
         (setq last-valid (point))
-        ;; Ignore raw text which gets converted to symbols
+        ;; FIXME: Ignore raw text which gets converted to symbols
         (unless (symbolp sexp)
           (setq accum (cons sexp accum))))
       (process-put
@@ -104,6 +101,7 @@ Note this is only meant to be called from an emacs subprocess."
    (t (error "Can only send functions to processes.")))
   (unless (member (length (cadr sexp)) '(0 1))
     (error "Invalid function to send to process, can only have 0 or 1 arguments."))
+  ;; Create the subprocess
   (let* ((process-connection-type nil)
          (process (make-process
                    :name "zmq"

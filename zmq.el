@@ -114,11 +114,8 @@ finally closed."
            (progn ,@body)
          (zmq-poller-destroy --poller--)))))
 
+;;; Socket functions
 
-;; TODO: Use this somewhere else
-;; (sock-options (cl-loop
-;;                for (option value) in options
-;;                collect `(zmq-setsockopt sock ,option ,value)))
 (defun zmq--bind-connect-endpoint (bind sock-type endpoint fun)
   (let ((conn-fun (if bind 'zmq-bind 'zmq-connect)))
     `(lambda (ctx)
@@ -139,8 +136,6 @@ FUN."
   (declare (indent 2))
   (zmq-start-process
    (zmq--bind-connect-endpoint 'bind sock-type endpoint fun)))
-
-;;; Socket functions
 
 (defun zmq-bind-to-random-port (sock addr &optional min-port max-port max-tries)
   "Bind SOCK to ADDR on a random port.
@@ -185,7 +180,7 @@ port that was bound is returned, otherwise nil is returned."
   (setq coding-system (or coding-system 'utf-8))
   (decode-coding-string (zmq-get-option sock option) coding-system))
 
-;;; Receiving multipart messages
+;;; Sending/receiving multipart messages
 
 (defun zmq-send-multipart (sock parts &optional flags)
   "Send a multipart message with PARTS on SOCK with FLAGS."

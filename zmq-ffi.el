@@ -31,7 +31,14 @@
 
 ;;; FFI wrapper
 
+;; TODO: Use something like
+;;
+;;     cpp -dM -E zmq.h 2> /dev/null
+;;
+;; To extract the constants and errors from the zmq.h header file
+
 (eval-and-compile
+  ;; FIXME: Currently a hack to get the available errors.
   (defconst zmq--gen-error-codes-command
     "python -c \"
 import errno
@@ -538,6 +545,7 @@ PROPERTY is a keyword and can only be one of those in
   ;; See `zmq-poller' type
   (zmq--ffi-wrapper "poller_new" :pointer ())
   (zmq--ffi-wrapper "poller_destroy" :int ((pollerp :pointer)))
+
   (defun zmq-poller-destroy (poller)
     "Destroy a POLLER."
     (let ((ptr (zmq-poller--ptr poller)))
