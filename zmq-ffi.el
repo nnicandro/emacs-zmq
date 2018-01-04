@@ -260,7 +260,7 @@ using `zmq-error-alist'."
   (-ptr nil :read-only t))
 
 ;; See the `zmq-context' type
-(zmq--ffi-wrapper "ctx_new" :pointer [] noerror)
+(zmq--ffi-wrapper "ctx_new" :pointer () noerror)
 (zmq--ffi-wrapper "ctx_set" :int ((context :context) (option :int) (value :int)))
 (zmq--ffi-wrapper "ctx_get" :int ((context :context) (option :int)))
 (zmq--ffi-wrapper "ctx_term" :int ((context :context)))
@@ -564,8 +564,7 @@ PROPERTY is a keyword and can only be one of those in
 (when (zmq-has "draft")
   ;; TODO: Handle windows machines
   ;; See `zmq-poller' type
-  (zmq--ffi-wrapper "poller_new" :pointer [])
-
+  (zmq--ffi-wrapper "poller_new" :pointer ())
   (zmq--ffi-wrapper "poller_destroy" :int ((pollerp :pointer)))
   (defun zmq-poller-destroy (poller)
     "Destroy a POLLER."
