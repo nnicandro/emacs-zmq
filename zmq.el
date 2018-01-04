@@ -37,6 +37,9 @@
   "The first `zmq-context' created in this emacs session.")
 
 (defmacro with-zmq-context (&rest body)
+  "Wrap BODY with a new `zmq-context' that is terminated when BODY completes.
+This is mainly meant to be used in subprocesses. If not in a
+subprocess use `current-zmq-context'."
   (declare (indent 0) (debug (symbolp &rest form)))
   ;; use --ctx-- just in case any shenanigans happen with `zmq-current-context'
   ;; while running body.
@@ -53,6 +56,11 @@
                 (error (signal (car err) (cdr err))))))))
 
 (defun current-zmq-context ()
+  "Return the current `zmq-context'.
+Return the value of `zmq-current-context'. When there is no
+current `zmq-context' (`zmq-current-context' is nil) create a new
+one, set it as the `zmq-current-context', and return the newly
+created context."
   (when zmq-current-context
     (condition-case nil
         ;; Try to get an option to see if the context is still valid
@@ -63,12 +71,11 @@
       (signal 'zmq-ERROR '("No context available."))))
 
 (defmacro with-zmq-socket (sock type &optional options &rest body)
-  "Run BODY with a new socket, SOCK, that has type, TYPE.
+  "Run BODY with a new socket, SOCK, with type, TYPE.
+If OPTIONS is non-nil it is a list of socket options (in the same
+form as `let') which will be set on SOCK before running BODY.
 
-The context, CTX, is used to instantiate the socket. Any socket
-OPTIONS will be set before running BODY. After BODY has run, the
-LINGER option of the socket is set to 0 before the socket is
-finally closed."
+Note that the `current-zmq-context' is used to instantiate SOCK."
   (declare (debug (symbolp form &optional form &rest form))
            (indent zmq--indent-3))
   (let ((sock-options

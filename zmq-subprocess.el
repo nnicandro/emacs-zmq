@@ -71,6 +71,11 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
 
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
+  "Send SEXP to PROCESS.
+This function is meant to be used in combination with
+`zmq-subprocess-read'. PROCESS should be an emacs subprocess and
+will decode this SEXP using `zmq-subprocess-read' when reading
+from STDIN."
   (declare (indent 1))
   (let ((print-circle t)
         (print-escape-nonascii t)
