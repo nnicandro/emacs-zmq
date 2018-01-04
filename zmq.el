@@ -2,10 +2,6 @@
 (require 'zmq-subprocess)
 (require 'cl-lib)
 
-(defvar zmq-current-context nil
-  "Dynamically bound to the current context in `with-zmq-context'.
-Accessed this variable through `current-zmq-context'.")
-;;
 (defun zmq--indent (nspecial pos state)
   (let ((here (point))
         (nargs 0)
@@ -36,6 +32,9 @@ Accessed this variable through `current-zmq-context'.")
 
 (defun zmq--indent-4 (pos state)
   (zmq--indent 4 pos state))
+
+(defvar zmq-current-context nil
+  "The first `zmq-context' created in this emacs session.")
 
 (defmacro with-zmq-context (&rest body)
   (declare (indent 0) (debug (symbolp &rest form)))
