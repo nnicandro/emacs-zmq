@@ -105,7 +105,7 @@ Note this is only meant to be called from an emacs subprocess."
   (let* ((process-connection-type nil)
          (process (make-process
                    :name "zmq"
-                   :buffer (generate-new-buffer " *zmq*")
+                   :buffer nil
                    :connection-type 'pipe
                    :coding-system 'no-conversion
                    :filter #'zmq--subprocess-filter
