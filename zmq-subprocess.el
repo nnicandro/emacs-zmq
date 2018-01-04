@@ -17,7 +17,7 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
   (prin1 sexp)
   (zmq-flush 'stdout))
 
-(defun zmq-init-subprocess ()
+(defun zmq--init-subprocess ()
   (if (not noninteractive) (error "Not a subprocess.")
     (let* ((debug-on-event nil)
            (debug-on-error nil)
@@ -31,10 +31,8 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
             (funcall sexp (current-zmq-context)))
         (funcall sexp)))))
 
-(defun zmq-subprocess-read-output (process output)
-  "Return a list of cons cells obtained from PROCESS' output.
-If the output has any text or symbols interlaced with cons cells,
-they are ignored."
+(defun zmq--subprocess-read-output (process output)
+  "Return a list of s-expressions read from PROCESS' OUTPUT."
   (with-temp-buffer
     (let ((pending (process-get process :pending-output))
           last-valid sexp accum)
@@ -63,10 +61,10 @@ they are ignored."
                                 (point-max)))
       accum)))
 
-(defun zmq-subprocess-filter (process output)
+(defun zmq--subprocess-filter (process output)
   (let ((filter (process-get process :filter)))
     (when filter
-      (let ((stream (zmq-subprocess-read-output process output)))
+      (let ((stream (zmq--subprocess-read-output process output)))
         (cl-loop
          for event in stream
          if (and (listp event) (eq (car event) 'error)) do
@@ -112,7 +110,7 @@ Note this is only meant to be called from an emacs subprocess."
                    :buffer (generate-new-buffer " *zmq*")
                    :connection-type 'pipe
                    :coding-system 'no-conversion
-                   :filter #'zmq-subprocess-filter
+                   :filter #'zmq--subprocess-filter
                    :sentinel sentinel
                    :command (list
                              (file-truename
@@ -122,7 +120,7 @@ Note this is only meant to be called from an emacs subprocess."
                              "-L" (file-name-directory (locate-library "ffi"))
                              "-L" (file-name-directory (locate-library "zmq"))
                              "-l" (locate-library "zmq")
-                             "-f" "zmq-init-subprocess"))))
+                             "-f" "zmq--init-subprocess"))))
     (process-put process :filter event-filter)
     (zmq-subprocess-send process (macroexpand-all sexp))
     process))
