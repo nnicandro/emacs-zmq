@@ -63,18 +63,6 @@ they are ignored."
                                 (point-max)))
       accum)))
 
-(defun zmq-subprocess-sentinel (process event)
-  (cond
-   ;; TODO: Handle other events
-   ((or (string= event "finished\n")
-        (string-prefix-p "exited" event)
-        (string-prefix-p "killed" event))
-    (with-current-buffer (process-buffer process)
-      (when (and (buffer-live-p (current-buffer))
-                 (or (not (buffer-modified-p))
-                     (= (point-min) (point-max))))
-        (kill-buffer))))))
-
 (defun zmq-subprocess-filter (process output)
   (let ((filter (process-get process :filter)))
     (when filter
