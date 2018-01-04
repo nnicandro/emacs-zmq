@@ -139,28 +139,25 @@ replaced with '-'."
          (body `(let ((ret (,ffi-name ,@args)))
                   ;; Depending on the RETURN-TYPE, check if an error is
                   ;; set.
-                  (if ,(cl-case return-type
-                         (:pointer '(ffi-pointer-null-p ret))
-                         (:int '(= ret -1))
-                         ;; Just return without checking for errors
-                         (t nil))
-                      ,(if noerror 'nil '(zmq-error-handler))
-                    ret)))
-         bindings-checkers
-         string-bindings
-         arg-checkers)
-    (setq bindings-checkers (zmq--ffi-normalize-arg-types args arg-types)
-          string-bindings (car bindings-checkers)
-          arg-checkers (cdr bindings-checkers))
-    `(progn
-       (define-ffi-function ,ffi-name ,c-name ,return-type ,arg-types libzmq)
-       (defun ,wrapped-name ,args
-         ,@(when arg-checkers
-             arg-checkers)
-         ,(if string-bindings
-              `(with-ffi-strings ,string-bindings
-                 ,body)
-            body)))))
+                  ,(unless noerror
+                     `(when ,(cl-case return-type
+                               (:pointer '(ffi-pointer-null-p ret))
+                               (:int '(= ret -1))
+                               ;; Just return without checking for errors
+                               (t nil))
+                        (zmq-error-handler)))
+                  ret)))
+    (cl-destructuring-bind (string-bindings . arg-unwrappers)
+        (zmq--ffi-normalize-arg-types args arg-types)
+      `(progn
+         (define-ffi-function ,ffi-name ,c-name ,return-type ,arg-types libzmq)
+         (defun ,wrapped-name ,args
+           ,@(when arg-unwrappers
+               arg-unwrappers)
+           ,(if string-bindings
+                `(with-ffi-strings ,string-bindings
+                   ,body)
+              body))))))
 
 ;; TODO: Create proper elisp type errors for example:
 ;;
