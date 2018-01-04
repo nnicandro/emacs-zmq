@@ -417,9 +417,8 @@ MESSAGE should be an initialized message."
 (zmq--ffi-wrapper "msg_copy" :int ((dest :message) (src :message)))
 (zmq--ffi-wrapper "msg_close" :int ((message :message)))
 
-(defun zmq-move-message (dest src)
-  "Move a message from SRC to DEST."
-  (zmq--msg-move dest src))
+(defalias 'zmq-move-message 'zmq--msg-move
+  "Move a message from SRC to DEST.")
 
 (defun zmq-copy-message (message)
   "Copy MESSAGE."
@@ -448,9 +447,8 @@ MESSAGE should be an initialized message."
     (when data
       (zmq--get-bytes data (zmq--msg-size message)))))
 
-(defun zmq-message-size (message)
-  "Get the size of MESSAGE."
-  (zmq--msg-size message))
+(defalias 'zmq-message-size 'zmq--msg-size
+  "Get the size of MESSAGE.")
 
 (defun zmq-message-more-p (message)
   "Does MESSAGE have more parts?"
@@ -497,13 +495,11 @@ PROPERTY is a keyword and can only be one of those in
        (ffi-get-c-string (zmq--msg-gets message prop))
        'utf-8))))
 
-(defun zmq-message-id (message)
-  "Get the routing ID of MESSAGE."
-  (zmq--msg-routing-id message))
+(defalias 'zmq-message-id 'zmq--msg-routing-id
+  "Get the routing ID of MESSAGE.")
 
-(defun zmq-message-set-id (message id)
-  "Set the routing ID of MESSAGE."
-  (zmq--msg-set-routing-id message id))
+(defalias 'zmq-message-set-id 'zmq--msg-set-routing-id
+  "Set the routing ID of MESSAGE.")
 
 ;;; Polling
 
@@ -691,13 +687,15 @@ occurred within TIMEOUT."
           (error (signal (car err) (cdr err))))))))
 
 ;;; Proxy
-;; TODO
-(zmq--ffi-wrapper "proxy_steerable"
-  :int ((frontend :pointer) (backend :pointer)
-        (capture :pointer) (control :pointer)))
 
-(zmq--ffi-wrapper "proxy"
-  :int ((frontend :pointer) (backend :pointer) (capture :pointer)))
+(zmq--ffi-wrapper "proxy_steerable" :int ((frontend :socket) (backend :socket) (capture :socket) (control :socket)))
+(zmq--ffi-wrapper "proxy" :int ((frontend :socket) (backend :socket) (capture :socket)))
+
+(defalias 'zmq-proxy-steerable #'zmq--proxy-steerable
+  "Start the built-in ZMQ proxy with possible control flow.")
+
+(defalias 'zmq-proxy #'zmq--proxy
+  "Start the built-in ZMQ proxy.")
 
 ;;; Sockets
 
@@ -714,10 +712,8 @@ occurred within TIMEOUT."
 (zmq--ffi-wrapper "socket" :pointer ((context :context) (type :int)))
 (zmq--ffi-wrapper "socket_monitor" :int ((sock :socket) (endpoint :string) (events :int)))
 
-(defun zmq-socket-monitor (sock endpoint events)
-  "Monitor for SOCK EVENTs on ENDPOINT."
-  (zmq--socket-monitor sock endpoint events))
-
+(defalias 'zmq-socket-monitor #'zmq--socket-monitor
+  "Monitor for SOCK EVENTs on ENDPOINT.")
 
 (zmq--ffi-wrapper "send_const" :int ((sock :socket) (buf :pointer) (len :size_t) (flags :int)))
 (zmq--ffi-wrapper "send" :int ((sock :socket) (message :string) (len :size_t) (flags :int)))
@@ -750,25 +746,20 @@ occurred within TIMEOUT."
 (zmq--ffi-wrapper "disconnect" :int ((sock :socket) (endpoint :string)))
 (zmq--ffi-wrapper "close" :int ((sock :socket)))
 
-(defun zmq-bind (sock endpoint)
-  "Bind SOCK to ENDPOINT."
-  (zmq--bind sock endpoint))
+(defalias 'zmq-bind 'zmq--bind
+  "Bind SOCK to ENDPOINT.")
 
-(defun zmq-unbind (sock endpoint)
-  "UnBIND SOCK from ENDPOINT."
-  (zmq--unbind sock endpoint))
+(defalias 'zmq-unbind 'zmq--unbind
+  "UnBIND SOCK from ENDPOINT.")
 
-(defun zmq-connect (sock endpoint)
-  "Connect SOCK to ENDPOINT."
-  (zmq--connect sock endpoint))
+(defalias 'zmq-connect 'zmq--connect
+  "Connect SOCK to ENDPOINT.")
 
-(defun zmq-disconnect (sock endpoint)
-  "DisCONNECT SOCK from ENDPOINT."
-  (zmq--disconnect sock endpoint))
+(defalias 'zmq-disconnect 'zmq--disconnect
+  "DisCONNECT SOCK from ENDPOINT.")
 
-(defun zmq-close (sock)
-  "Close SOCK."
-  (zmq--close sock))
+(defalias 'zmq-close 'zmq--close
+  "Close SOCK.")
 
 (zmq--ffi-wrapper "setsockopt" :int ((sock :socket) (option :int) (value :pointer) (len :size_t)))
 (zmq--ffi-wrapper "getsockopt" :int ((sock :socket) (option :int) (value :pointer) (len :pointer)))
