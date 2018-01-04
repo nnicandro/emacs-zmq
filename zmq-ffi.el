@@ -626,7 +626,10 @@ arguments USER-DATA is currently ignored."
       (setf (zmq-poller--socks-fds poller)
             (cl-remove sock-or-fd (zmq-poller--socks-fds poller)
                        :test (lambda (a b)
-                               (or (zmq-socket-equal a b)
+                               (or (and (zmq-socket-p a)
+                                        (zmq-socket-p b)
+                                        (ffi-pointer= (zmq-socket--ptr a)
+                                                      (zmq-socket--ptr b)))
                                    (and (integerp a) (integerp b) (= a b))))))))
 
   (defun zmq-poller-register (poller sock-or-fd events)
@@ -715,13 +718,6 @@ occurred within TIMEOUT."
   "Monitor for SOCK EVENTs on ENDPOINT."
   (zmq--socket-monitor sock endpoint events))
 
-;; Equality testing for sockets
-
-(defun zmq-socket-equal (a b)
-  "Determine if A and B are the same `zmq-socket'."
-  (and (zmq-socket-p a)
-       (zmq-socket-p b)
-       (ffi-pointer= (zmq-socket--ptr a) (zmq-socket--ptr b))))
 
 (zmq--ffi-wrapper "send_const" :int ((sock :socket) (buf :pointer) (len :size_t) (flags :int)))
 (zmq--ffi-wrapper "send" :int ((sock :socket) (message :string) (len :size_t) (flags :int)))
