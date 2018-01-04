@@ -39,59 +39,54 @@ used to define the error corresponding to the error number.")
   (defun zmq--ffi-normalize-arg-types (args arg-types)
     "Handle ARG-TYPES specific to ZMQ.
 
-THis function converts any ARG-TYPES with the special values
-`:socket', `:context', `:poller', `:message', or `:string' to
-`:pointer' and returns a form (STRING-BINDINGS . ARG-CHECKERS)
-where STRING-BINDINGS is a list that is used to convert any
-`:string' ARGS into their equivalent string representations
-required by ZMQ, i.e. c-strings.
+This function destructively modifies any elements of ARG-TYPES
+with the special values `:socket', `:context', `:poller',
+`:message', or `:string' to `:pointer' and returns a
+form (STRING-BINDINGS . ARG-UNWRAPPERS) where STRING-BINDINGS is
+a list that is used to convert any `:string' ARGS into their
+equivalent string representations required by ZMQ, i.e.
+c-strings.
 
-If ARGS has one of the other special types besides `:string' then
-a form
+If ARG-TYPES has one of the other special types besides `:string'
+then for the ARG corresponding to the ARG-TYPE the form
 
-    (if (zmq-<special type>-p ARG) (setq ARG (zmq-<special type>--ptr))
-      (signal 'wrong-type-argument '(zmq-<special type>-p)))
+    (setq ARG (if (eq ARG nil) (ffi-null-pointer)
+                (zmq-<special type>--ptr ARG))
 
-will be generated and ARG-CHECKERS will contain a list of all
-these argument checking forms. Note that when an argument is of
-the valid type, it is unwrapped into its c-pointer equivalent to
-be passed to the ffi function."
-    ;; Mapping types to cl-defstruct types
-    (let ((type-struct '((:socket . "zmq-socket")
-                         (:context . "zmq-context")
-                         (:poller . "zmq-poller")
-                         (:message . "zmq-message"))))
-      ;; Handle special `:string' arguments which gets converted into
-      ;; `:pointer' and wrapped using `with-ffi-strings' when calling
-      ;; the function.
-      ;;
-      ;; So if the arg-types is ((arg1 :string) (arg2 :pointer))
-      ;; the resulting form is
-      ;;
-      ;; (with-ffi-strings ((arg1 (encode-coding-string arg1 'utf-8)))
-      ;;   <body>)
-      ;;
-      ;; Which copies arg1 to a c-string pointer and and is available
-      ;; as arg1 in <body>.
+will be generated and ARG-UNWRAPPERS will contain a list of all
+these argument unwrapping forms. These forms unwrap ARG to its C
+pointer equivalent to be passed to the ffi function call."
+    (let ((special-types '((:socket . "zmq-socket")
+                           (:context . "zmq-context")
+                           (:poller . "zmq-poller")
+                           (:message . "zmq-message"))))
       (cl-loop
        with st = nil
        for i from 0 to (1- (length arg-types))
+       ;; Handle `:string' arguments that get converted into `:pointer' and
+       ;; wrapped using `with-ffi-strings' when calling the ffi function.
+       ;;
+       ;; As an example, if ARG-TYPES is ((arg1 :string) (arg2 :pointer)) the
+       ;; resulting form generated in `zmq--ffi-wrapper'
+       ;;
+       ;; (with-ffi-strings ((arg1 arg1))
+       ;;   <body>)
        when (eq (aref arg-types i) :string)
        do (aset arg-types i :pointer)
        and collect (let ((arg (nth i args)))
                      (list arg arg))
        into string-bindings
-       when (setq st (assoc (aref arg-types i) type-struct))
+       ;; Handle the other special types besides `:string'
+       when (setq st (alist-get (aref arg-types i) special-types))
        do (aset arg-types i :pointer)
        and collect
-       (let ((pred (intern (concat (cdr st) "-p")))
-             (arg (nth i args))
-             (unwrap (intern (concat (cdr st) "--ptr"))))
-         ;; Note that calling cl functions already checks the type before
+       (let ((arg (nth i args)))
+         ;; NOTE Calling cl functions already checks the type before
          ;; accessing any struct fields.
-         `(setq ,arg (,unwrap ,arg)))
-       into arg-checkers
-       finally return (cons string-bindings arg-checkers)))))
+         `(setq ,arg (if (eq ,arg nil) (ffi-null-pointer)
+                       (,(intern (concat st "--ptr")) ,arg))))
+       into arg-unwrappers
+       finally return (cons string-bindings arg-unwrappers)))))
 
 (defmacro zmq--ffi-wrapper (c-name return-type arg-types &optional noerror)
   "Generate an FFI for a ZMQ function and wrap it with error handling.
