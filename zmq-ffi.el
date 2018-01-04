@@ -23,6 +23,13 @@
   (events :type :short)
   (revents :type :short))
 
+(cl-defstruct (zmq-pollitem
+               (:constructor nil)
+               (:constructor zmq-pollitem))
+  (socket nil)
+  (fd -1)
+  (events 0))
+
 ;;; FFI wrapper
 
 (eval-and-compile
@@ -470,22 +477,6 @@ PROPERTY is a keyword and can only be one of those in
 
 ;;; Polling
 
-(cl-defstruct (zmq-pollitem
-               (:constructor nil)
-               (:constructor zmq-pollitem))
-  (socket nil)
-  (fd -1)
-  (events 0))
-
-(cl-defstruct (zmq-poller
-               (:constructor nil)
-               (:constructor
-                zmq-poller
-                (&aux (-ptr (or (zmq--poller-new)
-                                (error "Poller not created."))))))
-  (-ptr nil :read-only t)
-  (-socks-fds nil))
-
 (defun zmq--split-poll-events (events)
   (cl-loop
    for e in `(,zmq-POLLIN ,zmq-POLLOUT ,zmq-POLLERR)
@@ -534,6 +525,15 @@ PROPERTY is a keyword and can only be one of those in
            and do (setq pointer (ffi-pointer+ pointer size))))))))
 
 (when (zmq-has "draft")
+  (cl-defstruct (zmq-poller
+                 (:constructor nil)
+                 (:constructor
+                  zmq-poller
+                  (&aux (-ptr (or (zmq--poller-new)
+                                  (error "Poller not created."))))))
+    (-ptr nil :read-only t)
+    (-socks-fds nil))
+
   ;; TODO: Handle windows machines
   ;; See `zmq-poller' type
   (zmq--ffi-wrapper "poller_new" :pointer ())
