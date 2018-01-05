@@ -36,12 +36,12 @@
 ;;; Convencience macros for contexts, sockets, and pollers
 
 (defvar zmq-current-context nil
-  "The first `zmq-context' created in this emacs session.")
+  "The context set by `zmq-current-context'.")
 
 (defmacro with-zmq-context (&rest body)
   "Wrap BODY with a new `zmq-context' that is terminated when BODY completes.
 This is mainly meant to be used in subprocesses. If not in a
-subprocess use `current-zmq-context'."
+subprocess use `zmq-current-context'."
   (declare (indent 0) (debug (symbolp &rest form)))
   ;; use --ctx-- just in case any shenanigans happen with `zmq-current-context'
   ;; while running body.
@@ -51,26 +51,12 @@ subprocess use `current-zmq-context'."
          (progn ,@body)
        (zmq-terminate-context --ctx--))))
 
-(defun current-zmq-context ()
-  "Return the current `zmq-context'.
-Return the value of `zmq-current-context'. When there is no
-current `zmq-context' (`zmq-current-context' is nil) create a new
-one, set it as the `zmq-current-context', and return the newly
-created context."
-  (when zmq-current-context
-    (condition-case nil
-        ;; Try to get an option to see if the context is still valid
-        (zmq-context-get zmq-current-context zmq-BLOCKY)
-      (zmq-EFAULT (setq zmq-current-context nil))))
-  (or zmq-current-context
-      (setq zmq-current-context (zmq-context))))
-
 (defmacro with-zmq-socket (sock type &optional options &rest body)
   "Run BODY with a new socket, SOCK, with type, TYPE.
 If OPTIONS is non-nil it is a list of socket options (in the same
 form as `let') which will be set on SOCK before running BODY.
 
-Note that the `current-zmq-context' is used to instantiate SOCK."
+Note that the `zmq-current-context' is used to instantiate SOCK."
   (declare (debug (symbolp form &optional form &rest form))
            (indent zmq--indent-3))
   (let ((sock-options
@@ -85,7 +71,7 @@ Note that the `current-zmq-context' is used to instantiate SOCK."
            ;; Otherwise options must be part of body
            (setq body (cons options body))
            nil)))
-    `(let ((,sock (zmq-socket (current-zmq-context) ,type)))
+    `(let ((,sock (zmq-socket (zmq-current-context) ,type)))
        (unwind-protect
            (progn
              ,@sock-options
@@ -105,6 +91,20 @@ After BODY is complete call `zmq-poller-destroy' on POLLER."
        (unwind-protect
            (progn ,@body)
          (zmq-poller-destroy ,poller)))))
+
+(defun zmq-current-context ()
+  "Return the current `zmq-context'.
+Return the value of `zmq-current-context'. When there is no
+current `zmq-context' (`zmq-current-context' is nil) create a new
+one, set it as the `zmq-current-context', and return the newly
+created context."
+  (when zmq-current-context
+    (condition-case nil
+        ;; Try to get an option to see if the context is still valid
+        (zmq-context-get zmq-current-context zmq-BLOCKY)
+      (zmq-EFAULT (setq zmq-current-context nil))))
+  (or zmq-current-context
+      (setq zmq-current-context (zmq-context))))
 
 ;;; Socket functions
 
@@ -260,7 +260,7 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
       (setq sexp (byte-compile sexp))
       (if wrap-context
           (with-zmq-context
-            (funcall sexp (current-zmq-context)))
+            (funcall sexp (zmq-current-context)))
         (funcall sexp)))))
 
 (defun zmq--subprocess-read-output (process output)
