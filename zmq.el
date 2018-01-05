@@ -33,6 +33,8 @@
 (defun zmq--indent-4 (pos state)
   (zmq--indent 4 pos state))
 
+;;; Convencience macros for contexts, sockets, and pollers
+
 (defvar zmq-current-context nil
   "The first `zmq-context' created in this emacs session.")
 
@@ -147,8 +149,8 @@ passed to `zmq-bind' if a port is found. Optional arguments
 MIN-PORT (inclusive) and MAX-PORT (exclusive) give a range that
 the port number will have if `zmq-bind' succeeds within
 MAX-TRIES. MIN-PORT defaults to 49152, MAX-PORT defaults to
-65536, and MAX-TRIES defaults to 100. If `zmq-bind' succeded the
-port that was bound is returned, otherwise nil is returned."
+65536, and MAX-TRIES defaults to 100. If `zmq-bind' succeeds, the
+port that was bound is returned. Otherwise nil is returned."
   (setq min-port (or min-port 49152)
         max-port (or max-port 65536)
         max-tries (or max-tries 100))
@@ -165,6 +167,8 @@ port that was bound is returned, otherwise nil is returned."
              (unless (eq system-type 'windows-nt)
                (signal (car err) (cdr err)))))
           (error (signal (car err) (cdr err))))))))
+
+;;; Encoding/decoding messages and socket options
 
 (defun zmq-send-encoded (sock str &optional coding-system)
   (setq coding-system (or coding-system 'utf-8))
@@ -214,7 +218,7 @@ port that was bound is returned, otherwise nil is returned."
               (throw 'recvd (nreverse res)))))
       (zmq-close-message part))))
 
-;;; Setting/Getting options from contexts, sockets, messages
+;;; Setting/getting options from contexts, sockets, messages
 
 (defun zmq--set-get-option (set object option &optional value)
   (let ((fun (cond
