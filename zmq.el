@@ -106,6 +106,15 @@ created context."
   (or zmq-current-context
       (setq zmq-current-context (zmq-context))))
 
+;; TODO: Have a global list of open sockets so that we can close any remaining
+;; sockets that users have forgotten to close themselves.
+(defun zmq-cleanup-on-exit ()
+  "Terminate the `zmq-current-context'."
+  (when zmq-current-context
+    (zmq-terminate-context zmq-current-context)))
+
+(add-hook 'kill-emacs-hook #'zmq-cleanup-on-exit)
+
 ;;; Socket functions
 
 (defun zmq--bind-connect-endpoint (bind sock-type endpoint fun)
