@@ -289,8 +289,15 @@ using `zmq-error-alist'."
         (= value 1)
       value)))
 
-(defalias 'zmq-terminate-context #'zmq--ctx-term
-  "Terminate CONTEXT.")
+(defun zmq-terminate-context (context)
+  "Terminate CONTEXT."
+  (while (condition-case err
+             (progn
+               (zmq--ctx-term context)
+               nil)
+           (zmq-EFAULT nil)
+           (zmq-EINTR t)
+           (error (signal (car err) (cdr err))))))
 
 (defalias 'zmq-shutdown-context #'zmq--ctx-shutdown
   "Shutdown CONTEXT.")

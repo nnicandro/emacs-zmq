@@ -49,13 +49,7 @@ subprocess use `current-zmq-context'."
           (zmq-current-context --ctx--))
      (unwind-protect
          (progn ,@body)
-       (while (condition-case err
-                  (progn
-                    (zmq-terminate-context --ctx--)
-                    nil)
-                (zmq-EFAULT nil)
-                (zmq-EINTR t)
-                (error (signal (car err) (cdr err))))))))
+       (zmq-terminate-context --ctx--))))
 
 (defun current-zmq-context ()
   "Return the current `zmq-context'.
