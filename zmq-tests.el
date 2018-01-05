@@ -66,7 +66,7 @@
     (ert-info ("Context macro")
       (let (ctx)
         (with-zmq-context
-          (setq ctx (current-zmq-context))
+          (setq ctx (zmq-current-context))
           (should (zmq-context-p ctx)))
         (should-error (zmq-terminate-context ctx)
                       :type 'zmq-EFAULT)))))
@@ -213,7 +213,7 @@
 (ert-deftest zmq-sockets ()
   :tags '(zmq sockets)
   (with-zmq-context
-    (let* ((ctx (current-zmq-context))
+    (let* ((ctx (zmq-current-context))
            (endpoint "tcp://127.0.0.1:5545")
            (s (zmq-socket ctx zmq-PUB)))
       (unwind-protect
@@ -300,7 +300,7 @@
     (with-zmq-context
       (ert-info ("`zmq-poll'")
         (cl-destructuring-bind (p . s)
-            (zmq-create-bound-pair (current-zmq-context) zmq-PUB zmq-SUB addr)
+            (zmq-create-bound-pair (zmq-current-context) zmq-PUB zmq-SUB addr)
           (unwind-protect
               (let ((items (list (zmq-pollitem
                                   :socket p :events (list zmq-POLLIN zmq-POLLOUT))
@@ -336,37 +336,35 @@
         ;; https://github.com/zeromq/pyzmq/blob/master/examples/poll/pubsub.py
         (ert-info ("`zmq-poller'")
           (cl-destructuring-bind (p . s)
-              (zmq-create-bound-pair (current-zmq-context) zmq-PUB zmq-SUB addr)
+              (zmq-create-bound-pair (zmq-current-context) zmq-PUB zmq-SUB addr)
             (unwind-protect
-                (with-zmq-poller
-                 (let ((poller (current-zmq-poller))
-                       (events nil))
+                (with-zmq-poller poller
+                  (let ((events nil))
+                    ;; Allow sockets to connect
+                    (sleep-for 1.0)
 
-                   ;; Allow sockets to connect
-                   (sleep-for 1.0)
+                    ;; Subscribe to all incoming messages
+                    (zmq-socket-set s zmq-SUBSCRIBE "")
 
-                   ;; Subscribe to all incoming messages
-                   (zmq-socket-set s zmq-SUBSCRIBE "")
+                    (zmq-poller-register poller p (list zmq-POLLIN zmq-POLLOUT))
+                    (zmq-poller-register poller s (list zmq-POLLIN zmq-POLLOUT))
 
-                   (zmq-poller-register poller p (list zmq-POLLIN zmq-POLLOUT))
-                   (zmq-poller-register poller s (list zmq-POLLIN zmq-POLLOUT))
+                    (setq events (zmq-poller-wait-all poller 10 100))
+                    (should (member zmq-POLLOUT (cdr (assoc p events))))
+                    (should-not (assoc s events))
 
-                   (setq events (zmq-poller-wait-all poller 10 100))
-                   (should (member zmq-POLLOUT (cdr (assoc p events))))
-                   (should-not (assoc s events))
+                    (zmq-send p "msg1")
+                    (setq events (zmq-poller-wait-all poller 10 100))
+                    (should (member zmq-POLLOUT (cdr (assoc p events))))
 
-                   (zmq-send p "msg1")
-                   (setq events (zmq-poller-wait-all poller 10 100))
-                   (should (member zmq-POLLOUT (cdr (assoc p events))))
+                    (sleep-for 0.5)
 
-                   (sleep-for 0.5)
+                    (setq events (zmq-poller-wait-all poller 10 1000))
+                    (should (member zmq-POLLIN (cdr (assoc s events))))
 
-                   (setq events (zmq-poller-wait-all poller 10 1000))
-                   (should (member zmq-POLLIN (cdr (assoc s events))))
-
-                   (should (equal (zmq-recv s) "msg1"))
-                   (setq events (zmq-poller-wait-all poller 10 100))
-                   (should-not (cdr (cl-assoc s events)))))
+                    (should (equal (zmq-recv s) "msg1"))
+                    (setq events (zmq-poller-wait-all poller 10 100))
+                    (should-not (cdr (cl-assoc s events)))))
               (zmq-close s)
               (zmq-close p))))))))
 
@@ -406,7 +404,7 @@
     (let* ((body
             (quote ((when
                         (condition-case nil
-                            (progn (current-zmq-context) t)
+                            (progn (zmq-current-context) t)
                           (error (prin1 (cons 'test-result "no context")) nil))
                       (prin1 (cons 'test-result "context")))
                     (zmq-flush 'stdout))))
