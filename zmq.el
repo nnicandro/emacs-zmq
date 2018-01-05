@@ -104,19 +104,13 @@ Note that the `current-zmq-context' is used to instantiate SOCK."
          (zmq-close ,sock)))))
 
 (when (zmq-has "draft")
-  (defvar zmq-current-poller nil
-    "Dynamically bound in `with-zmq-poller'. Access through
-`current-zmq-poller'.")
-
-  (defun current-zmq-poller ()
-    zmq-current-poller)
-
-  (defmacro with-zmq-poller (&rest body)
-    `(let* ((--poller-- (zmq-poller))
-            (zmq-current-poller --poller--))
+  (defmacro with-zmq-poller (poller &rest body)
+    "Create a new `zmq-poller' bound to POLLER and run BODY.
+After BODY is complete call `zmq-poller-destroy' on POLLER."
+    `(let ((,poller (zmq-poller)))
        (unwind-protect
            (progn ,@body)
-         (zmq-poller-destroy --poller--)))))
+         (zmq-poller-destroy ,poller)))))
 
 ;;; Socket functions
 
