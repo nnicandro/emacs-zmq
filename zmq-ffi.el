@@ -353,9 +353,7 @@ using `zmq-error-alist'."
                  data &aux
                  (-ptr (let ((msg (ffi-allocate zmq--msg-t)))
                          (cond
-                          ((sequencep data)
-                           ;; NOTE (sequencep nil) evaluates to t. Also nil and
-                           ;; () are equivalent, but nil and [] are not.
+                          ((or (stringp data) (vectorp data) (null data))
                            (if (= (length data) 0) (zmq--msg-init msg)
                              (zmq--msg-init-size msg (length data))
                              (zmq--set-bytes (zmq--msg-data msg) data)))
