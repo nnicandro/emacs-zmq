@@ -83,14 +83,16 @@ Note that the `zmq-current-context' is used to instantiate SOCK."
          (zmq-set-option ,sock zmq-LINGER 0)
          (zmq-close ,sock)))))
 
-(when (zmq-has "draft")
-  (defmacro with-zmq-poller (poller &rest body)
-    "Create a new `zmq-poller' bound to POLLER and run BODY.
+(defmacro with-zmq-poller (poller &rest body)
+  "Create a new `zmq-poller' bound to POLLER and run BODY.
 After BODY is complete call `zmq-poller-destroy' on POLLER."
-    `(let ((,poller (zmq-poller)))
-       (unwind-protect
-           (progn ,@body)
-         (zmq-poller-destroy ,poller)))))
+  (declare (indent 1))
+  `(let ((,poller
+          (if (zmq-has "draft") (zmq-poller)
+            (error "zmq not built with draft API."))))
+     (unwind-protect
+         (progn ,@body)
+       (zmq-poller-destroy ,poller))))
 
 (defun zmq-current-context ()
   "Return the current `zmq-context'.
