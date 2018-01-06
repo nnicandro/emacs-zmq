@@ -13,7 +13,6 @@
     (cons s1 s2)))
 
 (ert-deftest zmq-utility ()
-  :tags '(zmq utility)
   (ert-info ("`zmq-version'")
     (let ((version (zmq-version)))
       (should (version<= "4.0.0" version))))
@@ -32,7 +31,6 @@
            :type 'zmq-EPROTONOSUPPORT))))))
 
 (ert-deftest zmq-encryption ()
-  :tags '(zmq encryption)
   (ert-info ("CURVE mechanism")
     (when (zmq-has "curve")
       (cl-destructuring-bind (public-key . secret-key) (zmq-curve-keypair)
@@ -41,7 +39,6 @@
         (should (string= public-key (zmq-curve-public secret-key)))))))
 
 (ert-deftest zmq-contexts ()
-  :tags '(zmq context)
   (let (ctx)
     (ert-info ("Creating contexts")
       (setq ctx (zmq-context)))
@@ -72,7 +69,6 @@
                       :type 'zmq-EFAULT)))))
 
 (ert-deftest zmq-messages ()
-  :tags '(zmq message)
   (ert-info ("Message initialization")
     (let ((msg (zmq-message)) contents)
       (unwind-protect
@@ -173,7 +169,6 @@
           (zmq-terminate-context ctx))))))
 
 (ert-deftest zmq-send-unicode ()
-  :tags '(zmq unicode)
   (ert-info ("Unicode messages")
     (let ((msg (zmq-message))
           (contents "[â, â†] = 1"))
@@ -206,7 +201,6 @@
           (zmq-terminate-context ctx))))))
 
 (ert-deftest zmq-sockets ()
-  :tags '(zmq sockets)
   (with-zmq-context
     (let* ((ctx (zmq-current-context))
            (endpoint "tcp://127.0.0.1:5545")
@@ -290,7 +284,6 @@
                 (zmq-socket-set-encoded sock zmq-SUBSCRIBE topic 'utf-16)))))))))
 
 (ert-deftest zmq-polling ()
-  :tags '(zmq polling)
   (let* ((addr "tcp://127.0.0.1"))
     (with-zmq-context
       (ert-info ("`zmq-poll'")
@@ -364,7 +357,6 @@
               (zmq-close p))))))))
 
 (ert-deftest zmq-subprocess ()
-  :tags '(zmq subprocess)
   (ert-info ("Validating sexp")
     (let (proc)
       (unwind-protect
