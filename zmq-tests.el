@@ -368,71 +368,92 @@
               (zmq-close s)
               (zmq-close p))))))))
 
-(ert-deftest zmq-subprocess-filter ()
-  :tags '(zmq subprocess)
-  (let ((process (start-process "zmq-subprocess-test" nil "sleep" "1000"))
-        sexp)
-    (unwind-protect
-        (ert-info ("Reading sexp from process output")
-          (ert-info ("Reading a single sexp")
-            (with-temp-buffer
-              (zmq-subprocess-insert-output process "(event . \"foo\")")
-              (setq sexp (zmq-subprocess-read-sexp process))
-              (should (equal sexp '(event . "foo")))
-              (should-not (process-get process :pending-output))
-              (should (= (length (buffer-string)) 0))))
-          (ert-info ("Reading a partial sexp")
-            (with-temp-buffer
-              (zmq-subprocess-insert-output process "(event . \"foo\"")
-              (setq sexp (zmq-subprocess-read-sexp process))
-              (should-not sexp)
-              (should (equal (process-get process :pending-output) "(event . \"foo\""))))
-          (ert-info ("Reading pending output from partial sexp")
-            (with-temp-buffer
-              (zmq-subprocess-insert-output process ")(jelly . jam)")
-              (setq sexp (zmq-subprocess-read-sexp process))
-              (should (equal sexp '(event . "foo")))
-              (should (equal (buffer-string) "(jelly . jam)"))
-              (should-not (process-get process :pending-output)))))
-      (kill-process process))))
-
-(defvar zmq-subprocess-test-flag nil)
-
 (ert-deftest zmq-subprocess ()
   :tags '(zmq subprocess)
+  (ert-info ("Validating sexp")
+    (let (proc)
+      (unwind-protect
+          (progn
+            (should-error (setq proc (zmq-start-process (list 1 2 3))))
+            ;; TODO: How to check for closures? Tests are normally not byte
+            ;; compiled which is when closures are created. This `lexical-let'
+            ;; expands into a let form, not a closure.
+            (should-error (setq proc (zmq-start-process
+                                      (lexical-let ((foo nil))
+                                        (lambda () (setq foo 1))))))
+            (ert-info ("Only functions with 0 or 1 arguments")
+              (should-error (setq proc (zmq-start-process
+                                        (lambda (a b)))))))
+        (when proc
+          (delete-process proc)))))
   (ert-info ("Subprocess wraps function with context")
-    (let* ((body
-            (quote ((when
-                        (condition-case nil
-                            (progn (zmq-current-context) t)
-                          (error (prin1 (cons 'test-result "no context")) nil))
-                      (prin1 (cons 'test-result "context")))
-                    (zmq-flush 'stdout))))
-           (test-filter
-            (lambda (process output)
-              (let (sexp)
-                (with-temp-buffer
-                  (zmq-subprocess-insert-output process output)
-                  (catch 'done
-                    (while (setq sexp (zmq-subprocess-read-sexp process))
-                      (when (and (consp sexp)
-                                 (eq (car sexp) 'test-result))
-                        (if zmq-subprocess-test-flag
-                            (should (equal (cdr sexp) "no context"))
-                          (should (equal (cdr sexp) "context")))
-                        (throw 'done t))))))
-              (when (process-live-p process)
-                (kill-process process))))
+    (let* ((body (quote ((if zmq-current-context
+                             (prin1 (cons 'test-result "context"))
+                           (prin1 (cons 'test-result "no context")))
+                         (zmq-flush 'stdout))))
            (process))
-      (setq
-       zmq-subprocess-test-flag t
-       process (zmq-start-process `(lambda () ,@body)))
-      (set-process-filter process test-filter)
-      (sleep-for 0.4)
-      (setq
-       zmq-subprocess-test-flag nil
-       process (zmq-start-process `(lambda (ctx) ,@body)))
-      (set-process-filter process test-filter)
-      (sleep-for 0.4))))
+      (lexical-let ((filter-called nil))
+        (setq
+         process (zmq-start-process
+                  `(lambda () ,@body)
+                  (lambda (event)
+                    (setq filter-called t)
+                    (should (equal (cdr event) "no context")))))
+        (with-timeout (0.4 nil)
+          (while (not filter-called)
+            (sleep-for 0.01)))
+        (should filter-called)
+        (delete-process process)
+        (setq filter-called nil)
+        (setq
+         process (zmq-start-process
+                  `(lambda (ctx) ,@body)
+                  (lambda (event)
+                    (setq filter-called t)
+                    (should (equal (cdr event) "context")))))
+        (with-timeout (0.4 nil)
+          (while (not filter-called)
+            (sleep-for 0.01)))
+        (should filter-called)
+        (delete-process process))))
+  (let ((process (zmq-start-process (lambda () (sleep-for 1000))))
+        sexp)
+    (unwind-protect
+        (ert-info ("Subprocess output")
+          (ert-info ("Reading sexp from process output")
+            (ert-info ("Reading a single sexp")
+              (setq sexp (car (zmq--subprocess-read-output
+                               process "(event . \"foo\")")))
+              (should (equal sexp '(event . "foo")))
+              (should (string= (process-get process :pending-output) ""))
+              (should (= (length (buffer-string)) 0)))
+            (ert-info ("Reading a partial sexp")
+              (setq sexp (car (zmq--subprocess-read-output
+                               process "(event . \"foo\"")))
+              (should-not sexp)
+              (should (equal (process-get process :pending-output) "(event . \"foo\"")))
+            (ert-info ("Reading pending output from partial sexp")
+              (let ((events (zmq--subprocess-read-output
+                             process ")(jelly . jam)")))
+                (should (= (length events) 2))
+                (should (equal (car events) '(event . "foo")))
+                (should (equal (cadr events) '(jelly . jam)))
+                (should (string= (process-get process :pending-output) ""))))
+            (ert-info ("Invalid read syntax")
+              (should-error (zmq--subprocess-read-output
+                             process "(foo . bar)#()"))))
+          (ert-info ("Subprocess filter")
+            (lexical-let ((filter-called nil))
+              (process-put
+               process :filter (lambda (event)
+                                 (setq filter-called t)
+                                 (should (equal event '(event . "foo")))))
+              (zmq--subprocess-filter process "(event . \"foo\")")
+              (should filter-called)
+              ;; Subprocess sends errors which get emitted back to the parent
+              ;; emacs process, see `zmq--init-subprocess'
+              (should-error (zmq--subprocess-filter process "(error . \"foo\")")
+                            :type 'zmq-subprocess-error))))
+      (kill-process process))))
 
 (provide 'zmq-tests)
