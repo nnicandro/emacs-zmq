@@ -295,7 +295,6 @@ using `zmq-error-alist'."
              (progn
                (zmq--ctx-term context)
                nil)
-           (zmq-EFAULT nil)
            (zmq-EINTR t)
            (error (signal (car err) (cdr err))))))
 
