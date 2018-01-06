@@ -1,7 +1,8 @@
+;;; -*- lexical-binding: t -*-
+
 (require 'cl-lib)
 (require 'ert)
 (require 'zmq)
-(eval-when-compile (require 'cl))
 
 (defun zmq-create-bound-pair (ctx type1 type2 &optional interface)
   (setq interface (or interface "tcp://127.0.0.1"))
@@ -358,16 +359,14 @@
 
 (ert-deftest zmq-subprocess ()
   (ert-info ("Validating sexp")
-    (let (proc)
+    (let (proc foo)
       (unwind-protect
           (progn
             (should-error (setq proc (zmq-start-process (list 1 2 3))))
             ;; TODO: How to check for closures? Tests are normally not byte
             ;; compiled which is when closures are created. This `lexical-let'
             ;; expands into a let form, not a closure.
-            (should-error (setq proc (zmq-start-process
-                                      (lexical-let ((foo nil))
-                                        (lambda () (setq foo 1))))))
+            (should-error (setq proc (zmq-start-process (lambda () (setq foo 1)))))
             (ert-info ("Only functions with 0 or 1 arguments")
               (should-error (setq proc (zmq-start-process
                                         (lambda (a b)))))))
@@ -378,31 +377,31 @@
                              (prin1 (cons 'test-result "context"))
                            (prin1 (cons 'test-result "no context")))
                          (zmq-flush 'stdout))))
-           (process))
-      (lexical-let ((filter-called nil))
-        (setq
-         process (zmq-start-process
-                  `(lambda () ,@body)
-                  (lambda (event)
-                    (setq filter-called t)
-                    (should (equal (cdr event) "no context")))))
-        (with-timeout (0.4 nil)
-          (while (not filter-called)
-            (sleep-for 0.01)))
-        (should filter-called)
-        (delete-process process)
-        (setq filter-called nil)
-        (setq
-         process (zmq-start-process
-                  `(lambda (ctx) ,@body)
-                  (lambda (event)
-                    (setq filter-called t)
-                    (should (equal (cdr event) "context")))))
-        (with-timeout (0.4 nil)
-          (while (not filter-called)
-            (sleep-for 0.01)))
-        (should filter-called)
-        (delete-process process))))
+           (process)
+           (filter-called nil))
+      (setq
+       process (zmq-start-process
+                `(lambda () ,@body)
+                (lambda (event)
+                  (setq filter-called t)
+                  (should (equal (cdr event) "no context")))))
+      (with-timeout (0.4 nil)
+        (while (not filter-called)
+          (sleep-for 0.01)))
+      (should filter-called)
+      (delete-process process)
+      (setq filter-called nil)
+      (setq
+       process (zmq-start-process
+                `(lambda (ctx) ,@body)
+                (lambda (event)
+                  (setq filter-called t)
+                  (should (equal (cdr event) "context")))))
+      (with-timeout (0.4 nil)
+        (while (not filter-called)
+          (sleep-for 0.01)))
+      (should filter-called)
+      (delete-process process)))
   (let ((process (zmq-start-process (lambda () (sleep-for 1000))))
         sexp)
     (unwind-protect
@@ -439,7 +438,7 @@
                                    process "This is raw text \"foo\""))
                              "foo"))))
           (ert-info ("Subprocess filter")
-            (lexical-let ((filter-called nil))
+            (let ((filter-called nil))
               (process-put
                process :filter (lambda (event)
                                  (setq filter-called t)
