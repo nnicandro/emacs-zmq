@@ -1,6 +1,7 @@
 (require 'cl-lib)
 (require 'ert)
 (require 'zmq)
+(eval-when-compile (require 'cl))
 
 (defun zmq-create-bound-pair (ctx type1 type2 &optional interface)
   (setq interface (or interface "tcp://127.0.0.1"))
@@ -428,7 +429,16 @@
                 (should (string= (process-get process :pending-output) ""))))
             (ert-info ("Invalid read syntax")
               (should-error (zmq--subprocess-read-output
-                             process "(foo . bar)#()"))))
+                             process "(foo . bar)#()")))
+            (ert-info ("Ignoring raw text")
+              (should-not (zmq--subprocess-read-output
+                           process "This is raw text"))
+              (should (equal (car (zmq--subprocess-read-output
+                                   process "This is raw text 'foo"))
+                             '(quote foo)))
+              (should (equal (car (zmq--subprocess-read-output
+                                   process "This is raw text \"foo\""))
+                             "foo"))))
           (ert-info ("Subprocess filter")
             (lexical-let ((filter-called nil))
               (process-put
