@@ -298,7 +298,7 @@
                     (events nil))
 
                 ;; Allow sockets to connect
-                (sleep-for 1.0)
+                (sleep-for 0.5)
 
                 ;; Subscribe to all incoming messages
                 (zmq-socket-set s zmq-SUBSCRIBE "")
@@ -311,7 +311,7 @@
                 (setq events (zmq-poll items 100))
                 (should (member zmq-POLLOUT (alist-get p events)))
 
-                (sleep-for 0.5)
+                (sleep-for 0.1)
 
                 (setq events (zmq-poll items 1000))
                 (should (member zmq-POLLIN (alist-get s events)))
@@ -330,7 +330,7 @@
                 (with-zmq-poller poller
                   (let ((events nil))
                     ;; Allow sockets to connect
-                    (sleep-for 1.0)
+                    (sleep-for 0.5)
 
                     ;; Subscribe to all incoming messages
                     (zmq-socket-set s zmq-SUBSCRIBE "")
@@ -346,7 +346,7 @@
                     (setq events (zmq-poller-wait-all poller 10 100))
                     (should (member zmq-POLLOUT (alist-get p events)))
 
-                    (sleep-for 0.5)
+                    (sleep-for 0.1)
 
                     (setq events (zmq-poller-wait-all poller 10 1000))
                     (should (member zmq-POLLIN (alist-get s events)))
