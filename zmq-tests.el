@@ -311,7 +311,7 @@
 
                 (setq events (zmq-poll items 100))
                 (should (member zmq-POLLOUT (alist-get p events)))
-                (should-not (assoc s events))
+                (should-not (alist-get s events))
 
                 (zmq-send p "msg1")
                 (setq events (zmq-poll items 100))
@@ -345,21 +345,21 @@
                     (zmq-poller-register poller s (list zmq-POLLIN zmq-POLLOUT))
 
                     (setq events (zmq-poller-wait-all poller 10 100))
-                    (should (member zmq-POLLOUT (cdr (assoc p events))))
-                    (should-not (assoc s events))
+                    (should (member zmq-POLLOUT (alist-get p events)))
+                    (should-not (alist-get s events))
 
                     (zmq-send p "msg1")
                     (setq events (zmq-poller-wait-all poller 10 100))
-                    (should (member zmq-POLLOUT (cdr (assoc p events))))
+                    (should (member zmq-POLLOUT (alist-get p events)))
 
                     (sleep-for 0.5)
 
                     (setq events (zmq-poller-wait-all poller 10 1000))
-                    (should (member zmq-POLLIN (cdr (assoc s events))))
+                    (should (member zmq-POLLIN (alist-get s events)))
 
                     (should (equal (zmq-recv s) "msg1"))
                     (setq events (zmq-poller-wait-all poller 10 100))
-                    (should-not (cdr (cl-assoc s events)))))
+                    (should-not (alist-get s events))))
               (zmq-close s)
               (zmq-close p))))))))
 
