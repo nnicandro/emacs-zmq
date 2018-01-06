@@ -303,25 +303,27 @@ using `zmq-error-alist'."
 
 ;;; Encryption
 
-(zmq--ffi-wrapper "z85_decode" :pointer ((decoded :pointer) (str :pointer)) noerror)
-(zmq--ffi-wrapper "z85_encode" :pointer ((encoded :pointer) (str :pointer) (len :size_t)) noerror)
+(zmq--ffi-wrapper "z85_decode" :pointer ((decoded :pointer) (str :string)) noerror)
+(zmq--ffi-wrapper "z85_encode" :pointer ((encoded :pointer) (str :string) (len :size_t)) noerror)
 (zmq--ffi-wrapper "curve_keypair" :int ((public :pointer) (secret :pointer)))
-(zmq--ffi-wrapper "curve_public" :int ((public :pointer) (secret :pointer)))
+(zmq--ffi-wrapper "curve_public" :int ((public :pointer) (secret :string)))
 
 (defun zmq-z85-decode (key)
   "Decode a z85 encoded KEY."
   (unless (= (mod (length key) 5) 0)
     (signal 'args-out-of-range '("Length not a multiple of 5.")))
-  (with-ffi-string (k key)
-    (with-ffi-temporary (decoded (ceiling (* 0.8 (length key))))
-      (when (ffi-pointer= decoded (zmq--z85-decode decoded k))
-        (ffi-get-c-string decoded)))))
+  (let ((size (ceiling (* 0.8 (length key)))))
+    (with-ffi-temporary (decoded size)
+      (when (ffi-pointer= decoded (zmq--z85-decode decoded key))
+        (zmq--get-bytes decoded size)))))
 
 (defun zmq-z85-encode (data)
   "Encode DATA using the z85 encoding."
-  (with-ffi-string (d data)
-    (with-ffi-temporary (encoded (+ (ceiling (* 1.25 (length data))) 1))
-      (when (ffi-pointer= encoded (zmq--z85-encode encoded d (length data)))
+  (unless (= (mod (length data) 4) 0)
+    (signal 'args-out-of-range '("Length not a multiple of 4.")))
+  (let ((size (+ (ceiling (* 1.25 (length data))) 1)))
+    (with-ffi-temporary (encoded size)
+      (when (ffi-pointer= encoded (zmq--z85-encode encoded data (length data)))
         (ffi-get-c-string encoded)))))
 
 (defun zmq-curve-keypair ()
@@ -338,10 +340,9 @@ using `zmq-error-alist'."
   "Return the corresponding public key of SECRET-KEY."
   (unless (zmq-has "curve")
     (error "ZMQ not built with CURVE security"))
-  (with-ffi-string (secret-key secret-key)
-    (with-ffi-temporary (public-key 41)
-      (zmq--curve-public public-key secret-key)
-      (ffi-get-c-string public-key))))
+  (with-ffi-temporary (public-key 41)
+    (zmq--curve-public public-key secret-key)
+    (ffi-get-c-string public-key)))
 
 ;;; Messages
 
