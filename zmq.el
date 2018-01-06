@@ -1,5 +1,4 @@
 (require 'zmq-ffi)
-(require 'zmq-subprocess)
 (require 'cl-lib)
 
 (defun zmq--indent (nspecial pos state)
