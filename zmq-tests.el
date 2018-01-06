@@ -17,8 +17,8 @@
     (let ((version (zmq-version)))
       (should (version<= "4.0.0" version))))
   (ert-info ("`zmq-has'")
-    (or (eq (zmq-has "draft") t)
-        (eq (zmq-has "draft") nil)))
+    (should (or (eq (zmq-has "draft") t)
+                (eq (zmq-has "draft") nil))))
   (with-zmq-context
     (ert-info ("Convenience functions")
       (ert-info ("`zmq-bind-to-random-port'")
