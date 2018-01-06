@@ -35,8 +35,7 @@
   (ert-info ("CURVE mechanism")
     (when (zmq-has "curve")
       (cl-destructuring-bind (public-key . secret-key) (zmq-curve-keypair)
-        (should (string= (zmq-z85-decode (zmq-z85-encode public-key))
-                         public-key))
+        (should (string= (zmq-z85-encode (zmq-z85-decode public-key)) public-key))
         (should (string= public-key (zmq-curve-public secret-key)))))))
 
 (ert-deftest zmq-contexts ()
