@@ -170,12 +170,7 @@
           (zmq-close-message msg)
           (zmq-close s)
           (zmq-close p)
-          (zmq-terminate-context ctx)))))
-  (ert-info ("Message macro")
-    (let (m)
-      (with-zmq-message msg "foo"
-        (setq m msg)
-        (should (equal (zmq-message-data msg) "foo"))))))
+          (zmq-terminate-context ctx))))))
 
 (ert-deftest zmq-send-unicode ()
   :tags '(zmq unicode)
