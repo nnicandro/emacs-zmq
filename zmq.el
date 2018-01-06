@@ -312,7 +312,7 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
          if (and (listp event) (eq (car event) 'error)) do
          ;; TODO: Better way to handle this
          (signal 'zmq-subprocess-error (cdr event))
-         and return nil else do (funcall filter event))))))
+         else do (funcall filter event))))))
 
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
