@@ -142,10 +142,12 @@ created context."
   (or zmq-current-context
       (setq zmq-current-context (zmq-context))))
 
-;; TODO: Have a global list of open sockets so that we can close any remaining
-;; sockets that users have forgotten to close themselves.
 (defun zmq-cleanup-on-exit ()
   "Terminate the `zmq-current-context'."
+  (while zmq--live-sockets
+    (let ((sock (pop zmq--live-sockets)))
+      (zmq-socket-set sock zmq-LINGER 0)
+      (zmq-close sock)))
   (when zmq-current-context
     (zmq-terminate-context zmq-current-context)))
 

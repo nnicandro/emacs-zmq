@@ -6,6 +6,11 @@
   (require 'ffi)
   (define-ffi-library libzmq "libzmq"))
 
+(defvar zmq--live-sockets nil
+  "A list of all sockets that have been opened, but where
+  `zmq-close' has not been called yet. See
+  `zmq-cleanup-on-exit'.")
+
 ;;; Types
 
 (define-ffi-array zmq--msg-t :char 64)
@@ -697,6 +702,17 @@ forever."
                                                (list 'integerp type)))))))
   (-ptr nil :read-only t))
 
+(defun zmq--live-sockets (sock)
+  "Add SOCK to the `zmq--live-sockets' list.
+When `zmq-close' is called on SOCK, it will be removed from
+`zmq--live-sockets'. This is meant to cleanup any open sockets
+before terminating `zmq-current-context' when Emacs is killed.
+See `zmq-cleanup-on-exit'."
+  (push sock zmq--live-sockets)
+  sock)
+
+(advice-add #'zmq-socket :filter-return #'zmq--live-sockets)
+
 ;; See `zmq-socket' type.
 (zmq--ffi-wrapper "socket" :pointer ((context :context) (type :int)))
 (zmq--ffi-wrapper "socket_monitor" :int ((sock :socket) (endpoint :string) (events :int)))
@@ -748,8 +764,10 @@ forever."
 (defalias 'zmq-disconnect 'zmq--disconnect
   "DisCONNECT SOCK from ENDPOINT.")
 
-(defalias 'zmq-close 'zmq--close
-  "Close SOCK.")
+(defun zmq-close (sock)
+  "Close SOCK."
+  (setq zmq--live-sockets (delq sock zmq--live-sockets))
+  (zmq--close sock))
 
 (zmq--ffi-wrapper "setsockopt" :int ((sock :socket) (option :int) (value :pointer) (len :size_t)))
 (zmq--ffi-wrapper "getsockopt" :int ((sock :socket) (option :int) (value :pointer) (len :pointer)))
