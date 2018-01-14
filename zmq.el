@@ -342,12 +342,13 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
   (let ((filter (process-get process :filter)))
     (when filter
       (let ((stream (zmq--subprocess-read-output process output)))
-        (cl-loop
-         for event in stream
-         if (and (listp event) (eq (car event) 'error)) do
-         ;; TODO: Better way to handle this
-         (signal 'zmq-subprocess-error (cdr event))
-         else do (funcall filter event))))))
+        (with-current-buffer (or (process-buffer process) (current-buffer))
+          (cl-loop
+           for event in stream
+           if (and (listp event) (eq (car event) 'error)) do
+           ;; TODO: Better way to handle this
+           (signal 'zmq-subprocess-error (cdr event))
+           else do (funcall filter event)))))))
 
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
@@ -376,8 +377,20 @@ Note this is only meant to be called from an emacs subprocess."
            (base64-decode-string (read-minibuffer ""))
            'utf-8-unix))))
 
+;; TODO: Mention that closures are not supported
 (defun zmq-start-process (sexp &optional event-filter sentinel)
-  ;; TODO: Mention that closures are not supported
+  "Start an Emacs subprocess initializing it with SEXP.
+SEXP is either a lambda form or a function symbol. In both cases
+the function can either take 0 or 1 arguments. If SEXP takes 1
+argument, then the function will be wrapped with a call to
+`with-zmq-context' and the context passed as the argument of the
+function. EVENT-FILTER has a similar meaning to process filters
+except raw text sent from the process is ignored and EVENT-FILER
+will only receive complete s-expressions which are emitted from
+the process. SENTINEL has the same meaning as process sentinels.
+
+Note that when EVENT-FILTER is called the `current-buffer' will
+be the `process-buffer' of the returned process, if available."
   ;; Validate the sexp, it should be a function which takes 0 or 1 args.
   (cond
    ((functionp sexp)
