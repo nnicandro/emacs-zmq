@@ -310,47 +310,72 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
             (funcall sexp (zmq-current-context)))
         (funcall sexp)))))
 
-(defun zmq--subprocess-read-output (process output)
-  "Return a list of s-expressions read from PROCESS' OUTPUT."
-  (with-temp-buffer
-    (let ((pending (process-get process :pending-output))
-          last-valid sexp accum)
-      (when (> (length pending) 0)
-        (insert pending)
-        (process-put process :pending-output ""))
-      (insert output)
-      (goto-char (point-min))
-      (while (setq sexp (condition-case nil
-                            (read (current-buffer))
-                          (end-of-file
-                           (progn (setq accum (nreverse accum))
-                                  nil))
-                          (invalid-read-syntax
-                           (signal 'error (format
-                                           "Invalid content: %s"
-                                           (buffer-substring (point)
-                                                             (point-max)))))))
-        (setq last-valid (point))
-        ;; FIXME: Ignore raw text which gets converted to symbols
-        (unless (symbolp sexp)
-          (setq accum (cons sexp accum))))
-      (process-put
-       process :pending-output (buffer-substring
-                                (or last-valid (point-min))
-                                (point-max)))
-      accum)))
+(defun zmq--subprocess-read-output (output)
+  "Return a list of s-expressions read from OUTPUT.
+OUTPUT is inserted into the `current-buffer' and read for
+s-expressions beginning at `point-min' until the first incomplete
+s-expression or until all s-expressions have been `read' OUTPUT. After
+reading, the contents of the `current-buffer' from `point-min' up
+to the last valid s-expression is removed and a list of all the
+valid s-expressions in OUTPUT is returned.
+
+Note that if OUTPUT contains any expressions that are read as
+symbols, i.e. contains raw text not surrounded by quotes, they
+will be ignored.
+
+Note that for this function to work properly the same buffer
+should be current for subsequent calls."
+  (let (last-valid sexp accum)
+    (insert output)
+    (goto-char (point-min))
+    (while (setq sexp (condition-case err
+                          (read (current-buffer))
+                        (end-of-file nil)
+                        (invalid-read-syntax
+                         ;; `read' places `point' at the end of the offending
+                         ;; expression so remove it from the buffer so that
+                         ;; subsequent calls can make progress.
+                         (delete-region (or last-valid (point-min)) (point))
+                         (signal 'zmq-subprocess-error err))))
+      (setq last-valid (point))
+      ;; FIXME: Ignores raw text which gets converted to symbols
+      (unless (symbolp sexp)
+        (setq accum (cons sexp accum))))
+    (delete-region (point-min) (or last-valid (point-min)))
+    (nreverse accum)))
 
 (defun zmq--subprocess-filter (process output)
-  (let ((filter (process-get process :filter)))
-    (when filter
-      (let ((stream (zmq--subprocess-read-output process output)))
-        (with-current-buffer (or (process-buffer process) (current-buffer))
+  "Create a stream of s-expressions based on PROCESS' OUTPUT.
+If PROCESS has a non-nil `:filter' property then it should be a
+function with the same meaning as the EVENT-FILTER argument in
+`zmq-start-process'. If the `:filter' function is present, then
+it will be called for each s-expression in OUTPUT where output is
+converted into a list of s-expressions using
+`zmq--subprocess-read-output'.
+
+As a special case, if any of the s-expressions is a list with the
+`car' being the symbol error, a `zmq-subprocess-error' is
+signaled using the `cdr' of the list for the error data."
+  (with-current-buffer (process-buffer process)
+    (let ((inhibit-read-only t)
+          (filter (process-get process :filter)))
+      (when filter
+        (let ((stream (zmq--subprocess-read-output output)))
           (cl-loop
            for event in stream
            if (and (listp event) (eq (car event) 'error)) do
            ;; TODO: Better way to handle this
            (signal 'zmq-subprocess-error (cdr event))
            else do (funcall filter event)))))))
+
+(defun zmq--subprocess-sentinel (process event)
+  (when (and (process-get process :owns-buffer)
+             (cl-loop
+              for type in '("exited" "failed" "finished" "killed" "deleted")
+              thereis (string-prefix-p type event)))
+    (kill-buffer (process-buffer process)))
+  (let ((sentinel (process-get process :sentinel)))
+    (funcall sentinel process event)))
 
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
@@ -379,8 +404,17 @@ Note this is only meant to be called from an emacs subprocess."
            (base64-decode-string (read-minibuffer ""))
            'utf-8-unix))))
 
-;; TODO: Mention that closures are not supported
-(defun zmq-start-process (sexp &optional event-filter sentinel)
+(defsubst zmq-set-subprocess-filter (process event-filter)
+  "Set the event filter function for PROCESS.
+EVENT-FILTER has the same meaning as in `zmq-start-process'."
+  (process-put process :filter event-filter))
+
+(defsubst zmq-set-subprocess-sentinel (process sentinel)
+  "Set the sentinel function for PROCESS.
+SENTINEL has the same meaning as in `zmq-start-process'."
+  (process-put process :sentinel sentinel))
+
+(defun zmq-start-process (sexp &optional event-filter sentinel buffer)
   "Start an Emacs subprocess initializing it with SEXP.
 SEXP is either a lambda form or a function symbol. In both cases
 the function can either take 0 or 1 arguments. If SEXP takes 1
@@ -389,27 +423,32 @@ argument, then the function will be wrapped with a call to
 function. EVENT-FILTER has a similar meaning to process filters
 except raw text sent from the process is ignored and EVENT-FILER
 will only receive complete s-expressions which are emitted from
-the process. SENTINEL has the same meaning as process sentinels.
+the process. SENTINEL has the same meaning as in `make-process'.
 
-Note that when EVENT-FILTER is called the `current-buffer' will
-be the `process-buffer' of the returned process, if available."
-  ;; Validate the sexp, it should be a function which takes 0 or 1 args.
+If BUFFER is non-nil it is the initial buffer that will be set as
+the `process-buffer' of the process. After this function is
+called, the buffer should not be used for any other purpose since
+it will be used to store intermediate output from the subprocess
+that will eventually be read and sent to EVENT-FILTER. If BUFFER
+is nil, a new buffer is generated. Note that in the case that
+BUFFER is nil, the generated buffer will be killed upon process
+exit. If BUFFER is non-nil, no cleanup of BUFFER is performed on
+process exit."
   (cond
    ((functionp sexp)
     (unless (listp sexp)
       (setq sexp (symbol-function sexp))))
-   (t (error "Can only send functions to processes.")))
+   (t (error "Can only send functions to processes")))
   (unless (member (length (cadr sexp)) '(0 1))
-    (error "Invalid function to send to process, can only have 0 or 1 arguments."))
-  ;; Create the subprocess
+    (error "Invalid function to send to process, can only have 0 or 1 arguments"))
   (let* ((process-connection-type nil)
          (process (make-process
                    :name "zmq"
-                   :buffer nil
+                   :buffer (or buffer (generate-new-buffer " *zmq*"))
                    :connection-type 'pipe
                    :coding-system 'no-conversion
                    :filter #'zmq--subprocess-filter
-                   :sentinel sentinel
+                   :sentinel #'zmq--subprocess-sentinel
                    :command (list
                              (file-truename
                               (expand-file-name invocation-name
@@ -420,6 +459,11 @@ be the `process-buffer' of the returned process, if available."
                              "-l" (locate-library "zmq")
                              "-f" "zmq--init-subprocess"))))
     (process-put process :filter event-filter)
+    (process-put process :sentinel sentinel)
+    (process-put process :owns-buffer (null buffer))
+    (with-current-buffer (process-buffer process)
+      (erase-buffer)
+      (special-mode))
     (zmq-subprocess-send process (macroexpand-all sexp))
     process))
 
