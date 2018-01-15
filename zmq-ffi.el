@@ -727,12 +727,17 @@ See `zmq-cleanup-on-exit'."
 (zmq--ffi-wrapper "recv" :int ((sock :socket) (buf :pointer) (len :size_t) (flags :int)))
 
 (defun zmq-send-const (sock buf len &optional flags)
-  "Send LEN bytes from a constant memory BUF on SOCK with FLAGS."
+  "Send a message of constant bytes on SOCK.
+BUF should be a constant memory byte buffer as obtained by
+`with-ffi-tempory' or any other function which returns a
+`user-ptr' to constant memory. LEN is the length of BUF."
   (when (cl-assert (user-ptrp buf))
     (zmq--send-const sock buf len (or flags 0))))
 
 (defun zmq-send (sock message &optional flags)
-  "Send a single message on SOCK."
+  "Send a single message on SOCK.
+MESSAGE can either be a `zmq-message' or a string containing only
+unibyte characters."
   (if (zmq-message-p message)
       (zmq-send-message message sock flags)
     (zmq--send sock message (length message) (or flags 0))))
@@ -762,7 +767,7 @@ See `zmq-cleanup-on-exit'."
   "Connect SOCK to ENDPOINT.")
 
 (defalias 'zmq-disconnect 'zmq--disconnect
-  "DisCONNECT SOCK from ENDPOINT.")
+  "Disconnect SOCK from ENDPOINT.")
 
 (defun zmq-close (sock)
   "Close SOCK."
@@ -837,7 +842,7 @@ See `zmq-cleanup-on-exit'."
 
         (setq size (length value))
         (unless (<= size buf-size)
-          (error "Length of value too long."))
+          (error "Length of value too long"))
         (zmq--set-bytes buf value))
        ;; BINARY
        ((member option (list zmq-CONNECT_ROUTING_ID
@@ -849,7 +854,7 @@ See `zmq-cleanup-on-exit'."
 
         (setq size (length value))
         (unless (<= size buf-size)
-          (error "Length of value too long."))
+          (error "Length of value too long"))
         (zmq--set-bytes buf value))
        ;; CURVE
        ((member option (list zmq-CURVE_PUBLICKEY
@@ -865,7 +870,7 @@ See `zmq-cleanup-on-exit'."
           ;; `zmq--set-bytes' doesn't set the NULL byte
           (ffi--mem-set (ffi-pointer+ buf 40) :char 0))
          (t (signal 'args-out-of-range (list 'zmq-CURVE value)))))
-       (t (error "Socket option not handled yet.")))
+       (t (error "Socket option not handled yet")))
       (zmq--setsockopt sock option buf size))))
 
 (defun zmq-socket-get (sock option)
@@ -950,7 +955,7 @@ See `zmq-cleanup-on-exit'."
         (ffi--mem-set len :size_t 41)
         (zmq--getsockopt sock option buf len)
         (ffi-get-c-string buf))
-       (t (error "Socket option not handled yet."))))))
+       (t (error "Socket option not handled yet"))))))
 
 (provide 'zmq-ffi)
 

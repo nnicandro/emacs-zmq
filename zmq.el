@@ -86,9 +86,14 @@ subprocess use `zmq-current-context'."
        (zmq-terminate-context --ctx--))))
 
 (defmacro with-zmq-socket (sock type &optional options &rest body)
-  "Run BODY with a new socket, SOCK, with type, TYPE.
-If OPTIONS is non-nil it is a list of socket options (in the same
-form as `let') which will be set on SOCK before running BODY.
+  "Run a form, binding a socket to SOCK with TYPE.
+SOCK is an unquoted symbol used as the name of the `zmq-socket'
+that will be created. The socket will have a socket type of TYPE.
+Optionally pass socket OPTIONS, where OPTIONS is a list of two
+element lists in the sense of `let'. BODY is run with SOCK bound
+to a socket with TYPE and OPTIONS set on it. When BODY is
+complete the `zmq-LINGER' option is set to 0 and the socket is
+closed.
 
 Note that the `zmq-current-context' is used to instantiate SOCK."
   (declare (debug (symbolp form &optional form &rest form))
@@ -123,7 +128,7 @@ After BODY is complete call `zmq-poller-destroy' on POLLER."
   (declare (indent 1))
   `(let ((,poller
           (if (zmq-has "draft") (zmq-poller)
-            (error "zmq not built with draft API."))))
+            (error "ZMQ not built with draft API"))))
      (unwind-protect
          (progn ,@body)
        (zmq-poller-destroy ,poller))))
@@ -191,7 +196,7 @@ port that was bound is returned. Otherwise nil is returned."
         max-tries (or max-tries 100))
   (let (port)
     (catch 'bound
-      (dotimes (i max-tries)
+      (dotimes (_i max-tries)
         (setq port (+ (cl-random (- max-port min-port)) min-port))
         (condition-case err
             (progn
@@ -205,26 +210,43 @@ port that was bound is returned. Otherwise nil is returned."
 
 ;;; Encoding/decoding messages and socket options
 
-(defun zmq-send-encoded (sock str &optional coding-system)
+(defun zmq-send-encoded (sock str &optional coding-system flags)
+  "Send encoded data on SOCK.
+STR is the data to encode using CODING-SYSTEM. CODING-SYSTEM
+defaults to utf-8. FLAGS has the same meaning as in `zmq-send'."
   (setq coding-system (or coding-system 'utf-8))
-  (zmq-send sock (encode-coding-string str coding-system)))
+  (zmq-send sock (encode-coding-string str coding-system) flags))
 
-(defun zmq-recv-decoded (sock &optional coding-system)
+(defun zmq-recv-decoded (sock &optional coding-system flags)
+  "Received decoded data on SOCK.
+CODING-SYSTEM is the coding system to decode the a message
+received on SOCK and defaults to utf-8. FLAGS has the same
+meaning as in `zmq-recv'."
   (setq coding-system (or coding-system 'utf-8))
-  (decode-coding-string (zmq-recv sock) coding-system))
+  (decode-coding-string (zmq-recv sock flags) coding-system))
 
 (defun zmq-socket-set-encoded (sock option value &optional coding-system)
+  "Set an option of SOCK, encoding its value first.
+OPTION is the socket option to set and VALUE is its value. Encode
+VALUE using CODING-SYSTEM before setting OPTION. CODING-SYSTEM
+defaults to utf-8."
   (setq coding-system (or coding-system 'utf-8))
   (zmq-set-option sock option (encode-coding-string value coding-system)))
 
 (defun zmq-socket-get-decoded (sock option &optional coding-system)
+  "Get an option of SOCK, return its decoded value.
+OPTION is the socket option to get and CODING-SYSTEM is the
+coding system to use for decoding. CODING-SYSTEM defaults to
+utf-8."
   (setq coding-system (or coding-system 'utf-8))
   (decode-coding-string (zmq-get-option sock option) coding-system))
 
 ;;; Sending/receiving multipart messages
 
 (defun zmq-send-multipart (sock parts &optional flags)
-  "Send a multipart message with PARTS on SOCK with FLAGS."
+  "Send a multipart message on SOCK.
+PARTS is a list of message parts to send on SOCK. FLAGS has the
+same meaning as `zmq-send'."
   (setq flags (or flags 0))
   (let ((part (zmq-message))
         (data (car parts)))
@@ -240,7 +262,8 @@ port that was bound is returned. Otherwise nil is returned."
       (zmq-close-message part))))
 
 (defun zmq-recv-multipart (sock &optional flags)
-  "Receive a multipart message from SOCK."
+  "Receive a multipart message from SOCK.
+FLAGS has the same meaning as in `zmq-recv'."
   (let ((part (zmq-message)) res)
     (unwind-protect
         (catch 'recvd
@@ -271,15 +294,19 @@ port that was bound is returned. Otherwise nil is returned."
       (funcall fun object option))))
 
 (defun zmq-set-option (object option value)
-  "Set an OPTION of OBJECT to VALUE.
+  "For OBJECT, set OPTION to VALUE.
 
-OBJECT can be a `zmq-socket', `zmq-context', or a `zmq-message'."
+OBJECT can be a `zmq-socket', `zmq-context', or a `zmq-message'.
+The OPTION set should correspond to one of the options available
+for that particular object."
   (zmq--set-get-option 'set object option value))
 
 (defun zmq-get-option (object option)
-  "Get an OPTION of OBJECT.
+  "For OBJECT, get OPTION's value.
 
-OBJECT can be a `zmq-socket', `zmq-context', or a `zmq-message'."
+OBJECT can be a `zmq-socket', `zmq-context', or a `zmq-message'.
+The OPTION to get should correspond to one of the options
+available for that particular object."
   (zmq--set-get-option nil object option))
 
 ;;; Subprocesses
@@ -293,12 +320,12 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
   (set-binary-mode stream nil))
 
 (defun zmq-prin1 (sexp)
-  "Same as `prin1' but flush `stdout' afterwards."
+  "Prints SEXP using `prin1' and flushes `stdout' afterwards."
   (prin1 sexp)
   (zmq-flush 'stdout))
 
 (defun zmq--init-subprocess ()
-  (if (not noninteractive) (error "Not a subprocess.")
+  (if (not noninteractive) (error "Not a subprocess")
     (let* ((debug-on-event nil)
            (debug-on-error nil)
            (coding-system-for-write 'utf-8-unix)
@@ -379,11 +406,13 @@ signaled using the `cdr' of the list for the error data."
 
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
-  "Send SEXP to PROCESS.
-This function is meant to be used in combination with
-`zmq-subprocess-read'. PROCESS should be an emacs subprocess and
-will decode this SEXP using `zmq-subprocess-read' when reading
-from STDIN."
+  "Send an s-expression to PROCESS' STDIN.
+PROCESS should be an Emacs subprocess and which should decode the
+SEXP sent using `zmq-subprocess-read'.
+
+The SEXP is first encoded with the `utf-8-unix' coding system and
+then encoded using Base 64 encoding before being sent to the
+subprocess."
   (declare (indent 1))
   (let ((print-circle t)
         (print-escape-nonascii t)
@@ -398,8 +427,10 @@ from STDIN."
 
 (defun zmq-subprocess-read ()
   "Read a single s-expression from STDIN.
-Note this is only meant to be called from an emacs subprocess."
-  (if (not noninteractive) (error "Not in a subprocess.")
+This does the decoding of the encoding described in
+`zmq-subprocess-send' and returns the s-expression. This is only
+meant to be called from an Emacs subprocess."
+  (if (not noninteractive) (error "Not in a subprocess")
     (read (decode-coding-string
            (base64-decode-string (read-minibuffer ""))
            'utf-8-unix))))
