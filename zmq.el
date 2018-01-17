@@ -184,8 +184,7 @@ port that was bound is returned. Otherwise nil is returned."
           ((zmq-EACCES zmq-EADDRINUSE)
            (when (eq (car err) 'zmq-EADDRINUSE)
              (unless (eq system-type 'windows-nt)
-               (signal (car err) (cdr err)))))
-          (error (signal (car err) (cdr err))))))))
+               (signal (car err) (cdr err))))))))))
 
 ;;; Encoding/decoding messages and socket options
 
