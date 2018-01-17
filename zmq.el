@@ -327,6 +327,8 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
 (defun zmq--init-subprocess ()
   (if (not noninteractive) (error "Not a subprocess")
     (let* ((debug-on-event nil)
+           (debug-on-signal nil)
+           (debug-on-quit nil)
            (debug-on-error nil)
            (coding-system-for-write 'utf-8-unix)
            (sexp (eval (zmq-subprocess-read)))
