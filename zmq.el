@@ -364,10 +364,10 @@ As a special case, if any of the s-expressions is a list with the
 `car' being the symbol error, a `zmq-subprocess-error' is
 signaled using the `cdr' of the list for the error data."
   (with-current-buffer (process-buffer process)
-    (let ((inhibit-read-only t)
-          (filter (process-get process :filter)))
+    (let ((filter (process-get process :filter)))
       (when filter
-        (let ((stream (zmq--subprocess-read-output output)))
+        (let ((stream (let ((inhibit-read-only t))
+                        (zmq--subprocess-read-output output))))
           (cl-loop
            for event in stream
            if (and (listp event) (eq (car event) 'error)) do
