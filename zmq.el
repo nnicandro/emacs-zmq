@@ -160,27 +160,6 @@ created context."
 
 ;;; Socket functions
 
-(defun zmq--bind-connect-endpoint (bind sock-type endpoint fun)
-  (let ((conn-fun (if bind 'zmq-bind 'zmq-connect)))
-    `(lambda (ctx)
-       (let ((fun ,(if (symbolp fun) (symbol-function fun)
-                     fun)))
-         (with-zmq-socket sock ,sock-type
-           (,conn-fun sock ,endpoint)
-           (funcall fun ctx sock))))))
-
-(defun zmq-connect-to-endpoint (sock-type endpoint fun)
-  (declare (indent 2))
-  (zmq-start-process
-   (zmq--bind-connect-endpoint nil sock-type endpoint fun)))
-
-(defun zmq-bind-to-endpoint (sock-type endpoint fun)
-  "Start a subprocess with a socket bound to ENDPOINT and run
-FUN."
-  (declare (indent 2))
-  (zmq-start-process
-   (zmq--bind-connect-endpoint 'bind sock-type endpoint fun)))
-
 (defun zmq-bind-to-random-port (sock addr &optional min-port max-port max-tries)
   "Bind SOCK to ADDR on a random port.
 
