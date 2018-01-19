@@ -33,8 +33,11 @@
   "ZMQ bindings for Emacs"
   :group 'communication)
 
-(require 'zmq-ffi)
 (require 'cl-lib)
+(require 'zmq-ffi)
+(require 'zmq-constants)
+(when (zmq-has "draft")
+  (require 'zmq-draft))
 
 (defun zmq--indent (nspecial pos state)
   (let ((here (point))
