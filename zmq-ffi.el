@@ -6,9 +6,9 @@
 (require 'zmq-constants)
 
 (defvar zmq--live-sockets nil
-  "A list of all sockets that have been opened, but where
-  `zmq-close' has not been called yet. See
-  `zmq-cleanup-on-exit'.")
+  "A list of sockets which have not yet been closed.
+These sockets will be properly cleaned up if Emacs exits and they
+are still not closed. See `zmq-cleanup-on-exit'.")
 
 ;;; Types
 
@@ -118,7 +118,8 @@ will happen when calling the wrapped function.
 This macro defines the FFI function as zmq--<name>-1 and the
 wrapped function with error handling and type checking as
 zmq--<name> where <name> is C-NAME with all '_' characters
-replaced with '-'."
+replaced with '-'. To turn off error handling for the generated
+function, pass a non-nil value to the NOERROR argument."
   (declare (debug t) (indent 1))
   (let* ((fname (subst-char-in-string ?_ ?- c-name))
          (c-name (concat "zmq_" c-name))
@@ -161,7 +162,7 @@ replaced with '-'."
 ;;; Memory handling functions
 
 (defun zmq--get-bytes (buf size)
-  "Get SIZE bytes of BUF and return a `unibyte-string'."
+  "From BUF get SIZE bytes and return a `unibyte-string'."
   (let (data)
     (while (>= (setq size (1- size)) 0)
       (setq data (cons (ffi--mem-ref (ffi-pointer+ buf size) :char) data)))
@@ -213,9 +214,10 @@ can hold at least (length DATA) of bytes."
        ,@errs)))
 
 (defun zmq-error-handler (&rest data)
-  "Called in the wrapped ZMQ functions when an error occurs.
-This function raises the proper error depending on `zmq-errno' by
-using `zmq-error-alist'."
+  "Handle the error created by a call to a ZMQ API function.
+Signal the proper error corresponding to `zmq-errno' by using
+`zmq-error-alist'. DATA is any additional data which will be
+passed as the second argument to `signal'."
   (let* ((errno (zmq-errno))
          (errsym (or (cdr (assoc errno zmq-error-alist))
                      'zmq-ERROR)))
@@ -409,8 +411,9 @@ MESSAGE should be an initialized message."
                                    (:resource . "Resource")
                                    (:peer-address . "Peer-Address")
                                    (:user-id . "User-Id"))
-  "Alist with the available metadata properties that can be
-retrieved with `zmq-message-propery'.")
+  "Alist mapping keywords to their corresponding message property.
+A message's metadata property can be accessed through
+`zmq-message-property'.")
 
 (zmq--ffi-wrapper "msg_set" :int ((message :message) (property :int) (value :int)))
 (zmq--ffi-wrapper "msg_get" :int ((message :message) (property :int)))
@@ -419,21 +422,21 @@ retrieved with `zmq-message-propery'.")
 (zmq--ffi-wrapper "msg_set_routing_id" :int ((message :message) (id :int)))
 
 (defun zmq-message-set (message property value)
-  "Set a PROPERTY of MESSAGE to VALUE."
+  "Set a MESSAGE's PROPERTY to VALUE."
   (when (and (booleanp value)
              (= property zmq-MORE))
     (setq value (if value 1 0)))
   (zmq--msg-set message property value))
 
 (defun zmq-message-get (message property)
-  "Get a PROPERTY of MESSAGE."
+  "Get a MESSAGE PROPERTY."
   (let ((value (zmq--msg-get message property)))
     (if (= property zmq-MORE)
         (= value 1)
       value)))
 
 (defun zmq-message-property (message property)
-  "Get a metadata PROPERTY of MESSAGE.
+  "Get a MESSAGE's metadata PROPERTY.
 
 PROPERTY is a keyword and can only be one of those in
 `zmq-message-properties'."
@@ -455,6 +458,11 @@ PROPERTY is a keyword and can only be one of those in
 ;;; Polling
 
 (defun zmq--split-poll-events (events)
+  "Split EVENTS into a list of polling events.
+EVENTS should be a bitmask of polling events which will be
+transformed into a list of polling events contained in EVENTS.
+The returned list can contain any or all of the elements
+zmq-POLLIN, zmq-POLLOUT, or zmq-POLLERR."
   (cl-loop
    for e in `(,zmq-POLLIN ,zmq-POLLOUT ,zmq-POLLERR)
    if (/= (logand e events) 0) collect e))
@@ -462,7 +470,20 @@ PROPERTY is a keyword and can only be one of those in
 (zmq--ffi-wrapper "poll" :int ((items :pointer) (len :int) (timeout :long)))
 
 (defun zmq-poll (items timeout)
-  "Poll the list of `zmq-pollitem's in ITEMS until TIMEOUT."
+  "Poll the list of `zmq-pollitem's in ITEMS until TIMEOUT ms.
+If any events for ITEMS occur within TIMEOUT, return a list of
+cons cells where each element has the form
+
+    (SOCK-OR-FD . EVENTS)
+
+where SOCK-OR-FD is either a `zmq-socket' or file descriptor for
+the item being polled which received EVENTS. EVENTS is a list
+containing the events that occured within TIMEOUT. You can test
+for membership of an event like so
+
+    (member zmq-POLLIN EVENTS)
+
+Note that if TIMEOUT is -1, wait indefinately until an event arrives."
   (when (> (length items) 0)
     (let ((size (ffi--type-size zmq--pollitem-t))
           (found 0))
@@ -603,14 +624,13 @@ arguments USER-DATA is currently ignored."
 If an event occures before TIMEOUT ms, return a cons
 cell (SOCK-OR-FD . EVENTS) where EVENTS is a list of events which
 occured before TIMEOUT. Otherwise return nil. If TIMEOUT is -1,
-wait forever."
+wait forever until an event arrives."
     (with-ffi-temporaries ((e zmq--poller-event-t))
       (condition-case err
           (when (>= (zmq--poller-wait poller e timeout) 0)
             (cons (zmq--poller-event-trigger poller e)
                   (zmq--split-poll-events (zmq--poller-event-t-events e))))
-        (zmq-ETIMEDOUT nil)
-        (error (signal (car err) (cdr err))))))
+        (zmq-ETIMEDOUT nil))))
 
   (defun zmq-poller-wait-all (poller nevents timeout)
     "Wait until TIMEOUT for NEVENTS on POLLER.
@@ -690,20 +710,25 @@ See `zmq-cleanup-on-exit'."
   "Send a message of constant bytes on SOCK.
 BUF should be a constant memory byte buffer as obtained by
 `with-ffi-tempory' or any other function which returns a
-`user-ptr' to constant memory. LEN is the length of BUF."
+`user-ptr' to constant memory. LEN is the length of BUF and FLAGS
+has the same meaning as `zmq-send'."
   (when (cl-assert (user-ptrp buf))
     (zmq--send-const sock buf len (or flags 0))))
 
 (defun zmq-send (sock message &optional flags)
   "Send a single message on SOCK.
 MESSAGE can either be a `zmq-message' or a string containing only
-unibyte characters."
+unibyte characters. FLAGS is a bitmask of flag options. See the
+documentation of zmq_send in the C API for the values FLAGS can
+take."
   (if (zmq-message-p message)
       (zmq-send-message message sock flags)
     (zmq--send sock message (length message) (or flags 0))))
 
 (defun zmq-recv (sock &optional flags)
-  "Receive a single message from SOCK with FLAGS."
+  "Receive a single message from SOCK with FLAGS.
+FLAGS is a bitmask of flag options. See the documentation of
+zmq_recv in the C API for the values FLAGS can take."
   (let ((message (zmq-message)))
     (unwind-protect
         (progn

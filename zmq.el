@@ -134,11 +134,11 @@ After BODY is complete call `zmq-poller-destroy' on POLLER."
        (zmq-poller-destroy ,poller))))
 
 (defun zmq-current-context ()
-  "Return the current `zmq-context'.
-Return the value of `zmq-current-context'. When there is no
-current `zmq-context' (`zmq-current-context' is nil) create a new
-one, set it as the `zmq-current-context', and return the newly
-created context."
+  "Return the `zmq-current-context'.
+Return the symbol value of `zmq-current-context' if non-nil. In
+the case that `zmq-current-context' is nil: create a new
+`zmq-context', bind it to `zmq-current-context', and return the
+newly created context."
   (when zmq-current-context
     (condition-case nil
         ;; Try to get an option to see if the context is still valid
@@ -148,7 +148,8 @@ created context."
       (setq zmq-current-context (zmq-context))))
 
 (defun zmq-cleanup-on-exit ()
-  "Terminate the `zmq-current-context'."
+  "Terminate the `zmq-current-context'.
+Close all sockets which are still open before terminating."
   (while zmq--live-sockets
     (let ((sock (pop zmq--live-sockets)))
       (zmq-socket-set sock zmq-LINGER 0)
