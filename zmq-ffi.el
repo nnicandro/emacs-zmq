@@ -28,12 +28,10 @@
 
 ;;; Code:
 
-(eval-and-compile
-  (require 'cl-lib)
-  (require 'ffi)
-  ;; Needed for `zmq--define-errors'
-  (define-ffi-library libzmq "libzmq"))
+(require 'cl-lib)
+(require 'ffi)
 (require 'zmq-constants)
+(define-ffi-library libzmq "libzmq")
 
 (defvar zmq--live-sockets nil
   "A list of sockets which have not yet been closed.
@@ -229,19 +227,13 @@ can hold at least (length DATA) of bytes."
 ;;; Error handling
 
 (define-ffi-function zmq-errno "zmq_errno" :int [] libzmq)
-(eval-and-compile
-  (define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq))
+(define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq)
 
-(defmacro zmq--define-errors ()
-  "Define error symbols based on `zmq-error-alist'."
-  (let (errs)
-    (dolist (num-sym zmq-error-alist)
-      (push `(define-error ',(cdr num-sym)
-               ,(ffi-get-c-string (zmq-strerror (car num-sym))) 'zmq-ERROR)
-            errs))
-    `(progn
-       (define-error 'zmq-ERROR "An error occured in ZMQ" 'error)
-       ,@errs)))
+(define-error 'zmq-ERROR "An error occured in ZMQ" 'error)
+
+(cl-loop
+ for (errno . sym) in zmq-error-alist
+ do (define-error sym (ffi-get-c-string (zmq-strerror errno)) 'zmq-ERROR))
 
 (defun zmq-error-handler (&rest data)
   "Handle the error created by a call to a ZMQ API function.
@@ -252,8 +244,6 @@ passed as the second argument to `signal'."
          (errsym (or (cdr (assoc errno zmq-error-alist))
                      'zmq-ERROR)))
     (signal errsym data)))
-
-(zmq--define-errors)
 
 ;;; Contexts
 
