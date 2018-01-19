@@ -564,7 +564,7 @@ Note that if TIMEOUT is -1, wait indefinately until an event arrives."
   (zmq--ffi-wrapper "poller_new" :pointer ())
   (zmq--ffi-wrapper "poller_destroy" :int ((pollerp :pointer)))
 
-  (defun zmq-poller-destroy (poller)
+  (defun zmq-destroy-poller (poller)
     "Destroy a POLLER."
     (let ((ptr (zmq-poller--ptr poller)))
       (with-ffi-temporary (pptr :pointer)
@@ -597,7 +597,7 @@ arguments USER-DATA is currently ignored."
         (setf (zmq-poller--socks-fds poller)
               (cons sock-or-fd (zmq-poller--socks-fds poller))))))
 
-  (defun zmq-poller-modify (poller sock-or-fd events)
+  (defun zmq-modify-poller (poller sock-or-fd events)
     "Modify the EVENTS of SOCK-OR-FD that POLLER listens for."
     (let ((events (if (listp events) (apply #'logior events)
                     events)))

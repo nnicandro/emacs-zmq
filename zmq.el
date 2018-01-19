@@ -131,7 +131,7 @@ After BODY is complete call `zmq-poller-destroy' on POLLER."
             (error "ZMQ not built with draft API"))))
      (unwind-protect
          (progn ,@body)
-       (zmq-poller-destroy ,poller))))
+       (zmq-destroy-poller ,poller))))
 
 (defun zmq-current-context ()
   "Return the `zmq-current-context'.
