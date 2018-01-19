@@ -289,11 +289,9 @@ passed as the second argument to `signal'."
 (defun zmq-terminate-context (context)
   "Terminate CONTEXT."
   (while (condition-case err
-             (progn
-               (zmq--ctx-term context)
-               nil)
-           (zmq-EINTR t)
-           (error (signal (car err) (cdr err))))))
+             (prog1 nil
+               (zmq--ctx-term context))
+           (zmq-EINTR t))))
 
 (defalias 'zmq-shutdown-context #'zmq--ctx-shutdown
   "Shutdown CONTEXT.")
@@ -406,9 +404,8 @@ MESSAGE should be an initialized message."
   "Copy MESSAGE."
   (let ((dest (zmq-message)))
     (condition-case err
-        (progn
-          (zmq--msg-copy dest message)
-          dest)
+        (prog1 dest
+          (zmq--msg-copy dest message))
       (error (zmq-close-message dest)
              (signal (car err) (cdr err))))))
 
@@ -611,11 +608,10 @@ arguments USER-DATA is currently ignored."
   (defun zmq-poller-remove (poller sock-or-fd)
     "Remove SOCK-OR-FD from POLLER."
     (when (condition-case err
-              (progn
+              (prog1 t
                 (if (integerp sock-or-fd)
                     (zmq--poller-remove-fd poller sock-or-fd)
-                  (zmq--poller-remove poller sock-or-fd))
-                t)
+                  (zmq--poller-remove poller sock-or-fd)))
             (zmq-EINVAL nil))
       (setf (zmq-poller--socks-fds poller)
             (cl-remove sock-or-fd (zmq-poller--socks-fds poller)
