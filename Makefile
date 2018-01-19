@@ -1,5 +1,6 @@
 EMACS ?= emacs
-CPPFLAGS ?= $(shell pkg-config --cflags libzmq)
+CFLAGS ?= $(shell pkg-config --cflags libzmq)
+CPPFLAGS ?= -E -dM
 TEST_ORDER = zmq-utility zmq-encryption zmq-contexts zmq-messages zmq-sockets zmq-send-unicode zmq-polling zmq-subprocess
 FILES = zmq-constants.el zmq.el zmq-ffi.el
 ELCFILES = $(FILES:.el=.elc)
@@ -25,8 +26,7 @@ build: zmq-constants.el
 
 zmq-constants.el:
 	echo "#include <zmq.h>" >> zmq_header.h
-	$(CC) $(CPPFLAGS) -E -dM zmq_header.h | \
-awk -f gen-constants.awk - > zmq-constants.el
+	$(CC) $(CPPFLAGS) $(CFLAGS) zmq_header.h | awk -f gen-constants.awk - > zmq-constants.el
 	rm zmq_header.h
 
 $(ELCFILES): %.elc: %.el
