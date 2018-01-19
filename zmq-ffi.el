@@ -1,10 +1,9 @@
 (eval-and-compile
   (require 'cl-lib)
-  ;; Have these available at compile time to generate error codes during
-  ;; compilation.
-  (require 'zmq-constants)
   (require 'ffi)
+  ;; Needed for `zmq--define-errors'
   (define-ffi-library libzmq "libzmq"))
+(require 'zmq-constants)
 
 (defvar zmq--live-sockets nil
   "A list of all sockets that have been opened, but where
@@ -36,24 +35,7 @@
 
 ;;; FFI wrapper
 
-;; TODO: Use something like
-;;
-;;     cpp -dM -E zmq.h 2> /dev/null
-;;
-;; To extract the constants and errors from the zmq.h header file
-
 (eval-and-compile
-  ;; FIXME: Currently a hack to get the available errors.
-  (defconst zmq--gen-error-codes-command
-    "python -c \"
-import errno
-errs = ['(%d . zmq-%s)' % (i, errno.errorcode[i])
-        for i in errno.errorcode.keys()]
-print('\\'(' + '\\n'.join(errs) + ')')\""
-    "A command that should print a list of cons cells with the
-`car' being the error number and the `cdr' being the symbol
-used to define the error corresponding to the error number.")
-
   (defun zmq--ffi-normalize-arg-types (args arg-types)
     "Handle ARG-TYPES specific to ZMQ.
 
@@ -176,40 +158,6 @@ replaced with '-'."
                    ,body)
               body))))))
 
-;; TODO: Create proper elisp type errors for example:
-;;
-;;     zmq-ETERM -> zmq-context-terminated
-(defmacro zmq--define-errors ()
-  "Generate error symbols.
-
-This macro defines an alist `zmq-error-alist' which has elements
-with the form:
-
-    (errno . errsym)
-
-The alist is used in `zmq-error-handler' to associate the error
-numbers returned by `zmq-errno' to their elisp equivalent error
-symbol. This is so that we can properly signal the correct error
-in emacs when an error occurs in ZMQ."
-  ;; Defined in libzmq/include/zmq.h
-  (let* ((HAUSNUMERO 156384712)
-         (native-errors (list (cons (+ HAUSNUMERO 51) 'zmq-EFSM)
-                              (cons (+ HAUSNUMERO 52) 'zmq-ENOCOMPATPROTO)
-                              (cons (+ HAUSNUMERO 53) 'zmq-ETERM)
-                              (cons (+ HAUSNUMERO 54) 'zmq-EMTHREAD)))
-         ;; Hack to get the error codes on the system.
-         (c-errors
-          (eval (read (shell-command-to-string
-                       zmq--gen-error-codes-command))))
-         (errors (append c-errors native-errors)))
-    `(progn
-       (defconst zmq-error-alist (quote ,errors))
-       (define-error 'zmq-ERROR "An error occured in ZMQ" 'error)
-       ,@(cl-loop
-          for (errno . errsym) in errors
-          collect `(define-error ',errsym
-                     ,(ffi-get-c-string (zmq-strerror errno)) 'zmq-ERROR)))))
-
 ;;; Memory handling functions
 
 (defun zmq--get-bytes (buf size)
@@ -251,8 +199,18 @@ can hold at least (length DATA) of bytes."
 
 (define-ffi-function zmq-errno "zmq_errno" :int [] libzmq)
 (eval-and-compile
-  (define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq)
-  (zmq--define-errors))
+  (define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq))
+
+(defmacro zmq--define-errors ()
+  "Define error symbols based on `zmq-error-alist'."
+  (let (errs)
+    (dolist (num-sym zmq-error-alist)
+      (push `(define-error ',(cdr num-sym)
+               ,(ffi-get-c-string (zmq-strerror (car num-sym))) 'zmq-ERROR)
+            errs))
+    `(progn
+       (define-error 'zmq-ERROR "An error occured in ZMQ" 'error)
+       ,@errs)))
 
 (defun zmq-error-handler (&rest data)
   "Called in the wrapped ZMQ functions when an error occurs.
@@ -262,6 +220,8 @@ using `zmq-error-alist'."
          (errsym (or (cdr (assoc errno zmq-error-alist))
                      'zmq-ERROR)))
     (signal errsym data)))
+
+(zmq--define-errors)
 
 ;;; Contexts
 
@@ -785,29 +745,29 @@ unibyte characters."
       (cond
        ;; INT
        ((member option (list zmq-BACKLOG zmq-RATE
-                             zmq-RECOVERY_IVL zmq-SNDHWM
+                             zmq-RECOVERY-IVL zmq-SNDHWM
                              zmq-SNDBUF zmq-SNDTIMEO zmq-RCVHWM
                              zmq-RCVBUF zmq-RCVTIMEO zmq-LINGER
-                             zmq-RECONNECT_IVL
-                             zmq-RECONNECT_IVL_MAX
-                             zmq-MULTICAST_HOPS
-                             zmq-MULTICAST_MAXTPDU
-                             zmq-CONNECT_TIMEOUT
-                             zmq-HANDSHAKE_IVL zmq-HEARTBEAT_IVL
-                             zmq-HEARTBEAT_TIMEOUT
-                             zmq-HEARTBEAT_TTL zmq-USE_FD
-                             zmq-TCP_KEEPALIVE
-                             zmq-TCP_KEEPALIVE_CNT
-                             zmq-TCP_KEEPALIVE_IDLE
-                             zmq-TCP_KEEPALIVE_INTVL
-                             zmq-TCP_MAXRT zmq-TOS
-                             zmq-VMCI_CONNECT_TIMEOUT))
+                             zmq-RECONNECT-IVL
+                             zmq-RECONNECT-IVL-MAX
+                             zmq-MULTICAST-HOPS
+                             zmq-MULTICAST-MAXTPDU
+                             zmq-CONNECT-TIMEOUT
+                             zmq-HANDSHAKE-IVL zmq-HEARTBEAT-IVL
+                             zmq-HEARTBEAT-TIMEOUT
+                             zmq-HEARTBEAT-TTL zmq-USE-FD
+                             zmq-TCP-KEEPALIVE
+                             zmq-TCP-KEEPALIVE-CNT
+                             zmq-TCP-KEEPALIVE-IDLE
+                             zmq-TCP-KEEPALIVE-INTVL
+                             zmq-TCP-MAXRT zmq-TOS
+                             zmq-VMCI-CONNECT-TIMEOUT))
         (setq size (ffi--type-size :int))
         (ffi--mem-set buf :int value))
        ;; UINT64
-       ((member option (list zmq-AFFINITY zmq-VMCI_BUFFER_SIZE
-                             zmq-VMCI_BUFFER_MAX_SIZE
-                             zmq-VMCI_BUFFER_MIN_SIZE))
+       ((member option (list zmq-AFFINITY zmq-VMCI-BUFFER-SIZE
+                             zmq-VMCI-BUFFER-MAX-SIZE
+                             zmq-VMCI-BUFFER-MIN-SIZE))
         (setq size (ffi--type-size :uint64))
         (ffi--mem-set buf :uint64 value))
        ;; INT64
@@ -815,28 +775,28 @@ unibyte characters."
         (setq size (ffi--type-size :int64))
         (ffi--mem-set buf :int64 value))
        ;; INT with BOOL values
-       ((member option (list zmq-CONFLATE zmq-CURVE_SERVER
-                             zmq-GSSAPI_PLAINTEXT
-                             zmq-GSSAPI_SERVER zmq-IMMEDIATE
-                             zmq-INVERT_MATCHING zmq-IPV6
-                             zmq-PLAIN_SERVER zmq-PROBE_ROUTER
-                             zmq-REQ_CORRELATE zmq-REQ_RELAXED
-                             zmq-ROUTER_HANDOVER
-                             zmq-ROUTER_MANDATORY zmq-ROUTER_RAW
-                             zmq-STREAM_NOTIFY zmq-XPUB_VERBOSE
-                             zmq-XPUB_VERBOSER zmq-XPUB_MANUAL
-                             zmq-XPUB_NODROP))
+       ((member option (list zmq-CONFLATE zmq-CURVE-SERVER
+                             zmq-GSSAPI-PLAINTEXT
+                             zmq-GSSAPI-SERVER zmq-IMMEDIATE
+                             zmq-INVERT-MATCHING zmq-IPV6
+                             zmq-PLAIN-SERVER zmq-PROBE-ROUTER
+                             zmq-REQ-CORRELATE zmq-REQ-RELAXED
+                             zmq-ROUTER-HANDOVER
+                             zmq-ROUTER-MANDATORY zmq-ROUTER-RAW
+                             zmq-STREAM-NOTIFY zmq-XPUB-VERBOSE
+                             zmq-XPUB-VERBOSER zmq-XPUB-MANUAL
+                             zmq-XPUB-NODROP))
         (unless (booleanp value)
           (signal 'wrong-type-argument (list 'booleanp value)))
 
         (setq size (ffi--type-size :int))
         (ffi--mem-set buf :int64 (if value 1 0)))
        ;; STRING
-       ((member option (list zmq-GSSAPI_PRINCIPAL
-                             zmq-GSSAPI_SERVICE_PRINCIPAL
-                             zmq-PLAIN_PASSWORD
-                             zmq-PLAIN_USERNAME zmq-SOCKS_PROXY
-                             zmq-ZAP_DOMAIN))
+       ((member option (list zmq-GSSAPI-PRINCIPAL
+                             zmq-GSSAPI-SERVICE-PRINCIPAL
+                             zmq-PLAIN-PASSWORD
+                             zmq-PLAIN-USERNAME zmq-SOCKS-PROXY
+                             zmq-ZAP-DOMAIN))
         (when (multibyte-string-p value)
           (signal 'wrong-type-argument (list '(not multibyte-string-p) value)))
 
@@ -845,10 +805,10 @@ unibyte characters."
           (error "Length of value too long"))
         (zmq--set-bytes buf value))
        ;; BINARY
-       ((member option (list zmq-CONNECT_ROUTING_ID
-                             zmq-ROUTING_ID zmq-SUBSCRIBE
+       ((member option (list zmq-CONNECT-ROUTING-ID
+                             zmq-ROUTING-ID zmq-SUBSCRIBE
                              zmq-UNSUBSCRIBE
-                             zmq-XPUB_WELCOME_MSG))
+                             zmq-XPUB-WELCOME-MSG))
         (when (multibyte-string-p value)
           (signal 'wrong-type-argument (list '(not multibyte-string-p) value)))
 
@@ -857,9 +817,9 @@ unibyte characters."
           (error "Length of value too long"))
         (zmq--set-bytes buf value))
        ;; CURVE
-       ((member option (list zmq-CURVE_PUBLICKEY
-                             zmq-CURVE_SECRETKEY
-                             zmq-CURVE_SERVERKEY))
+       ((member option (list zmq-CURVE-PUBLICKEY
+                             zmq-CURVE-SECRETKEY
+                             zmq-CURVE-SERVERKEY))
         (cond
          ((= (length value) 32)
           (setq size 32)
@@ -882,31 +842,31 @@ unibyte characters."
        ;; INT
        ((member option (list zmq-MECHANISM
                              zmq-BACKLOG zmq-RATE
-                             zmq-RECOVERY_IVL zmq-SNDHWM
+                             zmq-RECOVERY-IVL zmq-SNDHWM
                              zmq-SNDBUF zmq-SNDTIMEO zmq-RCVHWM
                              zmq-RCVBUF zmq-RCVTIMEO zmq-LINGER
-                             zmq-RECONNECT_IVL
-                             zmq-RECONNECT_IVL_MAX
-                             zmq-MULTICAST_HOPS
-                             zmq-MULTICAST_MAXTPDU
-                             zmq-CONNECT_TIMEOUT
-                             zmq-HANDSHAKE_IVL zmq-HEARTBEAT_IVL
-                             zmq-HEARTBEAT_TIMEOUT
-                             zmq-HEARTBEAT_TTL zmq-USE_FD
+                             zmq-RECONNECT-IVL
+                             zmq-RECONNECT-IVL-MAX
+                             zmq-MULTICAST-HOPS
+                             zmq-MULTICAST-MAXTPDU
+                             zmq-CONNECT-TIMEOUT
+                             zmq-HANDSHAKE-IVL zmq-HEARTBEAT-IVL
+                             zmq-HEARTBEAT-TIMEOUT
+                             zmq-HEARTBEAT-TTL zmq-USE-FD
                              zmq-EVENTS
-                             zmq-TCP_KEEPALIVE
-                             zmq-TCP_KEEPALIVE_CNT
-                             zmq-TCP_KEEPALIVE_IDLE
-                             zmq-TCP_KEEPALIVE_INTVL
-                             zmq-TCP_MAXRT zmq-TOS
-                             zmq-VMCI_CONNECT_TIMEOUT))
+                             zmq-TCP-KEEPALIVE
+                             zmq-TCP-KEEPALIVE-CNT
+                             zmq-TCP-KEEPALIVE-IDLE
+                             zmq-TCP-KEEPALIVE-INTVL
+                             zmq-TCP-MAXRT zmq-TOS
+                             zmq-VMCI-CONNECT-TIMEOUT))
         (ffi--mem-set len :size_t (ffi--type-size :int))
         (zmq--getsockopt sock option buf len)
         (ffi--mem-ref buf :int))
        ;; UINT64
-       ((member option (list zmq-AFFINITY zmq-VMCI_BUFFER_SIZE
-                             zmq-VMCI_BUFFER_MAX_SIZE
-                             zmq-VMCI_BUFFER_MIN_SIZE))
+       ((member option (list zmq-AFFINITY zmq-VMCI-BUFFER-SIZE
+                             zmq-VMCI-BUFFER-MAX-SIZE
+                             zmq-VMCI-BUFFER-MIN-SIZE))
         (ffi--mem-set len :size_t (ffi--type-size :uint64))
         (zmq--getsockopt sock option buf len)
         (ffi--mem-ref buf :uint64))
@@ -921,36 +881,36 @@ unibyte characters."
         (zmq--getsockopt sock option buf len)
         (ffi--mem-ref buf :int))
        ;; INT with BOOL values
-       ((member option (list zmq-IMMEDIATE zmq-INVERT_MATCHING
+       ((member option (list zmq-IMMEDIATE zmq-INVERT-MATCHING
                              zmq-CONFLATE zmq-IPV6
-                             zmq-PLAIN_SERVER
-                             zmq-GSSAPI_PLAINTEXT
-                             zmq-GSSAPI_SERVER zmq-RCVMORE))
+                             zmq-PLAIN-SERVER
+                             zmq-GSSAPI-PLAINTEXT
+                             zmq-GSSAPI-SERVER zmq-RCVMORE))
         (ffi--mem-set len :size_t (ffi--type-size :int))
         (zmq--getsockopt sock option buf len)
         (= (ffi--mem-ref buf :int) 1))
        ;; BOOL
-       ((= option zmq-THREAD_SAFE)
+       ((= option zmq-THREAD-SAFE)
         (ffi--mem-set len :size_t (ffi--type-size :bool))
         (zmq--getsockopt sock option buf len)
         (ffi--mem-ref buf :bool))
        ;; STRINGS
-       ((member option (list zmq-GSSAPI_PRINCIPAL zmq-GSSAPI_SERVICE_PRINCIPAL
-                             zmq-LAST_ENDPOINT zmq-PLAIN_PASSWORD
-                             zmq-PLAIN_USERNAME zmq-SOCKS_PROXY
-                             zmq-ZAP_DOMAIN))
+       ((member option (list zmq-GSSAPI-PRINCIPAL zmq-GSSAPI-SERVICE-PRINCIPAL
+                             zmq-LAST-ENDPOINT zmq-PLAIN-PASSWORD
+                             zmq-PLAIN-USERNAME zmq-SOCKS-PROXY
+                             zmq-ZAP-DOMAIN))
         (ffi--mem-set len :size_t buf-size)
         (zmq--getsockopt sock option buf len)
         (ffi-get-c-string buf))
        ;; BINARY
-       ((member option (list zmq-ROUTING_ID))
+       ((member option (list zmq-ROUTING-ID))
         (ffi--mem-set len :size_t buf-size)
         (zmq--getsockopt sock option buf len)
         (zmq--get-bytes buf (ffi--mem-ref len :size_t)))
        ;; CURVE
-       ((member option (list zmq-CURVE_PUBLICKEY
-                             zmq-CURVE_SECRETKEY
-                             zmq-CURVE_SERVERKEY))
+       ((member option (list zmq-CURVE-PUBLICKEY
+                             zmq-CURVE-SECRETKEY
+                             zmq-CURVE-SERVERKEY))
         ;; Note that this always returns the string representation
         (ffi--mem-set len :size_t 41)
         (zmq--getsockopt sock option buf len)

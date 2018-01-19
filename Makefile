@@ -1,10 +1,11 @@
 EMACS ?= emacs
+CPPFLAGS ?= $(shell pkg-config --cflags libzmq)
 TEST_ORDER = zmq-utility zmq-encryption zmq-contexts zmq-messages zmq-sockets zmq-send-unicode zmq-polling zmq-subprocess
-FILES = zmq.el zmq-ffi.el zmq-constants.el
+FILES = zmq-constants.el zmq.el zmq-ffi.el
 ELCFILES = $(FILES:.el=.elc)
 LIBS = -L /Users/nathan/.emacs.d/el-get/ffi
 
-.PHONY: all compile test clean
+.PHONY: all build compile test clean
 
 all: compile
 
@@ -16,8 +17,17 @@ clean:
 	rm -f *~
 	rm -f \#*\#
 	rm -f *.elc
+	rm -f zmq-constants.el # generate constants on next compile
 
-compile: $(ELCFILES)
+compile: build $(ELCFILES)
+
+build: zmq-constants.el
+
+zmq-constants.el:
+	echo "#include <zmq.h>" >> zmq_header.h
+	$(CC) $(CPPFLAGS) -E -dM zmq_header.h | \
+awk -f gen-constants.awk - > zmq-constants.el
+	rm zmq_header.h
 
 $(ELCFILES): %.elc: %.el
 	$(EMACS) --batch -Q -L . $(LIBS) -f batch-byte-compile $<
