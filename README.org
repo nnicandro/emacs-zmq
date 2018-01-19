@@ -1,0 +1,383 @@
+Bindings to =zmq= in Emacs.
+
+* Dependencies
+
+- libffi :: https://github.com/libffi/libffi
+- libzmq :: https://github.com/zeromq/libzmq
+- emacs-ffi :: https://github.com/tromey/emacs-ffi
+
+* Asynchronous subprocess
+
+There is a convenience function, =zmq-start-process=, which creates an Emacs
+subprocess and initializ.
+
+#+BEGIN_SRC elisp
+(zmq-start-process
+ (lambda ()
+   (with-zmq-context
+     (let ((ctx (zmq-current-context)))
+       (with-zmq-socket sock zmq-SUB
+         BODY)))))
+#+END_SRC
+
+Or if you supply a function with a single argument to =zmq-start-process=, a
+context will be created for you and passed as the argument to the function:
+
+#+BEGIN_SRC elisp
+(zmq-start-process
+ (lambda (ctx)
+   (with-zmq-socket sock zmq-SUB
+     BODY)))
+#+END_SRC
+
+For one-way communication between the parent Emacs process and the subprocess
+created with =zmq-start-process= you can use =zmq-subprocess-send= in the
+parent and =zmq-subprocess-read= in the subprocess.
+
+=zmq-subprocess-send= takes a process object as its first argument and an
+arbitrary s-expression as its second argument. The s-expression will be encoded
+and sent to the subprocess. Using =zmq-subprocess-read= in the subprocess takes
+care of decoding and returns the s-expression sent from the parent process.
+Note that arbitrary binary data can be sent to the subprocess using
+=zmq-subprocess-send=.
+
+#+BEGIN_SRC elisp
+(let ((proc (zmq-start-process
+             (lambda (ctx)
+               (with-zmq-poller poller
+                 ;; Poll for input on STDIN, i.e. input from the parent emacs
+                 ;; process
+                 (zmq-poller-register poller 0 zmq-POLLIN)
+                 (catch 'exit
+                   (while t
+                     (when (zmq-poller-wait poller 100)
+                       (let ((sexp (zmq-subprocess-read)))
+                         (zmq-prin1 sexp)
+                         (throw 'exit t)))))))
+             ;; A filter function which prints out messages sent by the
+             ;; subprocess.
+             (lambda (sexp)
+               (message "echo %s" sexp)))))
+  ;; Let the process start
+  (sleep-for 0.2)
+  (zmq-subprocess-send proc (list 'send "topic1")))
+#+END_SRC
+
+* Getting/setting options
+
+To set an option for a =zmq-context=, =zmq-socket=, or =zmq-message= call
+
+#+BEGIN_SRC elisp
+(zmq-context-set ctx zmq-BLOCKY nil)
+(zmq-socket-set sock zmq-IPV6 t)
+(zmq-message-set msg zmq-MORE t)
+#+END_SRC
+
+To get an option
+
+#+BEGIN_SRC elisp
+(zmq-context-get ctx zmq-BLOCKY)
+(zmq-socket-get sock zmq-IPV6)
+(zmq-message-get msg zmq-MORE)
+#+END_SRC
+
+Or the convenience functions =zmq-set-option= and =zmq-get-option= can be used
+which will call one of the functions above based on the type of the first
+argument:
+
+#+BEGIN_SRC elisp
+(zmq-set-option ctx zmq-BLOCKY nil)
+(zmq-set-option sock zmq-IPV6 t)
+
+(zmq-get-option ctx zmq-BLOCKY)
+(zmq-get-option sock zmq-IPV6)
+#+END_SRC
+
+To access a =zmq-message= meta-data property use =zmq-message-property=:
+
+#+BEGIN_SRC elisp
+(zmq-message-property msg :identity)
+#+END_SRC
+
+The available metadata properties can be found in =zmq-message-properties=.
+
+** Boolean options
+
+Integer options which are interpreted as boolean in =zmq= are interpreted in
+emacs as boolean. For example, the socket option =zmq-IPV6= which enables IPV6
+connections for the socket is an integer option interpreted as a boolean value
+in the C API. In =emacs= this option is a boolean. So to enable IPV6
+connections you would do
+
+#+BEGIN_SRC elisp
+(zmq-socket-set sock zmq-IPV6 t)
+#+END_SRC
+
+and to disable them
+
+#+BEGIN_SRC elisp
+(zmq-socket-set sock zmq-IPV6 nil)
+#+END_SRC
+
+Similarly for all other socket, message, or context options which are
+interpreted as boolean by the C API.
+* Messages
+
+To create a new message object use =zmq-message=
+
+#+BEGIN_SRC elisp
+(zmq-message) ; initialized empty message
+#+END_SRC
+
+You can also pass a =sequence= to =zmq-message= to initialize a message with
+some data
+
+#+BEGIN_SRC elisp
+(zmq-message "mess\0ge") ; initialized message with data
+#+END_SRC
+
+Note you can also initialize a message with a vector of integers. In this case,
+each integer should be a number between 0-255, i.e. a byte.
+
+#+BEGIN_SRC elisp
+(zmq-message [0 10 100 29]) ; initialized message with data
+#+END_SRC
+
+=zmq= only deals with binary data so if a message contains multi-byte
+characters you must first convert the string to a unibyte representation
+
+#+BEGIN_SRC elisp
+(zmq-message (string-as-unibyte "t∅pic"))
+#+END_SRC
+
+Below is a table mapping the =zmq= =C= API call to its equivalent in
+=emacs-lisp=.
+
+| C                        | emacs-lisp             |
+|--------------------------+------------------------|
+| =zmq_msg_init=           | =zmq-init-message=     |
+| =zmq_msg_init_data=      | =zmq-init-message=     |
+| =zmq_msg_recv=           | =zmq-recv-message=     |
+| =zmq_msg_send=           | =zmq-send-message=     |
+| =zmq_msg_move=           | =zmq-move-message=     |
+| =zmq_msg_copy=           | =zmq-copy-message=     |
+| =zmq_msg_close=          | =zmq-close-message=    |
+| =zmq_msg_data=           | =zmq-message-data=     |
+| =zmq_msg_size=           | =zmq-message-size=     |
+| =zmq_msg_more=           | =zmq-message-more-p=   |
+| =zmq_msg_set=            | =zmq-message-set=      |
+| =zmq_msg_get=            | =zmq-message-get=      |
+| =zmq_msg_gets=           | =zmq-message-property= |
+| =zmq_msg_routing_id=     | =zmq-message-id=       |
+| =zmq_msg_set_routing_id= | =zmq-message-set-id=   |
+
+* Multi-part messages
+
+To send a multi-part message you can use =zmq-send-multipart=:
+
+#+BEGIN_SRC elisp
+(zmq-send-multipart sock '("part1" "part2" "part3"))
+#+END_SRC
+
+The above code sends a three part message on =sock=.
+
+To receive a multi-part message
+
+#+BEGIN_SRC elisp
+(zmq-recv-multipart sock)
+#+END_SRC
+
+=zmq-recv-multipart= returns a list containing the parts of the message.
+=zmq-recv-multipart= always returns a list even for a message containing a
+single part.
+
+* Context/socket/poller lifetime management
+
+There are convenience macros to cleanup =zmq= objects after you are done using
+them.
+
+For a =zmq-context= the macro =with-zmq-context= creates a new context and sets
+it as the =zmq-current-context= for the lifetime of the =with-zmq-context=
+call. The newly created context can then be accessed by calling
+=zmq-current-context=:
+
+#+BEGIN_SRC elisp
+(with-zmq-context
+  (let ((ctx (zmq-current-context)))
+    BODY))
+#+END_SRC
+
+After =BODY= is done executing, =zmq-terminate-context= will be called on the
+context created by =with-zmq-context=. Note that within the =with-zmq-context=
+call, the variable =zmq-current-context= is bound to the context created.
+Notice that =zmq-current-context= is being used as both a variable and a
+function here.
+
+Without being wrapped in =with-zmq-context=, a call to =zmq-current-context=
+returns the value of the =zmq-current-context= variable in the current scope if
+it is non-nil or creates a new context when it is nil. When
+=zmq-current-context= creates a new context, it binds the variable
+=zmq-current-context= in the current scope. And so =zmq-current-context= always
+returns the value of the =zmq-current-context= variable and sets it if
+necessary.
+
+This gives a way to create socket objects without having to deal with the
+context:
+
+#+BEGIN_SRC elisp
+(zmq-socket (zmq-current-context) zmq-ROUTER)
+#+END_SRC
+
+The global value of =zmq-current-context= will be cleanup when Emacs exits,
+along with any sockets that have not been closed yet.
+
+To control the lifetime of =zmq-socket= objects more easily you can use the
+macro =with-zmq-socket=:
+
+#+BEGIN_SRC elisp
+(with-zmq-socket sock zmq-REP
+  BODY)
+#+END_SRC
+
+The above code creates a =REP= socket using the =zmq-current-context=, binds it
+to the symbol =sock=, and then runs =BODY=. After =BODY= is done executing, the
+=zmq-LINGER= option for the socket is set to 0 (see
+http://zguide.zeromq.org/page:all#Making-a-Clean-Exit) and =zmq-close= is
+called on =sock=.
+
+Note you can also pass a list of socket options to =with-zmq-socket=:
+
+#+BEGIN_SRC elisp
+(with-zmq-socket sock zmq-REP
+    ((zmq-LINGER 1000)
+     (zmq-IPV6 t))
+  BODY)
+#+END_SRC
+
+The above is equivalent to
+
+#+BEGIN_SRC elisp
+(with-zmq-socket sock zmq-REP
+  (zmq-socket-set sock zmq-LINGER 1000)
+  (zmq-socket-set sock zmq-IPV6 t)
+  BODY)
+#+END_SRC
+
+If your =zmq= installation was compiled with the current draft API, then the
+macro =with-zmq-poller= is also available:
+
+#+BEGIN_SRC elisp
+(with-zmq-poller poller
+  BODY)
+#+END_SRC
+
+This macro instantiates a new =zmq-poller= object, binds it to the symbol
+=poller=, and runs =BODY=. When =BODY= is done running, =zmq-poller-destroy= is
+called on =poller=.
+
+* Contexts
+
+To create a new context use =zmq-context=
+
+#+BEGIN_SRC elisp
+(zmq-context) ; new context
+#+END_SRC
+
+Normally a single context object for the current Emacs session is necessary so
+you would normally use =zmq-current-context= which will set the variable
+=zmq-current-context= if not already set.
+
+The following is a mapping between the C API functions and the Emacs API.
+
+| C                      | emacs-lisp            |
+|------------------------+-----------------------|
+| zmq_ctx_new            | zmq-context           |
+| zmq_ctx_set            | zmq-context-set       |
+| zmq_ctx_get            | zmq-context-get       |
+| zmq_ctx_term           | zmq-terminate-context |
+| zmq_ctx_shutdown       | zmq-shutdown-context  |
+
+* Sockets
+
+| C                  | emacs-lisp         |
+|--------------------+--------------------|
+| zmq_socket         | zmq-socket         |
+| zmq_socket_monitor | zmq-socket-monitor |
+| zmq_send_const     | zmq-send-const     |
+| zmq_send           | zmq-send           |
+| zmq_recv           | zmq-recv           |
+| zmq_bind           | zmq-bind           |
+| zmq_unbind         | zmq-unbind         |
+| zmq_connect        | zmq-connect        |
+| zmq_disconnect     | zmq-disconnect     |
+| zmq_close          | zmq-close          |
+| zmq_setsockopt     | zmq-socket-set     |
+| zmq_getsockopt     | zmq-socket-get     |
+
+#+BEGIN_SRC elisp
+(with-zmq-context
+  (let* ((ctx (current-zmq-context))
+         (sock (zmq-socket ctx zmq-PUB)))
+    (unwind-protect
+        (let ((endpoint "tcp://127.0.0.1:5554"))
+          (zmq-bind sock endpoint)
+          <do work>)
+      (zmq-close sock))))
+#+END_SRC
+
+To take care of lifetime management of a socket use =with-zmq-socket=
+
+#+BEGIN_SRC elisp
+(with-zmq-context
+  (with-zmq-socket sock zmq-PUB
+    (let ((endpoint "tcp://127.0.0.1:5554"))
+      (zmq-bind sock endpoint)
+      <do work>)))
+#+END_SRC
+
+Note that the context object is nowhere in sight. Thats because
+=with-zmq-socket= already sets the context of the socket using
+=current-zmq-context=.
+
+Options on a socket are also handled using the =with-zmq-socket= macro
+
+#+BEGIN_SRC elisp
+(with-zmq-context
+  (with-zmq-socket sock zmq-PUB
+      ((zmq-LINGER 0)
+       (zmq-CONFLATE t))
+    (let ((ctx (zmq-current-context))
+          (endpoint "tcp://127.0.0.1:5554"))
+      (zmq-bind sock endpoint)
+      BODY)))
+#+END_SRC
+
+these options are set before entering the =let= form.
+
+Receiving a message without blocking
+
+#+BEGIN_SRC elisp
+(let (msg)
+  (while (null (condition-case err
+                   (setq msg (zmq-recv sock zmq-NOBLOCK))
+                (zmq-EAGAIN nil)
+                (error (signal (car err) (cdr err)))))
+    (sleep-for 1)))
+#+END_SRC
+
+Or you can use the polling interface
+
+#+BEGIN_SRC elisp
+(catch 'recvd
+  (let ((items (list (zmq-pollitem
+                      :socket sock
+                      ;; alternatively (logior zmq-POLLIN zmq-POLLOUT)
+                      :events (list zmq-POLLIN zmq-POLLOUT))))
+        (timeout (* 1000 1000)))
+    (while t
+      ;; `zmq-poll' returns an alist with elements (sock . events)
+      (let* ((socks-events (zmq-poll items timeout))
+             (events (alist-get sock socks-events)))
+        (when (member zmq-POLLIN events)
+          (throw 'recvd (zmq-recv sock)))))))
+#+END_SRC
