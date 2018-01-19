@@ -232,7 +232,7 @@ passed as the second argument to `signal'."
                (:constructor
                 zmq-context
                 (&aux (-ptr (or (zmq--ctx-new)
-                                (error "Context not created."))))))
+                                (error "Context not created"))))))
   (-ptr nil :read-only t))
 
 ;; See the `zmq-context' type
@@ -243,7 +243,7 @@ passed as the second argument to `signal'."
 (zmq--ffi-wrapper "ctx_shutdown" :int ((context :context)))
 
 (defun zmq-context-set (context option value)
-  "Set a CONTEXT OPTION."
+  "Set a CONTEXT OPTION to VALUE."
   (when (and (booleanp value)
              (member option `(,zmq-BLOCKY ,zmq-IPV6)))
     (setq value (if value 1 0)))
@@ -278,7 +278,7 @@ passed as the second argument to `signal'."
 (defun zmq-z85-decode (key)
   "Decode a z85 encoded KEY."
   (unless (= (mod (length key) 5) 0)
-    (signal 'args-out-of-range '("Length not a multiple of 5.")))
+    (signal 'args-out-of-range '("Length not a multiple of 5")))
   (let ((size (ceiling (* 0.8 (length key)))))
     (with-ffi-temporary (decoded size)
       (when (ffi-pointer= decoded (zmq--z85-decode decoded key))
@@ -287,7 +287,7 @@ passed as the second argument to `signal'."
 (defun zmq-z85-encode (data)
   "Encode DATA using the z85 encoding."
   (unless (= (mod (length data) 4) 0)
-    (signal 'args-out-of-range '("Length not a multiple of 4.")))
+    (signal 'args-out-of-range '("Length not a multiple of 4")))
   (let ((size (+ (ceiling (* 1.25 (length data))) 1)))
     (with-ffi-temporary (encoded size)
       (when (ffi-pointer= encoded (zmq--z85-encode encoded data (length data)))
@@ -528,7 +528,7 @@ Note that if TIMEOUT is -1, wait indefinately until an event arrives."
                  (:constructor
                   zmq-poller
                   (&aux (-ptr (or (zmq--poller-new)
-                                  (error "Poller not created."))))))
+                                  (error "Poller not created"))))))
     (-ptr nil :read-only t)
     (-socks-fds nil))
 
@@ -657,8 +657,7 @@ forever."
                                      (zmq--poller-event-t-events e)))
                               events)))
               events)
-          (zmq-ETIMEDOUT nil)
-          (error (signal (car err) (cdr err))))))))
+          (zmq-ETIMEDOUT nil))))))
 
 ;;; Proxy
 
