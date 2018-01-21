@@ -381,7 +381,8 @@ signaled using the `cdr' of the list for the error data."
 
 (defun zmq--subprocess-sentinel (process event)
   (let ((sentinel (process-get process :sentinel)))
-    (funcall sentinel process event))
+    (when sentinel
+      (funcall sentinel process event)))
   (when (and (process-get process :owns-buffer)
              (cl-loop
               for type in '("exited" "failed" "finished" "killed" "deleted")
