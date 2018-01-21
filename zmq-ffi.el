@@ -219,14 +219,21 @@ can hold at least (length DATA) of bytes."
 
 ;;; Error handling
 
-(define-ffi-function zmq-errno "zmq_errno" :int [] libzmq)
-(define-ffi-function zmq-strerror "zmq_strerror" :pointer [:int] libzmq)
+(zmq--ffi-wrapper "errno" :int () noerror)
+(zmq--ffi-wrapper "strerror" :pointer ((errno :int)))
+
+(defalias 'zmq-errno #'zmq--errno
+  "The current error number set in ZMQ.")
+
+(defun zmq-strerror (errno)
+  "An explanation of ERRNO.
+ERRNO is an error number as returned by `zmq-errno'."
+  (ffi-get-c-string (zmq--strerror errno)))
 
 (define-error 'zmq-ERROR "An error occured in ZMQ" 'error)
-
 (cl-loop
  for (errno . sym) in zmq-error-alist
- do (define-error sym (ffi-get-c-string (zmq-strerror errno)) 'zmq-ERROR))
+ do (define-error sym (zmq-strerror errno) 'zmq-ERROR))
 
 (defun zmq-error-handler (&rest data)
   "Handle the error created by a call to a ZMQ API function.
