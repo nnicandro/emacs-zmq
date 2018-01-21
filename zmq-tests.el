@@ -363,10 +363,6 @@
       (unwind-protect
           (progn
             (should-error (setq proc (zmq-start-process (list 1 2 3))))
-            ;; TODO: How to check for closures? Tests are normally not byte
-            ;; compiled which is when closures are created. This `lexical-let'
-            ;; expands into a let form, not a closure.
-            (should-error (setq proc (zmq-start-process (lambda () (setq foo 1)))))
             (ert-info ("Only functions with 0 or 1 arguments")
               (should-error (setq proc (zmq-start-process
                                         (lambda (a b)))))))
@@ -408,34 +404,34 @@
         (ert-info ("Subprocess output")
           (ert-info ("Reading sexp from process output")
             (ert-info ("Reading a single sexp")
-              (setq sexp (car (zmq--subprocess-read-output
-                               process "(event . \"foo\")")))
-              (should (equal sexp '(event . "foo")))
-              (should (string= (process-get process :pending-output) ""))
-              (should (= (length (buffer-string)) 0)))
-            (ert-info ("Reading a partial sexp")
-              (setq sexp (car (zmq--subprocess-read-output
-                               process "(event . \"foo\"")))
-              (should-not sexp)
-              (should (equal (process-get process :pending-output) "(event . \"foo\"")))
-            (ert-info ("Reading pending output from partial sexp")
-              (let ((events (zmq--subprocess-read-output
-                             process ")(jelly . jam)")))
-                (should (= (length events) 2))
-                (should (equal (car events) '(event . "foo")))
-                (should (equal (cadr events) '(jelly . jam)))
-                (should (string= (process-get process :pending-output) ""))))
+              (with-temp-buffer
+                (setq sexp (car (zmq--subprocess-read-output
+                                 "(event . \"foo\")")))
+                (should (equal sexp '(event . "foo")))
+                (should (= (length (buffer-string)) 0))))
+            (with-temp-buffer
+              (ert-info ("Reading a partial sexp")
+                (setq sexp (car (zmq--subprocess-read-output
+                                 "(event . \"foo\"")))
+                (should-not sexp))
+              (ert-info ("Reading pending output from partial sexp")
+                (let ((events (zmq--subprocess-read-output
+                               ")(jelly . jam)")))
+                  (should (= (length events) 2))
+                  (should (equal (car events) '(event . "foo")))
+                  (should (equal (cadr events) '(jelly . jam))))))
             (ert-info ("Invalid read syntax")
-              (should-error (zmq--subprocess-read-output
-                             process "(foo . bar)#()")))
+              (with-temp-buffer
+                (should-error (zmq--subprocess-read-output
+                               "(foo . bar)#()"))))
             (ert-info ("Ignoring raw text")
               (should-not (zmq--subprocess-read-output
-                           process "This is raw text"))
+                           "This is raw text"))
               (should (equal (car (zmq--subprocess-read-output
-                                   process "This is raw text 'foo"))
+                                   "This is raw text 'foo"))
                              '(quote foo)))
               (should (equal (car (zmq--subprocess-read-output
-                                   process "This is raw text \"foo\""))
+                                   "This is raw text \"foo\""))
                              "foo"))))
           (ert-info ("Subprocess filter")
             (let ((filter-called nil))
