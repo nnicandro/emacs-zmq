@@ -4,7 +4,7 @@ CPPFLAGS ?= -E -dM
 TEST_ORDER = zmq-utility zmq-encryption zmq-contexts zmq-messages zmq-sockets zmq-send-unicode zmq-polling zmq-subprocess
 FILES = zmq-constants.el zmq-ffi.el zmq-draft.el zmq.el
 ELCFILES = $(FILES:.el=.elc)
-LIBS = -L /Users/nathan/.emacs.d/el-get/ffi
+LIBS ?= -L .
 
 .PHONY: all build compile test clean
 
