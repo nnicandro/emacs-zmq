@@ -238,7 +238,6 @@ same meaning as `zmq-send'."
           (zmq-send-message part sock (if (not (null (cdr parts)))
                                           (logior flags zmq-SNDMORE)
                                         flags))
-          (zmq-socket-get sock zmq-EVENTS)
           (setq parts (cdr parts)
                 data (car parts)))
       (zmq-close-message part))))
@@ -252,7 +251,6 @@ FLAGS has the same meaning as in `zmq-recv'."
           (while t
             (zmq-init-message part)
             (zmq-recv-message part sock flags)
-            (zmq-socket-get sock zmq-EVENTS)
             (setq res (cons (zmq-message-data part) res))
             (unless (zmq-message-more-p part)
               (throw 'recvd (nreverse res)))))
