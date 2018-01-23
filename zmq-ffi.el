@@ -591,8 +591,8 @@ BUF should be a constant memory byte buffer as obtained by
 `with-ffi-tempory' or any other function which returns a
 `user-ptr' to constant memory. LEN is the length of BUF and FLAGS
 has the same meaning as `zmq-send'."
-  (when (cl-assert (user-ptrp buf))
-    (zmq--send-const sock buf len (or flags 0))))
+  (cl-assert (user-ptrp buf))
+  (zmq--send-const sock buf len (or flags 0)))
 
 (defun zmq-send (sock message &optional flags)
   "Send a single message on SOCK.
