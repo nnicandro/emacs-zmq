@@ -7,7 +7,7 @@ Bindings to =zmq= in Emacs.
 - emacs-ffi :: https://github.com/tromey/emacs-ffi
 
 In addition to the above dependencies you will need a working =C= compiler,
-=make=, and =awk=, and optionally =pkg-config=. See [[id:CF64F9E2-8118-4372-97B5-5204FA506F06][Before using this library]].
+=make=, =awk=, and optionally =pkg-config=. See below.
 
 ** Before using this library
 :PROPERTIES:
@@ -33,10 +33,27 @@ and ZMQ specific macro defines in the =CFLAGS= variable before the call to
 CFLAGS=-DZMQ_BUILD_DRAFT_API=1 -I/usr/local/Cellar/zeromq/4.2.3/include
 #+END_SRC
 
+In addition, you will have to set =LIBS= to the path of =emacs-ffi= on your
+system
+
+#+BEGIN_SRC sh
+LIBS=/path/to/emacs-ffi
+#+END_SRC
+
+So the full invocation to generate =zmq-constants.el= would look like
+
+#+BEGIN_SRC sh
+CFLAGS=-DZMQ_BUILD_DRAFT_API=1 -I/path/to/zeromq/include
+LIBS=-L /path/to/emacs-ffi
+make build
+#+END_SRC
+
+Again, the =CFLAGS= line is not necessary if =pkg-config= is aware of =libzmq=.
+
 The extraction of the constants has only been tested on OS X, but should work
 on most systems.
 
-To both generate =zmq-constants.el= and compile all =emacs-lisp= files, run
+To both generate =zmq-constants.el= and compile all =emacs-lisp= source files, run
 =make= or =make compile=.
 
 *** Note on compiling the =emacs-lisp= files
@@ -352,10 +369,12 @@ Note that arbitrary binary data can be sent to the subprocess using
 There are convenience macros to cleanup =zmq= objects after you are done using
 them.
 
-For a =zmq-context= the macro =with-zmq-context= creates a new context and sets
-it as the =zmq-current-context= for the lifetime of the =with-zmq-context=
-call. The newly created context can then be accessed by calling
-=zmq-current-context=:
+For a =zmq-context= the macro =with-zmq-context= creates a new context and
+locally binds the variable definition of =zmq-current-context= to the newly
+created context for the lifetime of the =with-zmq-context= call. Note,
+=zmq-current-context= is also a function and in the case below, returns the
+context created by =with-zmq-context=:
+
 
 #+BEGIN_SRC elisp
 (with-zmq-context
@@ -364,15 +383,15 @@ call. The newly created context can then be accessed by calling
 #+END_SRC
 
 After =BODY= is done executing, =zmq-terminate-context= will be called on the
-context created by =with-zmq-context=. Note that within the =with-zmq-context=
-call, the variable =zmq-current-context= is bound to the context created.
-Notice that =zmq-current-context= is being used as both a variable and a
-function here.
+context created by =with-zmq-context=. Note that through normal usage,
+=zmq-current-context= should be used even outside of a =with-zmq-context=. If
+called outside of =with-zmq-context= it creates a global context for the
+current Emacs session. Every subsequent call will return this global context.
 
-Without being wrapped in =with-zmq-context=, a call to =zmq-current-context=
-returns the value of the =zmq-current-context= variable in the current scope if
-it is non-nil or creates a new context when it is nil. When
-=zmq-current-context= creates a new context, it binds the variable
+Without being wrapped in a call to =with-zmq-context=, the function
+=zmq-current-context= returns the value of the =zmq-current-context= variable
+in the current scope if it is non-nil or creates a new context when it is nil.
+When =zmq-current-context= creates a new context, it binds the variable
 =zmq-current-context= in the current scope. And so =zmq-current-context= always
 returns the value of the =zmq-current-context= variable and sets it if
 necessary.
