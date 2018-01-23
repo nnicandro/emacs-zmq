@@ -309,20 +309,23 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
   (prin1 sexp)
   (zmq-flush 'stdout))
 
+;; TODO: Why are errors no propogating back to the parent?
 (defun zmq--init-subprocess ()
   (if (not noninteractive) (error "Not a subprocess")
     (let* ((debug-on-event nil)
            (debug-on-signal nil)
            (debug-on-quit nil)
            (debug-on-error nil)
-           (coding-system-for-write 'utf-8-unix)
+           (coding-system-for-write 'utf-8-auto)
            (sexp (eval (zmq-subprocess-read)))
            (wrap-context (= (length (cadr sexp)) 1)))
       (setq sexp (byte-compile sexp))
-      (if wrap-context
-          (with-zmq-context
-            (funcall sexp (zmq-current-context)))
-        (funcall sexp)))))
+      (condition-case err
+          (if wrap-context
+              (with-zmq-context
+                (funcall sexp (zmq-current-context)))
+            (funcall sexp))
+        (error (zmq-prin1 (cons 'error err)))))))
 
 (defun zmq--subprocess-read-output (output)
   "Return a list of s-expressions read from OUTPUT.
