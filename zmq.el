@@ -142,11 +142,6 @@ Return the symbol value of `zmq-current-context' if non-nil. In
 the case that `zmq-current-context' is nil: create a new
 `zmq-context', bind it to `zmq-current-context', and return the
 newly created context."
-  (when zmq-current-context
-    (condition-case nil
-        ;; Try to get an option to see if the context is still valid
-        (zmq-context-get zmq-current-context zmq-BLOCKY)
-      (zmq-EFAULT (setq zmq-current-context nil))))
   (or zmq-current-context
       (setq zmq-current-context (zmq-context))))
 
