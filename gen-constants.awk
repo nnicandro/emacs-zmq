@@ -9,7 +9,7 @@
 # placed in a file, zmq-constants.el
 
 /^#define (E|ZMQ_)/ {
-    # Don't process VERSION macros
+    # Don't process ZMQ_VERSION macros
     if(index($2, "VERSION") == 0) {
         # Remove #define
         $1 = ""

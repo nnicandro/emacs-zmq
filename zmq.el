@@ -73,7 +73,7 @@
 ;;; Convencience macros for contexts, sockets, and pollers
 
 (defvar zmq-current-context nil
-  "The context set by `zmq-current-context'.")
+  "The context set by the function `zmq-current-context'.")
 
 (defmacro with-zmq-context (&rest body)
   "Wrap BODY with a new `zmq-context' that is terminated when BODY completes.
@@ -167,13 +167,17 @@ Close all sockets which are still open before terminating."
 (defun zmq-bind-to-random-port (sock addr &optional min-port max-port max-tries)
   "Bind SOCK to ADDR on a random port.
 
-ADDR must be an address string without the port that will be
-passed to `zmq-bind' if a port is found. Optional arguments
-MIN-PORT (inclusive) and MAX-PORT (exclusive) give a range that
-the port number will have if `zmq-bind' succeeds within
-MAX-TRIES. MIN-PORT defaults to 49152, MAX-PORT defaults to
-65536, and MAX-TRIES defaults to 100. If `zmq-bind' succeeds, the
-port that was bound is returned. Otherwise nil is returned."
+ADDR must be an address string without the port.
+
+Randomly bind SOCK to ADDR on a port between MIN-PORT and
+MAX-PORT. If the port assigned is in use on ADDR, try a different
+port. Repeat MAX-TRIES times until SOCK is successfully bound. If
+SOCK could not be bound after MAX-TRIES return nil, otherwise
+return the port SOCK was bound to.
+
+MIN-PORT defaults to 49152, MAX-PORT defaults to 65536, and
+MAX-TRIES defaults to 100. Note that the actual range of ports
+used is [MIN-PORT, MAX-PORT)."
   (setq min-port (or min-port 49152)
         max-port (or max-port 65536)
         max-tries (or max-tries 100))
@@ -186,6 +190,7 @@ port that was bound is returned. Otherwise nil is returned."
               (zmq-bind sock (format "%s:%d" addr port))
               (throw 'bound port))
           ((zmq-EACCES zmq-EADDRINUSE)
+           ;; From pyzmq
            (when (eq (car err) 'zmq-EADDRINUSE)
              (unless (eq system-type 'windows-nt)
                (signal (car err) (cdr err))))))))))
@@ -430,17 +435,23 @@ SENTINEL has the same meaning as in `zmq-start-process'."
 
 (defun zmq-start-process (sexp &optional event-filter sentinel buffer)
   "Start an Emacs subprocess initializing it with SEXP.
+Return the newly created process.
+
 SEXP is either a lambda form or a function symbol. In both cases
 the function can either take 0 or 1 arguments. If SEXP takes 1
 argument, then the function will be wrapped with a call to
 `with-zmq-context' and the context passed as the argument of the
-function. EVENT-FILTER has a similar meaning to process filters
-except raw text sent from the process is ignored and EVENT-FILER
-will only receive complete s-expressions which are emitted from
-the process. SENTINEL has the same meaning as in `make-process'.
+function.
 
-If BUFFER is non-nil it is the initial buffer that will be set as
-the `process-buffer' of the process. After this function is
+EVENT-FILTER has a similar meaning to process filters except raw
+text sent from the process is ignored and the EVENT-FILTER
+function will only receive complete s-expressions read from the
+process' stdout.
+
+SENTINEL has the same meaning as in `make-process'.
+
+If BUFFER is non-nil, then it is a buffer that will be set as the
+`process-buffer' for the returned process. After this function is
 called, the buffer should not be used for any other purpose since
 it will be used to store intermediate output from the subprocess
 that will eventually be read and sent to EVENT-FILTER. If BUFFER

@@ -1,4 +1,4 @@
-;;; zmq-draft.el --- Draft API
+;;; zmq-draft.el --- ZMQ Draft API
 
 ;; Copyright (C) 2018 Nathaniel Nicandro
 

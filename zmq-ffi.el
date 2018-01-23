@@ -477,9 +477,9 @@ PROPERTY is a keyword and can only be one of those in
 (defun zmq--split-poll-events (events)
   "Split EVENTS into a list of polling events.
 EVENTS should be a bitmask of polling events which will be
-transformed into a list of polling events contained in EVENTS.
-The returned list can contain any or all of the elements
-zmq-POLLIN, zmq-POLLOUT, or zmq-POLLERR."
+transformed into a list of polling events. The returned list can
+contain any or all of the elements zmq-POLLIN, zmq-POLLOUT, or
+zmq-POLLERR."
   (cl-loop
    for e in `(,zmq-POLLIN ,zmq-POLLOUT ,zmq-POLLERR)
    if (/= (logand e events) 0) collect e))
