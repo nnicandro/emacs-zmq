@@ -84,7 +84,8 @@ Normally a single context object for the current Emacs session is necessary so
 you would normally use =zmq-current-context= which will set the variable
 =zmq-current-context= if not already set.
 
-The following is a mapping between the C API functions and the Emacs API.
+Below is a table mapping the =zmq= =C= API call to its equivalent in
+=emacs-lisp=.
 
 | C                  | emacs-lisp              |
 |--------------------+-------------------------|
@@ -95,6 +96,32 @@ The following is a mapping between the C API functions and the Emacs API.
 | =zmq_ctx_shutdown= | =zmq-shutdown-context=  |
 
 * Sockets
+
+All of the socket functions in the 4.2.2 C API are supported. To create a
+socket:
+
+#+BEGIN_SRC elisp
+(zmq-socket (zmq-current-context) zmq-PUB)
+#+END_SRC
+
+To bind a socket:
+
+#+BEGIN_SRC elisp
+(zmq-bind sock "tcp://127.0.0.1:5555")
+#+END_SRC
+
+To receive a message without blocking:
+
+#+BEGIN_SRC elisp
+(let (msg)
+  (while (null (condition-case err
+                   (setq msg (zmq-recv sock zmq-NOBLOCK))
+                (zmq-EAGAIN nil)))
+    (sleep-for 1)))
+#+END_SRC
+
+Below is a table mapping the =zmq= =C= API call to its equivalent in
+=emacs-lisp=.
 
 | C                    | emacs-lisp           |
 |----------------------+----------------------|
@@ -111,73 +138,45 @@ The following is a mapping between the C API functions and the Emacs API.
 | =zmq_setsockopt=     | =zmq-socket-set=     |
 | =zmq_getsockopt=     | =zmq-socket-get=     |
 
-#+BEGIN_SRC elisp
-(with-zmq-context
-  (let* ((ctx (current-zmq-context))
-         (sock (zmq-socket ctx zmq-PUB)))
-    (unwind-protect
-        (let ((endpoint "tcp://127.0.0.1:5554"))
-          (zmq-bind sock endpoint)
-          BODY)
-      (zmq-close sock))))
-#+END_SRC
+In addition to the above, there are also the following convenience functions.
 
-To take care of lifetime management of a socket use =with-zmq-socket=
+The function =zmq-bind-to-random-port= takes a socket and an address and binds
+the socket to a random port on the address:
 
 #+BEGIN_SRC elisp
-(with-zmq-context
-  (with-zmq-socket sock zmq-PUB
-    (let ((endpoint "tcp://127.0.0.1:5554"))
-      (zmq-bind sock endpoint)
-      BODY)))
+(zmq-bind-to-random-port sock "tcp://127.0.0.1") ; returns port number
 #+END_SRC
 
-Note that the context object is nowhere in sight. Thats because
-=with-zmq-socket= already sets the context of the socket using
-=current-zmq-context=.
-
-Options on a socket are also handled using the =with-zmq-socket= macro
+Since =zmq= only works with pure bytes, if messages contain any unicode
+characters they must first be encoded before being sent on a socket. This is
+accomplished with =zmq-send-encoded= and =zmq-recv-decoded=
 
 #+BEGIN_SRC elisp
-(with-zmq-context
-  (with-zmq-socket sock zmq-PUB
-      ((zmq-LINGER 0)
-       (zmq-CONFLATE t))
-    (let ((ctx (zmq-current-context))
-          (endpoint "tcp://127.0.0.1:5554"))
-      (zmq-bind sock endpoint)
-      BODY)))
+(zmq-send-encoded sock "Ĥ = ε" 'utf-8)
 #+END_SRC
 
-these options are set before entering the =let= form.
-
-Receiving a message without blocking
+If a coding system is not supplied, it defaults to =utf-8=. The above is
+equivalent to
 
 #+BEGIN_SRC elisp
-(let (msg)
-  (while (null (condition-case err
-                   (setq msg (zmq-recv sock zmq-NOBLOCK))
-                (zmq-EAGAIN nil)
-                (error (signal (car err) (cdr err)))))
-    (sleep-for 1)))
+(zmq-send sock (encode-coding-string "Ĥ = ε" 'utf-8))
 #+END_SRC
 
-Or you can use the polling interface
+For decoding
 
 #+BEGIN_SRC elisp
-(catch 'recvd
-  (let ((items (list (zmq-pollitem
-                      :socket sock
-                      ;; alternatively (logior zmq-POLLIN zmq-POLLOUT)
-                      :events (list zmq-POLLIN zmq-POLLOUT))))
-        (timeout (* 1000 1000)))
-    (while t
-      ;; `zmq-poll' returns an alist with elements (sock . events)
-      (let* ((socks-events (zmq-poll items timeout))
-             (events (alist-get sock socks-events)))
-        (when (member zmq-POLLIN events)
-          (throw 'recvd (zmq-recv sock)))))))
+(zmq-recv-decoded sock 'utf-8)
 #+END_SRC
+
+Which is the same as
+
+#+BEGIN_SRC elisp
+(decode-coding-string (zmq-recv sock) 'utf-8)
+#+END_SRC
+
+You can also encode/decode socket options with =zmq-socket-set-encoded= and
+=zmq-socket-get-encoded=.
+
 * Messages
 
 To create a new message object use =zmq-message=
@@ -186,14 +185,14 @@ To create a new message object use =zmq-message=
 (zmq-message) ; initialized empty message
 #+END_SRC
 
-You can also pass a =sequence= to =zmq-message= to initialize a message with
-some data
+You can also pass a either a string or a vector to =zmq-message= to initialize
+the message with some data
 
 #+BEGIN_SRC elisp
 (zmq-message "mess\0ge") ; initialized message with data
 #+END_SRC
 
-Note you can also initialize a message with a vector of integers. In this case,
+In the case of a vector, the elements of the vector should all be integers,
 each integer should be a number between 0-255, i.e. a byte.
 
 #+BEGIN_SRC elisp
@@ -248,6 +247,58 @@ To receive a multi-part message
 =zmq-recv-multipart= always returns a list even for a message containing a
 single part.
 
+* Polling
+
+Polling can be accomplished using =zmq-poll=, passing it a list of
+=zmq-pollitem= elements.
+
+#+BEGIN_SRC elisp
+(catch 'recvd
+  (let ((items (list (zmq-pollitem
+                      :socket sock
+                      ;; alternatively (logior zmq-POLLIN zmq-POLLOUT)
+                      :events (list zmq-POLLIN zmq-POLLOUT))))
+        (timeout (* 1000 1000)))
+    (while t
+      ;; `zmq-poll' returns an alist with elements (sock . events)
+      (let* ((socks-events (zmq-poll items timeout))
+             (events (alist-get sock socks-events)))
+        (when (member zmq-POLLIN events)
+          (throw 'recvd (zmq-recv sock)))))))
+#+END_SRC
+
+Or if =libzmq= was built with draft support you may use =zmq-poller= to
+instantiate a new poller object. The complete list of poller function
+implemented is the following:
+
+| C                      | emacs-lisp            |
+|------------------------+-----------------------|
+| =zmq_poller_new=       | =zmq-poller=          |
+| =zmq_poller_destroy=   | =zmq-destroy-poller=  |
+| =zmq_poller_add=       | =zmq-poller-add=      |
+| =zmq_poller_add_fd=    | =zmq-poller-add=      |
+| =zmq_poller_modify=    | =zmq-modify-poller=   |
+| =zmq_poller_modify_fd= | =zmq-modify-poller=   |
+| =zmq_poller_remove=    | =zmq-poller-remove=   |
+| =zmq_poller_remove_fd= | =zmq-poller-remove=   |
+| =zmq_poller_wait=      | =zmq-poller-wait=     |
+| =zmq_poller_wait_all=  | =zmq-poller-wait-all= |
+
+* Errors
+
+In this implementation all errors generated by the underlying =C= API are
+converted into calls to =signal= with the error name prefixed by =zmq-= in
+=emacs-lisp= so to handle errors, wrap your calls to =zmq= functions in a
+=condition-case= like so
+
+#+BEGIN_SRC elisp
+(setq poll-events
+      (while (null (condition-case err
+                       (zmq-poller-wait poller 1)
+                     ((zmq-EAGAIN zmq-ETIMEDOUT) nil)))
+        (sleep-for 1)))
+#+END_SRC
+
 * Getting/setting options
 
 To set an option for a =zmq-context=, =zmq-socket=, or =zmq-message= call
@@ -288,11 +339,11 @@ The available metadata properties can be found in =zmq-message-properties=.
 
 ** Boolean options
 
-Integer options which are interpreted as boolean in =zmq= are interpreted in
-emacs as boolean. For example, the socket option =zmq-IPV6= which enables IPV6
+Integer options which are interpreted as boolean in =libzmq= are interpreted in
+Emacs as boolean. For example, the socket option =zmq-IPV6= which enables IPV6
 connections for the socket is an integer option interpreted as a boolean value
-in the C API. In =emacs= this option is a boolean. So to enable IPV6
-connections you would do
+in the C API. In Emacs this option is a boolean. So to enable IPV6 connections
+you would do
 
 #+BEGIN_SRC elisp
 (zmq-socket-set sock zmq-IPV6 t)
