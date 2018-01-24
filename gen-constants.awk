@@ -46,9 +46,6 @@
 
 END {
     print ";; Automatically generated"
-    for(n = 0; n < ir; n++) {
-        constants[ic++] = refconstants[n]
-    }
     for(sym in constants) {
         num = constants[sym]
         if(num in constants) {
@@ -56,17 +53,18 @@ END {
         }
         print "(defconst " sym  " " num ")"
     }
-    all_errors = "(defconst zmq-error-alist\n(list "
+    print "(defconst zmq-error-alist"
+    print "(list"
     for(sym in errors) {
         num = errors[sym]
         # For errors that reference other errors
         if(num in errors) {
             num = errors[num]
         }
-        all_errors = all_errors "(cons " num " '" sym ")\n"
+        print "(cons " num " '" sym ")"
     }
-    print all_errors "))"
+    print "))"
     print ""
     print "(provide 'zmq-constants)"
-
+    print ";; zmq-constants.el ends here"
 }
