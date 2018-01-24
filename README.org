@@ -15,14 +15,14 @@ In addition to the above dependencies you will need a working =C= compiler,
 :END:
 
 Since there is no standard way to access header file macros in C from Emacs or
-the current version of =emacs-ffi= there is some extra work that needs to be
+the current version of =emacs-ffi=, there is some extra work that needs to be
 done before this library becomes usable.
 
-To get the necessary =zmq= constants and system specific error codes on your
-system, run =make build=. This will generate a file =zmq-constants.el= which
-will contain all of the constants and error code information. See
-=gen-constants.awk= for how the constants are extracted from the =zmq.h= header
-file.
+To extract the constants from the define statements in =zmq.h= header of
+=libzmq= and to get the system specific error codes, run =make build=. This
+will generate a file, =zmq-constants.el=, which will contain all of the
+constants and error code information. See =gen-constants.awk= for how the
+constants are extracted from the =zmq.h= header file.
 
 To find the =zmq.h= file path, =pkg-config= should be aware of =libzmq=. In the
 case that your =pkg-config= is not, you should set the necessary include paths
@@ -34,10 +34,10 @@ CFLAGS=-DZMQ_BUILD_DRAFT_API=1 -I/usr/local/Cellar/zeromq/4.2.3/include
 #+END_SRC
 
 In addition, you will have to set =LIBS= to the path of =emacs-ffi= on your
-system
+system:
 
 #+BEGIN_SRC sh
-LIBS=/path/to/emacs-ffi
+LIBS=-L /path/to/emacs-ffi
 #+END_SRC
 
 So the full invocation to generate =zmq-constants.el= would look like
@@ -51,12 +51,14 @@ make build
 Again, the =CFLAGS= line is not necessary if =pkg-config= is aware of =libzmq=.
 
 The extraction of the constants has only been tested on OS X, but should work
-on most systems.
+on most systems that allow passing the =-E -dM= flags to the C compiler and
+have it mean to only run the preprocessor and print out the macro define
+statements.
 
 To both generate =zmq-constants.el= and compile all =emacs-lisp= source files, run
 =make= or =make compile=.
 
-*** Note on compiling the =emacs-lisp= files
+*** Note on compiling =emacs-lisp= files
 
 If you are using the current version of =emacs-ffi= available (as of
 2018-01-23), there will be issues when compiling the =emacs-lisp= files. You
@@ -77,12 +79,12 @@ make test
 To create a new context use =zmq-context=
 
 #+BEGIN_SRC elisp
-(zmq-context) ; new context
+(zmq-context)
 #+END_SRC
 
-Normally a single context object for the current Emacs session is necessary so
-you would normally use =zmq-current-context= which will set the variable
-=zmq-current-context= if not already set.
+Normally a single context object for the current Emacs session is necessary. So
+to get a context, you should call =zmq-current-context= which will create a
+context only if needed. See [[id:7E843F84-F15C-42EA-8BA5-BCB91717ABBE][Context/socket/poller lifetime management]].
 
 Below is a table mapping the =zmq= =C= API call to its equivalent in
 =emacs-lisp=.
@@ -185,22 +187,22 @@ To create a new message object use =zmq-message=
 (zmq-message) ; initialized empty message
 #+END_SRC
 
-You can also pass a either a string or a vector to =zmq-message= to initialize
-the message with some data
+You can also pass a string or a vector to =zmq-message= to initialize the
+message with some data
 
 #+BEGIN_SRC elisp
 (zmq-message "mess\0ge") ; initialized message with data
 #+END_SRC
 
 In the case of a vector, the elements of the vector should all be integers,
-each integer should be a number between 0-255, i.e. a byte.
+each integer having a value within the range 0-255, i.e. a byte.
 
 #+BEGIN_SRC elisp
 (zmq-message [0 10 100 29]) ; initialized message with data
 #+END_SRC
 
 =zmq= only deals with binary data so if a message contains multi-byte
-characters you must first convert the string to a unibyte representation
+characters you will have to encode the string to a unibyte representation
 
 #+BEGIN_SRC elisp
 (zmq-message (string-as-unibyte "t∅pic"))
@@ -229,28 +231,25 @@ Below is a table mapping the =zmq= =C= API call to its equivalent in
 
 ** Multi-part messages
 
-To send a multi-part message you can use =zmq-send-multipart=:
+To send a multi-part message:
 
 #+BEGIN_SRC elisp
 (zmq-send-multipart sock '("part1" "part2" "part3"))
 #+END_SRC
 
-The above code sends a three part message on =sock=.
-
-To receive a multi-part message
+To receive a multi-part message:
 
 #+BEGIN_SRC elisp
 (zmq-recv-multipart sock)
 #+END_SRC
 
-=zmq-recv-multipart= returns a list containing the parts of the message.
-=zmq-recv-multipart= always returns a list even for a message containing a
-single part.
+=zmq-recv-multipart= returns a list containing the parts of the message and
+always returns a list, even for a message containing a single part.
 
 * Polling
 
-Polling can be accomplished using =zmq-poll=, passing it a list of
-=zmq-pollitem= elements.
+Polling can be accomplished using =zmq-poll= which accepts a list of
+=zmq-pollitem= objects and a timeout period in milliseconds.
 
 #+BEGIN_SRC elisp
 (catch 'recvd
@@ -258,7 +257,7 @@ Polling can be accomplished using =zmq-poll=, passing it a list of
                       :socket sock
                       ;; alternatively (logior zmq-POLLIN zmq-POLLOUT)
                       :events (list zmq-POLLIN zmq-POLLOUT))))
-        (timeout (* 1000 1000)))
+        (timeout 1000))
     (while t
       ;; `zmq-poll' returns an alist with elements (sock . events)
       (let* ((socks-events (zmq-poll items timeout))
@@ -268,8 +267,8 @@ Polling can be accomplished using =zmq-poll=, passing it a list of
 #+END_SRC
 
 Or if =libzmq= was built with draft support you may use =zmq-poller= to
-instantiate a new poller object. The complete list of poller function
-implemented is the following:
+instantiate a new poller object. The complete list of poller functions
+implemented are the following:
 
 | C                      | emacs-lisp            |
 |------------------------+-----------------------|
@@ -286,22 +285,24 @@ implemented is the following:
 
 * Errors
 
-In this implementation all errors generated by the underlying =C= API are
-converted into calls to =signal= with the error name prefixed by =zmq-= in
-=emacs-lisp= so to handle errors, wrap your calls to =zmq= functions in a
-=condition-case= like so
+All errors generated by the underlying =C= API are converted into calls to
+=signal= in =emacs-lisp=. So to handle errors, wrap your calls to =zmq=
+functions in a =condition-case= like so
 
 #+BEGIN_SRC elisp
 (setq poll-events
-      (while (null (condition-case err
+      (while (null (condition-case nil
                        (zmq-poller-wait poller 1)
                      ((zmq-EAGAIN zmq-ETIMEDOUT) nil)))
         (sleep-for 1)))
 #+END_SRC
 
+The error symbols used are identical to the C error codes except with the
+prefix =zmq-=.
+
 * Getting/setting options
 
-To set an option for a =zmq-context=, =zmq-socket=, or =zmq-message= call
+To set an option for a =zmq-context=, =zmq-socket=, or =zmq-message= call:
 
 #+BEGIN_SRC elisp
 (zmq-context-set ctx zmq-BLOCKY nil)
@@ -309,7 +310,7 @@ To set an option for a =zmq-context=, =zmq-socket=, or =zmq-message= call
 (zmq-message-set msg zmq-MORE t)
 #+END_SRC
 
-To get an option
+To get an option:
 
 #+BEGIN_SRC elisp
 (zmq-context-get ctx zmq-BLOCKY)
@@ -357,11 +358,105 @@ and to disable them
 
 Similarly for all other socket, message, or context options which are
 interpreted as boolean by the C API.
+* Context/socket/poller lifetime management
+
+To ensure that context, sockets, and poller objects are properly managed there
+are convenience macros which ensure that each =zmq= object creator is paired
+with their corresponding cleanup function.
+
+For a =zmq-context= the macro =with-zmq-context= creates a new context before
+entering the body of the macro and calls =zmq-terminate-context= on the context
+after the body exits. It also locally binds =zmq-current-context= to the newly
+created context so it is accessible within the body of the macro.
+
+#+BEGIN_SRC elisp
+(with-zmq-context
+  (let ((ctx (zmq-current-context)))
+    BODY))
+#+END_SRC
+
+The above is equivalent to
+
+#+BEGIN_SRC elisp
+(let ((zmq-current-context (zmq-context)))
+  (unwind-protect
+      (progn
+        (let ((ctx (zmq-current-context)))
+          BODY))
+    (zmq-terminate-context zmq-current-context)))
+#+END_SRC
+
+Note that =zmq-current-context= is also a function which will either return the
+variable definition of =zmq-current-context= if it is non-nil, or create a new
+context and bind it to the global value of the =zmq-current-context= variable.
+So under normal usage all that should be needed to get a context is to call
+=zmq-current-context= regardless of if your inside =with-zmq-context= or not.
+
+The global value of =zmq-current-context= will be cleaned up, along with any
+sockets that have not been closed yet, when Emacs exits.
+
+To control the lifetime of a =zmq-socket= more easily you can use the macro
+=with-zmq-socket=:
+
+#+BEGIN_SRC elisp
+(with-zmq-socket sock zmq-REP
+  BODY)
+#+END_SRC
+
+Which is equivalent to
+
+#+BEGIN_SRC elisp
+(let ((sock (zmq-sock (zmq-current-context) zmq-REP)))
+  (unwind-protect
+      (progn BODY)
+    (zmq-socket-set sock zmq-LINGER 0)
+    (zmq-close sock)))
+#+END_SRC
+
+See http://zguide.zeromq.org/page:all#Making-a-Clean-Exit) on why =zmq-LINGER=
+is set to 0 before closing the socket.
+
+You can also pass a list of socket options which will be set before the body of
+the macro executes:
+
+#+BEGIN_SRC elisp
+(with-zmq-socket sock zmq-REP
+    ((zmq-LINGER 1000)
+     (zmq-IPV6 t))
+  BODY)
+#+END_SRC
+
+This is the same as
+
+#+BEGIN_SRC elisp
+(with-zmq-socket sock zmq-REP
+  (zmq-socket-set sock zmq-LINGER 1000)
+  (zmq-socket-set sock zmq-IPV6 t)
+  BODY)
+#+END_SRC
+
+If your =zmq= installation was compiled with the current draft API, then the
+macro =with-zmq-poller= is also available:
+
+#+BEGIN_SRC elisp
+(with-zmq-poller poller
+  BODY)
+#+END_SRC
+
+which expands to
+
+#+BEGIN_SRC elisp
+(let ((poller (zmq-poller)))
+  (unwind-protect
+      (progn BODY)
+    (zmq-destroy-poller poller)))
+#+END_SRC
 
 * Asynchronous subprocess
 
-There is a convenience function, =zmq-start-process=, which creates an Emacs
-subprocess and initialize.
+There is also the function =zmq-start-process= which creates an Emacs
+subprocess that can then be used for all your =zmq= processing needs. You pass
+=zmq-start-process= a function to run in the subprocess:
 
 #+BEGIN_SRC elisp
 (zmq-start-process
@@ -414,89 +509,3 @@ Note that arbitrary binary data can be sent to the subprocess using
   (sleep-for 0.2)
   (zmq-subprocess-send proc (list 'send "topic1")))
 #+END_SRC
-
-* Context/socket/poller lifetime management
-
-There are convenience macros to cleanup =zmq= objects after you are done using
-them.
-
-For a =zmq-context= the macro =with-zmq-context= creates a new context and
-locally binds the variable definition of =zmq-current-context= to the newly
-created context for the lifetime of the =with-zmq-context= call. Note,
-=zmq-current-context= is also a function and in the case below, returns the
-context created by =with-zmq-context=:
-
-
-#+BEGIN_SRC elisp
-(with-zmq-context
-  (let ((ctx (zmq-current-context)))
-    BODY))
-#+END_SRC
-
-After =BODY= is done executing, =zmq-terminate-context= will be called on the
-context created by =with-zmq-context=. Note that through normal usage,
-=zmq-current-context= should be used even outside of a =with-zmq-context=. If
-called outside of =with-zmq-context= it creates a global context for the
-current Emacs session. Every subsequent call will return this global context.
-
-Without being wrapped in a call to =with-zmq-context=, the function
-=zmq-current-context= returns the value of the =zmq-current-context= variable
-in the current scope if it is non-nil or creates a new context when it is nil.
-When =zmq-current-context= creates a new context, it binds the variable
-=zmq-current-context= in the current scope. And so =zmq-current-context= always
-returns the value of the =zmq-current-context= variable and sets it if
-necessary.
-
-This gives a way to create socket objects without having to deal with the
-context:
-
-#+BEGIN_SRC elisp
-(zmq-socket (zmq-current-context) zmq-ROUTER)
-#+END_SRC
-
-The global value of =zmq-current-context= will be cleanup when Emacs exits,
-along with any sockets that have not been closed yet.
-
-To control the lifetime of =zmq-socket= objects more easily you can use the
-macro =with-zmq-socket=:
-
-#+BEGIN_SRC elisp
-(with-zmq-socket sock zmq-REP
-  BODY)
-#+END_SRC
-
-The above code creates a =REP= socket using the =zmq-current-context=, binds it
-to the symbol =sock=, and then runs =BODY=. After =BODY= is done executing, the
-=zmq-LINGER= option for the socket is set to 0 (see
-http://zguide.zeromq.org/page:all#Making-a-Clean-Exit) and =zmq-close= is
-called on =sock=.
-
-Note you can also pass a list of socket options to =with-zmq-socket=:
-
-#+BEGIN_SRC elisp
-(with-zmq-socket sock zmq-REP
-    ((zmq-LINGER 1000)
-     (zmq-IPV6 t))
-  BODY)
-#+END_SRC
-
-The above is equivalent to
-
-#+BEGIN_SRC elisp
-(with-zmq-socket sock zmq-REP
-  (zmq-socket-set sock zmq-LINGER 1000)
-  (zmq-socket-set sock zmq-IPV6 t)
-  BODY)
-#+END_SRC
-
-If your =zmq= installation was compiled with the current draft API, then the
-macro =with-zmq-poller= is also available:
-
-#+BEGIN_SRC elisp
-(with-zmq-poller poller
-  BODY)
-#+END_SRC
-
-This macro instantiates a new =zmq-poller= object, binds it to the symbol
-=poller=, and runs =BODY=. When =BODY= is done running, =zmq-poller-destroy= is
-called on =poller=.
