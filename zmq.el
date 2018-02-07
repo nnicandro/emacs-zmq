@@ -153,7 +153,8 @@ Close all sockets which are still open before terminating."
       (zmq-socket-set sock zmq-LINGER 0)
       (zmq-close sock)))
   (when zmq-current-context
-    (zmq-terminate-context zmq-current-context)))
+    (zmq-terminate-context zmq-current-context)
+    (setq zmq-current-context nil)))
 
 (add-hook 'kill-emacs-hook #'zmq-cleanup-on-exit)
 
