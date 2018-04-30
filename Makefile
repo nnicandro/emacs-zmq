@@ -1,5 +1,9 @@
+ROOT = .
 EMACS ?= emacs
+LD = gcc
+CC = gcc
 CFLAGS ?= $(shell pkg-config --cflags libzmq)
+LDFLAGS ?= $(shell pkg-config --libs libzmq)
 CPPFLAGS ?= -E -dM
 TEST_ORDER = zmq-utility zmq-encryption zmq-contexts zmq-messages zmq-sockets zmq-send-unicode zmq-polling zmq-subprocess
 FILES = zmq-constants.el zmq-ffi.el zmq-draft.el zmq.el
@@ -31,3 +35,9 @@ zmq-constants.el:
 
 $(ELCFILES): %.elc: %.el
 	$(EMACS) --batch -Q -L . $(LIBS) -f batch-byte-compile $<
+
+%.so: %.o
+	$(LD) -shared $(LDFLAGS) -o $@ $<
+
+%.o: %.c
+	$(CC) $(CFLAGS) -fPIC -I$(ROOT) -I$(ROOT)/../../.. -c $<
