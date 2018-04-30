@@ -394,10 +394,10 @@ signaled using the `cdr' of the list for the error data."
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
   "Send an s-expression to PROCESS' STDIN.
-PROCESS should be an Emacs subprocess and which should decode the
-SEXP sent using `zmq-subprocess-read'.
+PROCESS should be an Emacs subprocess that decodes messages sent
+on its STDIN using `zmq-subprocess-read'.
 
-The SEXP is first encoded with the `utf-8-unix' coding system and
+The SEXP is first encoded with the `utf-8-auto' coding system and
 then encoded using Base 64 encoding before being sent to the
 subprocess."
   (declare (indent 1))
@@ -406,7 +406,7 @@ subprocess."
         print-level print-length)
     (with-temp-buffer
       (prin1 sexp (current-buffer))
-      (encode-coding-region (point-min) (point-max) 'utf-8-unix)
+      (encode-coding-region (point-min) (point-max) 'utf-8-auto)
       (base64-encode-region (point-min) (point-max) t)
       (goto-char (point-min)) (insert ?\")
       (goto-char (point-max)) (insert ?\" ?\n)
