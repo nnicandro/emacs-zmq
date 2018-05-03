@@ -6,7 +6,67 @@
 #include <stdarg.h>
 #include <zmq.h>
 #include "emacs-module.h"
-#include "macros.h"
+
+#define INTERN(val) env->intern(env, val)
+
+#define CAR(list) env->funcall(env, Qcar, 1, &list)
+
+#define CDR(list) env->funcall(env, Qcdr, 1, &list)
+
+#define INT(i) env->make_integer(env, i)
+
+#define LIST(count, ...) env->funcall(env, Qlist, count, (emacs_value []){ __VA_ARGS__ })
+
+#define CONS(car, cdr) env->funcall(env, Qcons, 2, (emacs_value []){ car, cdr })
+
+#define TYPE(val) env->type_of(env, val)
+
+#define EQ(a, b) env->eq(env, a, b)
+
+#define LENGTH(list) env->extract_integer(env, env->funcall(env, Qlength, 1, &list))
+
+#define EZMQ_NONLOCAL_EXIT() (env->non_local_exit_check(env) != emacs_funcall_exit_return)
+
+#define EZMQ_EXTRACT_INT(name, val)                 \
+    intmax_t name = env->extract_integer(env, val); \
+    do {                                            \
+        if(EZMQ_NONLOCAL_EXIT()) {                  \
+            return NULL;                            \
+        }                                           \
+    } while(0)
+
+#define EZMQ_EXTRACT_OPTIONAL_INT(name, val)      \
+    intmax_t name = env->eq(env, val, Qnil) ? 0 : \
+        env->extract_integer(env, val);           \
+    do {                                          \
+        if(EZMQ_NONLOCAL_EXIT()) {                \
+            return NULL;                          \
+        }                                         \
+    } while(0)
+
+#define EZMQ_EXTRACT_OBJ(name, type, val)                \
+    ezmq_obj_t *name = ezmq_extract_obj(env, type, val); \
+    if(!name) return NULL                                \
+
+#define EZMQ_CHECK_ERROR(expr)      \
+    do {                            \
+        int __retcode = expr;       \
+        if(__retcode == -1) {       \
+            ezmq_signal_error(env); \
+        }                           \
+    } while(0)
+
+#define EZMQ_DOC(name, doc, args) \
+    const char *__zmq_doc_##name = doc "\n\\(fn " args ")"
+
+#define EZMQ_MAKE_FUN(argmin, argmax, name, ename)      \
+    bind_function(env,                                  \
+                  ename,                                \
+                  env->make_function(env,               \
+                                     argmin, argmax,    \
+                                     &F##name,          \
+                                     __zmq_doc_##name,  \
+                                     NULL))
 
 enum ezmq_obj_t {
     EZMQ_CONTEXT,

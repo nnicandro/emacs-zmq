@@ -19,7 +19,7 @@ ezmq_signal_error(emacs_env *env)
     int en = zmq_errno();
     switch(en) {
     case EINTR:
-        ezmq_error(env, INTERN(env, "zmq-EINTR"), NULL);
+        ezmq_error(env, INTERN("zmq-EINTR"), NULL);
         break;
     default: {
         const char *msg = zmq_strerror(zmq_errno());
@@ -53,13 +53,13 @@ ezmq_type_symbol(emacs_env *env, enum ezmq_obj_t type)
 {
     switch(type) {
     case EZMQ_CONTEXT:
-        return INTERN(env, "zmq-context");
+        return INTERN("zmq-context");
     case EZMQ_SOCKET:
-        return INTERN(env, "zmq-socket");
+        return INTERN("zmq-socket");
     case EZMQ_MESSAGE:
-        return INTERN(env, "zmq-message");
+        return INTERN("zmq-message");
     case EZMQ_POLLER:
-        return INTERN(env, "zmq-poller");
+        return INTERN("zmq-poller");
     default:
         return Qnil;
     }
@@ -79,7 +79,7 @@ ezmq_wrong_type_argument(emacs_env *env, emacs_value val, int nvalid, ...)
 {
     va_list args;
     emacs_value options[nvalid + 1];
-    options[0] = INTERN(env, "or");
+    options[0] = INTERN("or");
     va_start(args, nvalid);
     for(int i = 0; i < nvalid; i++) {
         options[i] = va_arg(args, emacs_value);
@@ -94,10 +94,10 @@ ezmq_obj_t *
 ezmq_extract_obj(emacs_env *env, enum ezmq_obj_t type, emacs_value val)
 {
     ezmq_obj_t *obj = env->get_user_ptr(env, val);
-    if(EZMQ_NONLOCAL_EXIT(env)) return NULL;
+    if(EZMQ_NONLOCAL_EXIT()) return NULL;
     if(obj->type != type)
         ezmq_wrong_object_type(env, obj, type);
-    return EZMQ_NONLOCAL_EXIT(env) ? NULL : obj;
+    return EZMQ_NONLOCAL_EXIT() ? NULL : obj;
 }
 
 ezmq_obj_t *
@@ -201,7 +201,7 @@ Fzmq_z85_decode(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
         emacs_value largs[] = { ezmq_make_string(env, msg, strlen(msg)),
                                 env->make_integer(env, klen - 1) };
         emacs_value data = env->funcall(env, Qlist, 2, largs);
-        env->non_local_exit_signal(env, INTERN(env, "args-out-of-range"), data);
+        env->non_local_exit_signal(env, INTERN("args-out-of-range"), data);
         return NULL;
     }
 
@@ -242,7 +242,7 @@ Fzmq_z85_encode(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 
     if((clen - 1) % 4 != 0) {
         // TODO: Generalize these errors
-        ezmq_error(env, INTERN(env, "args-out-of-range"),
+        ezmq_error(env, INTERN("args-out-of-range"),
                    "Length not a multiple of 4");
         free(content);
         return NULL;
@@ -310,8 +310,8 @@ Fzmq_curve_public(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *dat
 static void
 bind_function(emacs_env *env, const char *name, emacs_value Sfun)
 {
-    emacs_value Qfset = INTERN(env, "fset");
-    emacs_value Qsym = INTERN(env, name);
+    emacs_value Qfset = INTERN("fset");
+    emacs_value Qsym = INTERN(name);
     /* Prepare the arguments array */
     emacs_value args[] = {Qsym, Sfun};
     /* Make the call (2 == nb of arguments) */
@@ -322,26 +322,26 @@ static void
 provide(emacs_env *env, const char *feature)
 {
     /* call 'provide' with FEATURE converted to a symbol */
-    emacs_value Qfeat = INTERN(env, feature);
-    emacs_value Qprovide = INTERN(env, "provide");
+    emacs_value Qfeat = INTERN(feature);
+    emacs_value Qprovide = INTERN("provide");
     emacs_value args[] = { Qfeat };
     env->funcall (env, Qprovide, 1, args);
 }
 
 static void
-zmq_make_error_symbols(emacs_env *env)
+ezmq_make_error_symbols(emacs_env *env)
 {
-    emacs_value def_err = INTERN(env, "define-error");
+    emacs_value def_err = INTERN("define-error");
     char buf[BUFSIZ];
     emacs_value args[3];
 
-    Qzmq_error = INTERN(env, "zmq-ERROR");
+    Qzmq_error = INTERN("zmq-ERROR");
 
     // Define the root error symbol for ZMQ errors
     args[0] = Qzmq_error;
     strcpy(buf, "An error occured in ZMQ");
     args[1] = ezmq_make_string(env, buf, strlen(buf));
-    args[2] = INTERN(env, "error");
+    args[2] = INTERN("error");
     env->funcall(env, def_err, 3, args);
 
     // Define common errors as symbols
@@ -349,7 +349,7 @@ zmq_make_error_symbols(emacs_env *env)
     const char *msg;
     args[2] = Qzmq_error;
 
-    args[0] = INTERN(env, "zmq-EINTR");
+    args[0] = INTERN("zmq-EINTR");
     msg = zmq_strerror(EINTR);
     args[1] = ezmq_make_string(env, msg, strlen(msg));
     env->funcall(env, def_err, 3, args);
@@ -360,25 +360,29 @@ emacs_module_init(struct emacs_runtime *ert)
 {
     // Retrieve the current emacs environment
     emacs_env *env = ert->get_environment(ert);
-    emacs_value fun;
 
-    Qt = INTERN(env, "t");
-    Qnil = INTERN(env, "nil");
-    Qwrong_type_argument = INTERN(env, "wrong-type-argument");
-    Qlist = INTERN(env, "list");
-    Qstring = INTERN(env, "string");
-    Qvector = INTERN(env, "vector");
-    Qcons = INTERN(env, "cons");
-    Qcar = INTERN(env, "car");
-    Qcdr = INTERN(env, "cdr");
-    Qinteger = INTERN(env, "integer");
-    Qlength = INTERN(env, "length");
+    Qt = INTERN("t");
+    Qnil = INTERN("nil");
+    Qwrong_type_argument = INTERN("wrong-type-argument");
+    Qargs_out_of_range = INTERN("args-out-of-range");
+    Qlist = INTERN("list");
+    Qstring = INTERN("string");
+    Qvector = INTERN("vector");
+    Qcons = INTERN("cons");
+    Qcar = INTERN("car");
+    Qcdr = INTERN("cdr");
+    Qinteger = INTERN("integer");
+    Qlength = INTERN("length");
 
-    zmq_make_error_symbols(env);
+    ezmq_make_error_symbols(env);
 
-    EZMQ_MAKE_FUN(env, 0, 0, zmq_version, "zmq-version");
-    EZMQ_MAKE_FUN(env, 1, 1, zmq_has, "zmq-has");
-    EZMQ_MAKE_FUN(env, 0, 1, zmq_message, "zmq-message");
+    ezmq_expose_constants(env);
+    Qzmq_POLLIN = INTERN("zmq-POLLIN");
+    Qzmq_POLLOUT = INTERN("zmq-POLLOUT");
+    Qzmq_POLLERR = INTERN("zmq-POLLERR");
+
+    EZMQ_MAKE_FUN(0, 0, zmq_version, "zmq-version");
+    EZMQ_MAKE_FUN(1, 1, zmq_has, "zmq-has");
 
     provide(env, "zmq2");
     return 0;

@@ -2,8 +2,7 @@
 
 #define EZMQ_DEFCONST(sym, val)                                     \
     env->funcall(env, Qdefconst, 2,                                 \
-                 (emacs_value []){ INTERN(env, sym),                \
-                                   env->make_integer(env, val) })
+                 (emacs_value []){ INTERN(sym), INT(val) })
 
 // Automatically generated
 void
