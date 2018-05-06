@@ -2,21 +2,11 @@
 #ifndef __CONTEXT_H__
 #define __CONTEXT_H__
 
-#include "ezmq.h"
+#include "core.h"
 
-extern emacs_value
-Fzmq_context(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data);
-
-extern emacs_value
-Fzmq_ctx_set(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data);
-
-extern emacs_value
-Fzmq_ctx_get(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data);
-
-extern emacs_value
-Fzmq_ctx_term(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data);
-
-extern emacs_value
-Fzmq_ctx_shutdown(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data);
+EZMQ_DEFUN(zmq_context);
+EZMQ_DEFUN(zmq_ctx_set);
+EZMQ_DEFUN(zmq_ctx_get);
+EZMQ_DEFUN(zmq_ctx_shutdown);
 
 #endif /* __CONTEXT_H__ */

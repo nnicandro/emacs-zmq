@@ -1,9 +1,19 @@
 #ifndef __EMACS_ZMQ_H__
 #define __EMACS_ZMQ_H__
 
-#include "ezmq.h"
+#include "core.h"
+#include "util.h"
 #include "msg.h"
 #include "socket.h"
 #include "context.h"
+#include "poll.h"
+
+extern int plugin_is_GPL_compatible;
+
+extern void
+ezmq_expose_constants(emacs_env *env);
+
+extern int
+emacs_module_init(struct emacs_runtime *ert);
 
 #endif /* __EMACS_ZMQ_H__ */

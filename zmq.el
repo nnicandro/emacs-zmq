@@ -34,107 +34,18 @@
   :group 'communication)
 
 (require 'cl-lib)
-(require 'zmq-ffi)
-(require 'zmq-constants)
-(when (zmq-has "draft")
-  (require 'zmq-draft))
 
-(defun zmq--indent (nspecial pos state)
-  (let ((here (point))
-        (nargs 0)
-        (col nil))
-    (goto-char (1+ (nth 1 state)))
-    (setq col (1- (current-column)))
-    (forward-sexp)
-    (catch 'parsed-enough
-      (while (< (point) (nth 2 state))
-        (forward-sexp)
-        (setq nargs (1+ nargs))
-        (when (>= nargs nspecial)
-          (throw 'parsed-enough t))))
-    (goto-char pos)
-    (prog1
-        ;; Allow the third argument (and preceding arguments) to indent to 4 if
-        ;; followed by another argument. Otherwise the third argument indents
-        ;; to 2. This is to handle socket options lists which may or may not be
-        ;; present.
-        (+ (if (and (< nargs nspecial)
-                    (re-search-forward "^[ \t]*([ \t]*(" (line-end-position) t))
-               4 2)
-           col)
-      (goto-char here))))
-
-(defun zmq--indent-3 (pos state)
-  (zmq--indent 3 pos state))
-
-(defun zmq--indent-4 (pos state)
-  (zmq--indent 4 pos state))
+(defconst zmq-module-file
+  (when module-file-suffix
+    (expand-file-name
+     (concat "emacs-zmq" module-file-suffix)
+     (file-name-directory (locate-library "zmq"))))
+  "The module file for ZMQ or nil if modules are not supported.")
 
 ;;; Convencience macros for contexts, sockets, and pollers
 
 (defvar zmq-current-context nil
   "The context set by the function `zmq-current-context'.")
-
-(defmacro with-zmq-context (&rest body)
-  "Wrap BODY with a new `zmq-context' that is terminated when BODY completes.
-This is mainly meant to be used in subprocesses. If not in a
-subprocess use `zmq-current-context'."
-  (declare (indent 0) (debug (symbolp &rest form)))
-  ;; use --ctx-- just in case any shenanigans happen with `zmq-current-context'
-  ;; while running body.
-  `(let* ((--ctx--  (zmq-context))
-          (zmq-current-context --ctx--))
-     (unwind-protect
-         (progn ,@body)
-       (zmq-terminate-context --ctx--))))
-
-(defmacro with-zmq-socket (sock type &optional options &rest body)
-  "Run a form, binding a socket to SOCK with TYPE.
-SOCK is an unquoted symbol used as the name of the `zmq-socket'
-that will be created. The socket will have a socket type of TYPE.
-Optionally pass socket OPTIONS, where OPTIONS is a list of two
-element lists in the sense of `let'. BODY is run with SOCK bound
-to a socket with TYPE and OPTIONS set on it. When BODY is
-complete the `zmq-LINGER' option is set to 0 and the socket is
-closed.
-
-Note that the `zmq-current-context' is used to instantiate SOCK."
-  (declare (debug (symbolp form &optional form &rest form))
-           (indent zmq--indent-3))
-  (let ((sock-options
-         (if (and (listp options)
-                  ;; Ensure options is a list of bindings (in the sense of let)
-                  (null (cl-find-if-not
-                         (lambda (x) (and (listp x) (= (length x) 2)))
-                         options)))
-             (cl-loop
-              for (option value) in options
-              collect `(zmq-set-option ,sock ,option ,value))
-           ;; Otherwise options must be part of body
-           (setq body (cons options body))
-           nil)))
-    `(let ((,sock (zmq-socket (zmq-current-context) ,type)))
-       (unwind-protect
-           (progn
-             ,@sock-options
-             ,@body)
-         ;; http://zguide.zeromq.org/page:all#Making-a-Clean-Exit
-         ;;
-         ;; NOTE: Alternatively set zmq-BLOCKY on the context before creating a
-         ;; socket
-         (zmq-set-option ,sock zmq-LINGER 0)
-         (zmq-close ,sock)))))
-
-(defmacro with-zmq-poller (poller &rest body)
-  "Create a new `zmq-poller' bound to POLLER and run BODY.
-After BODY is complete call `zmq-poller-destroy' on POLLER."
-  (declare (indent 1))
-  `(let ((,poller
-          (if (zmq-has "draft") (zmq-poller)
-            (error "ZMQ not built with draft API"))))
-     (unwind-protect
-         (progn ,@body)
-       (zmq-destroy-poller ,poller))))
 
 (defun zmq-current-context ()
   "Return the `zmq-current-context'.
@@ -145,18 +56,10 @@ newly created context."
   (or zmq-current-context
       (setq zmq-current-context (zmq-context))))
 
-(defun zmq-cleanup-on-exit ()
-  "Terminate the `zmq-current-context'.
-Close all sockets which are still open before terminating."
-  (while zmq--live-sockets
-    (let ((sock (pop zmq--live-sockets)))
-      (zmq-socket-set sock zmq-LINGER 0)
-      (zmq-close sock)))
-  (when zmq-current-context
-    (zmq-terminate-context zmq-current-context)
-    (setq zmq-current-context nil)))
-
-(add-hook 'kill-emacs-hook #'zmq-cleanup-on-exit)
+(defun zmq-assoc (item list)
+  "Find the first item whose car matches ITEM in LIST.
+Use `zmq-equal' for the comparison."
+  (cl-assoc item list :test #'zmq-equal))
 
 ;;; Socket functions
 
@@ -230,32 +133,26 @@ utf-8."
   "Send a multipart message on SOCK.
 PARTS is a list of message parts to send on SOCK. FLAGS has the
 same meaning as `zmq-send'."
-  (setq flags (or flags 0))
-  (let ((part (zmq-message))
-        (data (car parts)))
-    (unwind-protect
-        (while data
-          (zmq-init-message part data)
-          (zmq-send-message part sock (if (not (null (cdr parts)))
-                                          (logior flags zmq-SNDMORE)
-                                        flags))
-          (setq parts (cdr parts)
-                data (car parts)))
-      (zmq-close-message part))))
+  (or flags (setq flags 0))
+  (while parts
+    (let ((part (zmq-message (car parts))))
+      (zmq-message-send
+       part sock (if (not (null (cdr parts)))
+                     (logior flags zmq-SNDMORE)
+                   flags))
+      (setq parts (cdr parts)))))
 
 (defun zmq-recv-multipart (sock &optional flags)
   "Receive a multipart message from SOCK.
 FLAGS has the same meaning as in `zmq-recv'."
-  (let ((part (zmq-message)) res)
-    (unwind-protect
-        (catch 'recvd
-          (while t
-            (zmq-init-message part)
-            (zmq-recv-message part sock flags)
-            (setq res (cons (zmq-message-data part) res))
-            (unless (zmq-message-more-p part)
-              (throw 'recvd (nreverse res)))))
-      (zmq-close-message part))))
+  (let (res)
+    (catch 'recvd
+      (while t
+        (let ((part (zmq-message)))
+          (zmq-message-recv part sock flags)
+          (setq res (cons (zmq-message-data part) res))
+          (unless (zmq-message-more-p part)
+            (throw 'recvd (nreverse res))))))))
 
 ;;; Setting/getting options from contexts, sockets, messages
 
@@ -290,6 +187,26 @@ The OPTION to get should correspond to one of the options
 available for that particular object."
   (zmq--set-get-option nil object option))
 
+(defconst zmq-message-properties '((:socket-type . "Socket-Type")
+                                   (:identity . "Identity")
+                                   (:resource . "Resource")
+                                   (:peer-address . "Peer-Address")
+                                   (:user-id . "User-Id"))
+  "Alist mapping keywords to their corresponding message property.
+A message's metadata property can be accessed through
+`zmq-message-property'.")
+
+(defun zmq-message-property (message property)
+  "Get a MESSAGE's metadata PROPERTY.
+
+PROPERTY is a keyword and can only be one of those in
+`zmq-message-properties'."
+  (let ((prop (cdr (assoc property zmq-message-properties))))
+    (unless prop
+      (signal 'args-out-of-range
+              (list (mapcar #'car zmq-message-properties) prop)))
+    (decode-coding-string (zmq-message-gets message prop) 'utf-8)))
+
 ;;; Subprocesses
 
 (define-error 'zmq-subprocess-error "Error in ZMQ subprocess")
@@ -318,8 +235,7 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
       (setq sexp (byte-compile sexp))
       (condition-case err
           (if wrap-context
-              (with-zmq-context
-                (funcall sexp (zmq-current-context)))
+              (funcall sexp (zmq-current-context))
             (funcall sexp))
         (error (zmq-prin1 (cons 'error err)))))))
 
@@ -438,9 +354,8 @@ Return the newly created process.
 
 SEXP is either a lambda form or a function symbol. In both cases
 the function can either take 0 or 1 arguments. If SEXP takes 1
-argument, then the function will be wrapped with a call to
-`with-zmq-context' and the context passed as the argument of the
-function.
+argument, then a new context object will be passed as the
+argument of the function.
 
 EVENT-FILTER has a similar meaning to process filters except raw
 text sent from the process is ignored and the EVENT-FILTER
@@ -466,6 +381,7 @@ process exit."
   (unless (member (length (cadr sexp)) '(0 1))
     (error "Invalid function to send to process, can only have 0 or 1 arguments"))
   (let* ((process-connection-type nil)
+         (zmq-path (locate-library "zmq"))
          (process (make-process
                    :name "zmq"
                    :buffer (or buffer (generate-new-buffer " *zmq*"))
@@ -478,9 +394,8 @@ process exit."
                               (expand-file-name invocation-name
                                                 invocation-directory))
                              "-Q" "-batch"
-                             "-L" (file-name-directory (locate-library "ffi"))
-                             "-L" (file-name-directory (locate-library "zmq"))
-                             "-l" (locate-library "zmq")
+                             "-L" (file-name-directory zmq-path)
+                             "-l" zmq-path
                              "-f" "zmq--init-subprocess"))))
     (process-put process :filter event-filter)
     (process-put process :sentinel sentinel)
@@ -490,6 +405,15 @@ process exit."
       (special-mode))
     (zmq-subprocess-send process (macroexpand-all sexp))
     process))
+
+;; TODO: Build module file if not present
+(defun zmq-load ()
+  "Load the ZMQ dynamic module."
+  (if zmq-module-file
+      (load-file zmq-module-file)
+    (user-error "Modules are not supported")))
+
+(zmq-load)
 
 (provide 'zmq)
 

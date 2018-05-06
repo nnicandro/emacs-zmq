@@ -1,13 +1,18 @@
-#include "ezmq.h"
+#include "core.h"
 
-#define EZMQ_DEFCONST(sym, val)                                     \
-    env->funcall(env, Qdefconst, 2,                                 \
-                 (emacs_value []){ INTERN(sym), INT(val) })
+#define EZMQ_DEFCONST(sym, val)                \
+    args[1] = INTERN(sym); args[2] = INT(val); \
+    list = env->funcall(env, Qlist, 3, args);  \
+    env->funcall(env, Qeval, 1, &list);
 
 // Automatically generated
 void
 ezmq_expose_constants(emacs_env *env)
 {
+    emacs_value args[3];
+    emacs_value list;
+    emacs_value Qeval = INTERN("eval");
+    args[0] = INTERN("defconst");
     EZMQ_DEFCONST("zmq-HAS-CAPABILITIES", ZMQ_HAS_CAPABILITIES);
     EZMQ_DEFCONST("zmq-REQ-CORRELATE", ZMQ_REQ_CORRELATE);
     EZMQ_DEFCONST("zmq-DELAY-ATTACH-ON-CONNECT", ZMQ_DELAY_ATTACH_ON_CONNECT);

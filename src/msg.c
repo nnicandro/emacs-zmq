@@ -1,156 +1,145 @@
 #include "msg.h"
 
 static void
-zmq_free_message(void *data, void *hint)
+ezmq_free_message(void *data, void *hint)
 {
     free(data);
+}
+
+static char *
+ezmq_extract_message_data(emacs_env *env, emacs_value val, ptrdiff_t *size)
+{
+    emacs_value type = TYPE(val);
+    *size = 0;
+
+    if(EQ(type, Qstring)) {
+        EZMQ_EXTRACT_STRING(content, clen, val);
+        // clen includes the terminating NULL byte, but ZMQ only works with
+        // binary data
+        *size = clen;
+        return content;
+    } else if(EQ(type, Qvector)) {
+        ptrdiff_t clen = env->vec_size(env, val);
+        char *content = ezmq_malloc(env, clen);
+
+        if(!EZMQ_NONLOCAL_EXIT()) {
+            for(ptrdiff_t i = 0; i < clen; i++) {
+                intmax_t byte = env->extract_integer(env, env->vec_get(env, val, i));
+                // TODO: Give a more informative error, i.e. that a vector
+                // doesn't contnain an integer. What we can do is do validation
+                // on the whole vector up front.
+                if(EZMQ_NONLOCAL_EXIT()) break;
+                if(!(0 <= byte && byte <= 255)) {
+                    ezmq_signal(env, Qargs_out_of_range, 2, byte,
+                                LIST(3, INTERN("<="), INT(0), INTERN("X"), INT(255)));
+                    break;
+                }
+                content[i] = byte;
+            }
+            if(!EZMQ_NONLOCAL_EXIT()) {
+                *size = clen;
+                return content;
+            }
+        }
+    } else
+        ezmq_wrong_type_argument(env, val, 2, Qstring, Qvector);
+
+    return NULL;
 }
 
 // TODO: From the documentation of zmq_msg_init: "never initialize the same
 // message twice", I think I do this somewhere in zmq-ffi.el or in jupyter.el,
 // find where.
+EZMQ_DOC(zmq_message,
+         "Initialize a ZMQ message.\n"
+         "If DATA is non-nil, initialize the message using DATA.\n"
+         "DATA can be either a string or a vector of byte integers.\n"
+         "If DATA is nil, initialize an empty message.",
+         "&optional DATA");
 emacs_value
 Fzmq_message(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
-    if(nargs == 0) {
-        // Initialize an empty message
-        emacs_value retval = ezmq_new_obj_ptr(env, EZMQ_MESSAGE, NULL);
-        if(!retval) return NULL;
-        EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, retval);
+    ezmq_obj_t *msg = ezmq_new_obj(env, EZMQ_MESSAGE, NULL);
+    if(EZMQ_NONLOCAL_EXIT()) return NULL;
+
+    if(nargs != 0) {
+        ptrdiff_t size = 0;
+        char *data = ezmq_extract_message_data(env, args[0], &size);
+
+        if(!EZMQ_NONLOCAL_EXIT()) {
+            EZMQ_CHECK_ERROR(zmq_msg_init_data(msg->obj,
+                                               data,
+                                               size,
+                                               &ezmq_free_message,
+                                               NULL));
+            if(EZMQ_NONLOCAL_EXIT()) free(data);
+        }
+    } else
         EZMQ_CHECK_ERROR(zmq_msg_init(msg->obj));
-        if(EZMQ_NONLOCAL_EXIT()) {
-            ezmq_free_obj(msg);
-            return NULL;
-        } else
-            return retval;
-    } else {
-        ptrdiff_t size;
-        char *content = NULL;
 
-        if(ezmq_value_of_type(env, args[0], Qstring)) {
-            content = ezmq_copy_string(env, args[0], &size);
-            if(!content) return NULL;
-            // size includes the terminating NULL byte
-            size -= 1;
-        } else if(ezmq_value_of_type(env, args[0], Qvector)) {
-            size = env->vec_size(env, args[0]);
-            content = ezmq_malloc(env, size);
-            if(!content) return NULL;
-            for(ptrdiff_t i = 0; i < size; i++) {
-                // TODO: Check for a valid number between 0-255. Don't leak
-                // memory when vec[i] is a non-integer, i.e. free content when
-                // this is the case.
-                EZMQ_EXTRACT_INT(value, env->vec_get(env, args[0], i));
-                content[i] = value;
-            }
-        } else {
-            emacs_value data = LIST(2, args[0], LIST(3, INTERN("or"), Qstring, Qvector));
-            env->non_local_exit_signal(env, Qwrong_type_argument, data);
-            return NULL;
-        }
-
-        ezmq_obj_t *msg = ezmq_new_obj(env, EZMQ_MESSAGE, NULL);
-        if(!msg) {
-            free(content);
-            return NULL;
-        }
-        EZMQ_CHECK_ERROR(zmq_msg_init_data(msg->obj,
-                                           content,
-                                           size,
-                                           &zmq_free_message,
-                                           NULL));
-        if(EZMQ_NONLOCAL_EXIT()) {
-            ezmq_free_obj(msg);
-            free(content);
-            return NULL;
-        } else
-            return env->make_user_ptr(env, NULL, msg);
-    }
+    return ezmq_new_obj_ptr(env, msg);
 }
 
+EZMQ_DOC(zmq_message_size, "Get the size of MESSAGE.", "MESSAGE");
 emacs_value
 Fzmq_message_size(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
-
-    return env->make_integer(env, zmq_msg_size(msg->obj));
+    return INT(zmq_msg_size(msg->obj));
 }
 
+EZMQ_DOC(zmq_message_data, "Get the data of MESSAGE.", "MESSAGE");
 emacs_value
 Fzmq_message_data(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
+    emacs_value retval = Qnil;
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
-
     const char *content = zmq_msg_data(msg->obj);
+
     if(content) {
         size_t size = zmq_msg_size(msg->obj);
         char *buf = malloc(size + 1);
-        emacs_value retval;
-
         buf[size] = 0;
         memcpy(buf, zmq_msg_data(msg->obj), size);
-        retval = ezmq_make_string(env, buf, size);
+        retval = STRING(buf, size);
         free(buf);
-        return retval;
-    } else {
-        return Qnil;
     }
+
+    return retval;
 }
 
+EZMQ_DOC(zmq_message_more, "Does MESSAGE have more parts?", "MESSAGE");
 emacs_value
 Fzmq_message_more(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
-
     int retval = zmq_msg_more(msg->obj);
     EZMQ_CHECK_ERROR(retval);
-    if(EZMQ_NONLOCAL_EXIT()) return NULL;
     return retval ? Qt : Qnil;
 }
 
+EZMQ_DOC(zmq_message_copy, "Copy MESSAGE.", "MESSAGE");
 emacs_value
 Fzmq_message_copy(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
-    EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
-
     ezmq_obj_t *dest = ezmq_new_obj(env, EZMQ_MESSAGE, NULL);
-    if(!dest) return NULL;
+    EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
+    zmq_msg_init(dest->obj);
     EZMQ_CHECK_ERROR(zmq_msg_copy(dest->obj, msg->obj));
-    if(EZMQ_NONLOCAL_EXIT()) {
-        ezmq_free_obj(dest);
-        return NULL;
-    } else
-        return env->make_user_ptr(env, NULL, dest);
+    return ezmq_new_obj_ptr(env, dest);
 }
 
+EZMQ_DOC(zmq_message_move, "Move a message from SRC to DEST.", "SRC DEST");
 emacs_value
 Fzmq_message_move(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
-
-    ezmq_obj_t *dest = ezmq_new_obj(env, EZMQ_MESSAGE, NULL);
-    if(!dest) {
-        free(msg);
-        return NULL;
-    }
+    EZMQ_EXTRACT_OBJ(dest, EZMQ_MESSAGE, args[1]);
     EZMQ_CHECK_ERROR(zmq_msg_move(dest->obj, msg->obj));
-    if(EZMQ_NONLOCAL_EXIT()) {
-        ezmq_free_obj(dest);
-        return NULL;
-    } else
-        return env->make_user_ptr(env, NULL, dest);
-}
-
-emacs_value
-Fzmq_message_close(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
-{
-    EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
-
-    EZMQ_CHECK_ERROR(zmq_msg_close(msg->obj));
-    if(!EZMQ_NONLOCAL_EXIT()) ezmq_free_obj(msg);
     return Qnil;
 }
 
+EZMQ_DOC(zmq_message_set, "Set a MESSAGE's PROPERTY to VALUE.", "MESSAGE PROPERTY VALUE");
 emacs_value
 Fzmq_message_set(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
@@ -161,7 +150,7 @@ Fzmq_message_set(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data
     case ZMQ_MORE:
         EZMQ_CHECK_ERROR(zmq_msg_set(msg->obj,
                                      property,
-                                     env->is_not_nil(env, args[2])));
+                                     !NILP(args[2])));
         break;
     default: {
         EZMQ_EXTRACT_INT(value, args[2]);
@@ -171,72 +160,77 @@ Fzmq_message_set(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data
     return Qnil;
 }
 
+EZMQ_DOC(zmq_message_get,  "Get a MESSAGE PROPERTY.", "MESSAGE PROPERTY");
 emacs_value
 Fzmq_message_get(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     EZMQ_EXTRACT_INT(property, args[1]);
-
     int retval = zmq_msg_get(msg->obj, property);
     EZMQ_CHECK_ERROR(retval);
-    if(EZMQ_NONLOCAL_EXIT()) return NULL;
     if(property == ZMQ_MORE)
         return retval ? Qt : Qnil;
     else
-        return env->make_integer(env, retval);
+        return INT(retval);
 }
 
+EZMQ_DOC(zmq_message_recv,
+         "Receive a MESSAGE from SOCK with additional FLAGS.\n"
+         "MESSAGE should be an initialized message.",
+         "MESSAGE SOCK &optional FLAGS");
 emacs_value
 Fzmq_message_recv(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[1]);
     EZMQ_EXTRACT_OPTIONAL_INT(flags, nargs == 3 ? args[2] : Qnil);
-
     EZMQ_CHECK_ERROR(zmq_msg_recv(msg->obj, sock->obj, flags));
     return args[0];
 }
 
+EZMQ_DOC(zmq_message_send,
+         "Send a MESSAGE on SOCK with additional FLAGS.",
+         "MESSAGE SOCK &optional FLAGS");
 emacs_value
 Fzmq_message_send(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[1]);
     EZMQ_EXTRACT_OPTIONAL_INT(flags, nargs == 3 ? args[2] : Qnil);
-
     EZMQ_CHECK_ERROR(zmq_msg_send(msg->obj, sock->obj, flags));
     return Qnil;
 }
 
+EZMQ_DOC(zmq_message_gets,
+         "Get a MESSAGE's metadata PROPERTY.\n"
+         "PROPERTY is a keyword and can only be one of those in\n"
+         "`zmq-message-properties'.",
+         "MESSAGE PROPERTY");
 emacs_value
 Fzmq_message_gets(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
-    char *property = ezmq_copy_string(env, args[1], NULL);
-    if(!property) return NULL;
-
+    EZMQ_EXTRACT_STRING(property, plen, args[1]);
     const char *retval = zmq_msg_gets(msg->obj, property);
-    if(retval == NULL) {
-        ezmq_signal_error(env);
-        return NULL;
-    }
     free(property);
-    return ezmq_make_string(env, retval, strlen(retval));
+    EZMQ_CHECK_NULL_ERROR(retval);
+    return STRING(retval, strlen(retval));
 }
 
+EZMQ_DOC(zmq_message_routing_id, "Get the routing ID of MESSAGE.", "MESSAGE");
 emacs_value
 Fzmq_message_routing_id(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
-    return env->make_integer(env, zmq_msg_routing_id(msg->obj));
+    return INT(zmq_msg_routing_id(msg->obj));
 }
 
+EZMQ_DOC(zmq_message_set_routing_id, "Set the routing ID of MESSAGE.", "MESSAGE");
 emacs_value
 Fzmq_message_set_routing_id(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     EZMQ_EXTRACT_INT(id, args[1]);
-
     EZMQ_CHECK_ERROR(zmq_msg_set_routing_id(msg->obj, id));
     return Qnil;
 }
