@@ -328,7 +328,7 @@ ezmq_poller_wait(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data
 
 EZMQ_DOC(ezmq_poller_wait_all,
          "POLLER NEVENTS TIMEOUT",
-         "Wait until TIMEOUT for NEVENTS on POLLER."
+         "Wait until TIMEOUT for NEVENTS on POLLER.\n"
          "If between 1 and NEVENTS events occured within TIMEOUT (measured\n"
          "in milliseconds) return a list of cons cells, each element having\n"
          "the form (SOCK-OR-FD . EVENTS). EVENTS is a list of events which\n"
