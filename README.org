@@ -308,7 +308,7 @@ Note that arbitrary binary data can be sent to the subprocess using
 #+BEGIN_SRC elisp
 (let ((proc (zmq-start-process
              (lambda (ctx)
-               (with-zmq-poller poller
+               (let ((poller (zmq-poller)))
                  ;; Poll for input on STDIN, i.e. input from the parent emacs
                  ;; process
                  (zmq-poller-register poller 0 zmq-POLLIN)
