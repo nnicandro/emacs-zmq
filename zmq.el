@@ -407,11 +407,22 @@ process exit."
     (zmq-subprocess-send process (macroexpand-all sexp))
     process))
 
-;; TODO: Build module file if not present
 (defun zmq-load ()
   "Load the ZMQ dynamic module."
   (if zmq-module-file
-      (load-file zmq-module-file)
+      (if (file-exists-p zmq-module-file)
+          (load-file zmq-module-file)
+        (when (y-or-n-p "ZMQ module not found. Build it? ")
+          (let ((default-directory (file-name-directory (locate-library "zmq"))))
+            (cl-labels
+                ((load-zmq
+                  (_buf status)
+                  (if (string= status "finished\n")
+                      (zmq-load)
+                    (message "Something went wrong when compiling the ZMQ module!"))
+                  (remove-hook 'compilation-finish-functions #'load-zmq)))
+              (add-hook 'compilation-finish-functions #'load-zmq)
+              (compile "make")))))
     (user-error "Modules are not supported")))
 
 (zmq-load)
