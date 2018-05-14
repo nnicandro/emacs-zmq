@@ -77,7 +77,8 @@ ezmq_signal(emacs_env *env, emacs_value err, int nargs, ...)
     va_list args;
     emacs_value data[nargs];
     va_start(args, nargs);
-    for(int i = 0; i < nargs; i++) {
+    int i;
+    for(i = 0; i < nargs; i++) {
         data[i] = va_arg(args, emacs_value);
     }
     env->non_local_exit_signal(env, err, env->funcall(env, Qlist, nargs, data));
@@ -99,7 +100,8 @@ ezmq_wrong_type_argument(emacs_env *env, emacs_value val, int nvalid, ...)
     emacs_value options[nvalid + 1];
     options[0] = INTERN("or");
     va_start(args, nvalid);
-    for(int i = 0; i < nvalid; i++) {
+    int i;
+    for(i = 0; i < nvalid; i++) {
         options[i] = va_arg(args, emacs_value);
     }
     emacs_value options_list = env->funcall(env, Qlist, nvalid + 1, options);

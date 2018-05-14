@@ -115,8 +115,8 @@ ezmq_extract_pollitem_list(emacs_env *env, emacs_value list)
 {
     intmax_t len = LENGTH(list);
     zmq_pollitem_t *items = (zmq_pollitem_t *)ezmq_malloc(env, sizeof(zmq_pollitem_t)*len);
-
-    for(intmax_t i = 0; i < len; i++) {
+    intmax_t i;
+    for(i = 0; i < len; i++) {
         emacs_value head = CAR(list);
         list = CDR(list);
 
@@ -351,7 +351,8 @@ ezmq_poller_wait_all(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *
 
     // TODO: Return nil on EAGAIN
     if(!EZMQ_NONLOCAL_EXIT()) {
-        for(int i = 0; i < ntriggered; i++) {
+        int i;
+        for(i = 0; i < ntriggered; i++) {
             zmq_poller_event_t event = revents[i];
             emacs_value sevents = ezmq_split_poll_events(env, event.events);
             emacs_value trigger;

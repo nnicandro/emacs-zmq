@@ -23,7 +23,8 @@ ezmq_extract_message_data(emacs_env *env, emacs_value val, ptrdiff_t *size)
         char *content = ezmq_malloc(env, clen);
 
         if(!EZMQ_NONLOCAL_EXIT()) {
-            for(ptrdiff_t i = 0; i < clen; i++) {
+            ptrdiff_t i;
+            for(i = 0; i < clen; i++) {
                 intmax_t byte = env->extract_integer(env, env->vec_get(env, val, i));
                 // TODO: Give a more informative error, i.e. that a vector
                 // doesn't contnain an integer. What we can do is do validation
