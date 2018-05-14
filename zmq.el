@@ -339,12 +339,12 @@ meant to be called from an Emacs subprocess."
            (base64-decode-string (read-minibuffer ""))
            'utf-8-unix))))
 
-(defsubst zmq-set-subprocess-filter (process event-filter)
+(defun zmq-set-subprocess-filter (process event-filter)
   "Set the event filter function for PROCESS.
 EVENT-FILTER has the same meaning as in `zmq-start-process'."
   (process-put process :filter event-filter))
 
-(defsubst zmq-set-subprocess-sentinel (process sentinel)
+(defun zmq-set-subprocess-sentinel (process sentinel)
   "Set the sentinel function for PROCESS.
 SENTINEL has the same meaning as in `zmq-start-process'."
   (process-put process :sentinel sentinel))
