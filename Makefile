@@ -9,7 +9,7 @@ all: emacs-zmq.so compile
 
 test:
 	$(EMACS) -nw -Q -batch -L . -l ert -l zmq-tests.el \
---eval "(ert-run-tests-batch-and-exit))"
+--eval "(ert-run-tests-batch-and-exit)"
 
 compile: $(ELCFILES)
 
