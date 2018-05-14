@@ -4,22 +4,16 @@ Bindings to =zmq= in Emacs.
 ** Dependencies
 
 - libzmq :: https://github.com/zeromq/libzmq
-** Build steps
+** Building
 
-To build the Emacs module =autotools= is required. Once =autotools= is
-available, run =make= in the top level directory and the module will be built
-and the Emacs lisp files compiled. Alternatively, requiring the =zmq= library
-will ask you to build the Emacs module if it cannot be found.
-* Testing
+Run =make= in the top level directory to build the =zmq= module. This requires
+that =automake= be available on your system.
+** Testing
 
-To run the available tests
-
-#+BEGIN_SRC sh
-make test
-#+END_SRC
+To run the available tests, run =make test= in the top level directory.
 * Contexts
 
-To create a new context use =zmq-context=
+To create a context:
 
 #+BEGIN_SRC elisp
 (zmq-context)
@@ -124,7 +118,6 @@ Below is a table mapping the C API functions to their Emacs equivalent.
 | =zmq_msg_gets=           | =zmq-message-property=       |
 | =zmq_msg_routing_id=     | =zmq-message-routing-id=     |
 | =zmq_msg_set_routing_id= | =zmq-message-set-routing-id= |
-
 ** Multi-part messages
 
 To send a multi-part message:
@@ -278,10 +271,9 @@ subprocess that can then be used for all your =zmq= processing needs. You pass
 #+BEGIN_SRC elisp
 (zmq-start-process
  (lambda ()
-   (with-zmq-context
-     (let ((ctx (zmq-current-context)))
-       (with-zmq-socket sock zmq-SUB
-         BODY)))))
+   (let* ((ctx (zmq-current-context))
+          (sock (zmq-socket ctx zmq-SUB)))
+     BODY)))
 #+END_SRC
 
 Or if you supply a function with a single argument to =zmq-start-process=, a
@@ -290,20 +282,17 @@ context will be created for you and passed as the argument to the function:
 #+BEGIN_SRC elisp
 (zmq-start-process
  (lambda (ctx)
-   (with-zmq-socket sock zmq-SUB
+   (let ((sock (zmq-socket ctx zmq-SUB)))
      BODY)))
 #+END_SRC
 
 For one-way communication between the parent Emacs process and the subprocess
 created with =zmq-start-process= you can use =zmq-subprocess-send= in the
-parent and =zmq-subprocess-read= in the subprocess.
-
-=zmq-subprocess-send= takes a process object as its first argument and an
-arbitrary s-expression as its second argument. The s-expression will be encoded
-and sent to the subprocess. Using =zmq-subprocess-read= in the subprocess takes
-care of decoding and returns the s-expression sent from the parent process.
-Note that arbitrary binary data can be sent to the subprocess using
-=zmq-subprocess-send=.
+parent and =zmq-subprocess-read= in the child process. =zmq-subprocess-send=
+takes a process object as its first argument and an arbitrary s-expression as
+its second argument. The s-expression will be encoded and sent to the
+subprocess. Using =zmq-subprocess-read= in the subprocess takes care of
+decoding and returns the s-expression sent from the parent process.
 
 #+BEGIN_SRC elisp
 (let ((proc (zmq-start-process
