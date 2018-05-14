@@ -57,8 +57,8 @@ newly created context."
       (setq zmq-current-context (zmq-context))))
 
 (defun zmq-assoc (item list)
-  "Find the first item whose car matches ITEM in LIST.
-Use `zmq-equal' for the comparison."
+  "Find the first match whose car is equal to ITEM in LIST.
+`zmq-equal' is used for comparison."
   (cl-assoc item list :test #'zmq-equal))
 
 ;;; Socket functions
@@ -241,18 +241,18 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
 
 (defun zmq--subprocess-read-output (output)
   "Return a list of s-expressions read from OUTPUT.
-OUTPUT is inserted into the `current-buffer' and read for
-s-expressions beginning at `point-min' until the first incomplete
-s-expression or until all s-expressions have been `read' OUTPUT. After
-reading, the contents of the `current-buffer' from `point-min' up
-to the last valid s-expression is removed and a list of all the
-valid s-expressions in OUTPUT is returned.
+OUTPUT is inserted into the `current-buffer' and `read' until the
+first incomplete s-expression or until all s-expressions of
+OUTPUT have been processed. After reading, the contents of the
+`current-buffer' from `point-min' up to the last valid
+s-expression is removed and a list of all the valid s-expressions
+in OUTPUT is returned.
 
-Note that if OUTPUT contains any expressions that are read as
+Note, if OUTPUT contains any expressions that are read as
 symbols, i.e. contains raw text not surrounded by quotes, they
 will be ignored.
 
-Note that for this function to work properly the same buffer
+Also note, for this function to work properly the same buffer
 should be current for subsequent calls."
   (let (last-valid sexp accum)
     (insert output)
@@ -277,9 +277,10 @@ should be current for subsequent calls."
   "Create a stream of s-expressions based on PROCESS' OUTPUT.
 If PROCESS has a non-nil `:filter' property then it should be a
 function with the same meaning as the EVENT-FILTER argument in
-`zmq-start-process'. If the `:filter' function is present, then
-it will be called for each s-expression in OUTPUT where output is
-converted into a list of s-expressions using
+`zmq-start-process'. If the `:filter' function is present, call
+the function for each valid s-expression in OUTPUT. OUTPUT will
+first be converted to a list of s-expressions using called for
+each s-expression in OUTPUT where output is converted
 `zmq--subprocess-read-output'.
 
 As a special case, if any of the s-expressions is a list with the
