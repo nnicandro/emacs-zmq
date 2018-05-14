@@ -216,17 +216,6 @@
         (let ((sock (zmq-socket ctx zmq-SUB)))
           (ert-info ("Unicode options")
             (let ((topic "tést"))
-              ;; TODO: Think harder about the semantics of copy_string_contents
-              ;; and make_string in the module API. How do unicode strings get
-              ;; converted to/from C/Emacs and how does it effect other
-              ;; applications besides Emacs?
-              ;;
-              ;; (should-error
-              ;;  (zmq-set-option sock zmq-SUBSCRIBE topic)
-              ;;  :type 'wrong-type-argument)
-              ;; (should-error
-              ;;  (zmq-set-option sock zmq-ROUTING-ID topic)
-              ;;  :type 'wrong-type-argument)
               (zmq-socket-set-encoded sock zmq-ROUTING-ID topic 'utf-16)
               (should (equal (zmq-socket-get-decoded sock zmq-ROUTING-ID 'utf-16)
                              topic))
@@ -234,69 +223,37 @@
 
 (ert-deftest zmq-polling ()
   (let* ((addr "tcp://127.0.0.1"))
-    ;; (ert-info ("`zmq-poll'")
-    ;;   (cl-destructuring-bind (p s)
-    ;;       (zmq-create-bound-pair (zmq-current-context) zmq-PUB zmq-SUB addr)
-    ;;     (let ((items (list (cons p (list zmq-POLLIN zmq-POLLOUT))
-    ;;                        (cons s (list zmq-POLLIN zmq-POLLOUT))))
-    ;;           (events nil))
+    ;; https://github.com/zeromq/pyzmq/blob/master/examples/poll/pubsub.py
+    (ert-info ("`zmq-poller'")
+      (cl-destructuring-bind (p . s)
+          (zmq-create-bound-pair (zmq-current-context) zmq-PUB zmq-SUB addr)
+        (let ((poller (zmq-poller)))
+          (let ((events nil))
+            ;; Allow sockets to connect
+            (sleep-for 0.5)
 
-    ;;       ;; Allow sockets to connect
-    ;;       (sleep-for 0.5)
+            ;; Subscribe to all incoming messages
+            (zmq-socket-set s zmq-SUBSCRIBE "")
 
-    ;;       ;; Subscribe to all incoming messages
-    ;;       (zmq-socket-set s zmq-SUBSCRIBE "")
+            (zmq-poller-add poller p (list zmq-POLLIN zmq-POLLOUT))
+            (zmq-poller-add poller s (list zmq-POLLIN zmq-POLLOUT))
 
-    ;;       (setq events (zmq-poll items 100))
-    ;;       (should (member zmq-POLLOUT (zmq-assoc p events)))
+            (setq events (zmq-poller-wait-all poller 10 100))
+            (should (member zmq-POLLOUT (zmq-assoc p events)))
+            (should-not (alist-get s events))
 
+            (zmq-send p "msg1")
+            (setq events (zmq-poller-wait-all poller 10 100))
+            (should (member zmq-POLLOUT (zmq-assoc p events)))
 
-    ;;       (should-not (alist-get s events))
+            (sleep-for 0.1)
 
-    ;;       (zmq-send p "msg1")
-    ;;       (setq events (zmq-poll items 100))
-    ;;       (should (member zmq-POLLOUT (zmq-assoc p events)))
+            (setq events (zmq-poller-wait-all poller 10 1000))
+            (should (member zmq-POLLIN (zmq-assoc s events)))
 
-    ;;       (sleep-for 0.1)
-
-    ;;       (setq events (zmq-poll items 1000))
-    ;;       (should (member zmq-POLLIN (zmq-assoc s events)))
-
-    ;;       (should (equal (zmq-recv s) "msg1"))
-    ;;       (setq events (zmq-poll items 100))
-    ;;       (should-not (zmq-assoc s events)))))
-    (when (zmq-has "draft")
-      ;; https://github.com/zeromq/pyzmq/blob/master/examples/poll/pubsub.py
-      (ert-info ("`zmq-poller'")
-        (cl-destructuring-bind (p . s)
-            (zmq-create-bound-pair (zmq-current-context) zmq-PUB zmq-SUB addr)
-          (let ((poller (zmq-poller)))
-            (let ((events nil))
-              ;; Allow sockets to connect
-              (sleep-for 0.5)
-
-              ;; Subscribe to all incoming messages
-              (zmq-socket-set s zmq-SUBSCRIBE "")
-
-              (zmq-poller-add poller p (list zmq-POLLIN zmq-POLLOUT))
-              (zmq-poller-add poller s (list zmq-POLLIN zmq-POLLOUT))
-
-              (setq events (zmq-poller-wait-all poller 10 100))
-              (should (member zmq-POLLOUT (zmq-assoc p events)))
-              (should-not (alist-get s events))
-
-              (zmq-send p "msg1")
-              (setq events (zmq-poller-wait-all poller 10 100))
-              (should (member zmq-POLLOUT (zmq-assoc p events)))
-
-              (sleep-for 0.1)
-
-              (setq events (zmq-poller-wait-all poller 10 1000))
-              (should (member zmq-POLLIN (zmq-assoc s events)))
-
-              (should (equal (zmq-recv s) "msg1"))
-              (setq events (zmq-poller-wait-all poller 10 100))
-              (should-not (zmq-assoc s events)))))))))
+            (should (equal (zmq-recv s) "msg1"))
+            (setq events (zmq-poller-wait-all poller 10 100))
+            (should-not (zmq-assoc s events))))))))
 
 (ert-deftest zmq-subprocess ()
   (ert-info ("Validating sexp")
