@@ -2,10 +2,13 @@ language: emacs-lisp
 dist: trusty
 # https://github.com/travis-ci/travis-ci/issues/9061
 sudo: required
+matrix:
+  allow_failures:
+    - env: EMACS_VERSION=26-pretest
 env:
-  - EMACS_VERSION=25.1
-  - EMACS_VERSION=25.3
-  - EMACS_VERSION=26-pretest
+  - EMACS_VERSION=25.1 ZMQ_VERSION=4.2.0
+  - EMACS_VERSION=25.3 ZMQ_VERSION=4.2.0
+  - EMACS_VERSION=26-pretest ZMQ_VERSION=4.2.0
 before_install:
   - export PATH=${TRAVIS_BUILD_DIR}/.evm/bin:${PATH}
   - export LD_LIBRARY_PATH=${TRAVIS_BUILD_DIR}/lib:${LD_LIBRARY_PATH}
@@ -13,10 +16,9 @@ before_install:
   - git clone https://github.com/ubolonton/evm ${TRAVIS_BUILD_DIR}/.evm
   - evm config path /tmp
   - evm install emacs-${EMACS_VERSION} --use --skip
-  - emacs --version
   - git clone git://github.com/zeromq/libzmq.git
   - cd libzmq
-  - git checkout v4.2.5
+  - git checkout v${ZMQ_VERSION}
   - mkdir cmake-build && cd cmake-build
   - cmake -DCMAKE_INSTALL_PREFIX=${TRAVIS_BUILD_DIR} .. && make && make install
 script:
