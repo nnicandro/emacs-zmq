@@ -1,17 +1,17 @@
 #include "context.h"
 
-EZMQ_DOC(zmq_context, "Create a new context.", "");
+EZMQ_DOC(ezmq_context, "", "Create a new context.");
 emacs_value
-Fzmq_context(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_context(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     void *ctx = zmq_ctx_new();
     EZMQ_CHECK_NULL_ERROR(ctx);
     return ezmq_new_obj_ptr(env, ezmq_new_obj(env, EZMQ_CONTEXT, ctx));
 }
 
-EZMQ_DOC(zmq_ctx_set, "Set a CONTEXT OPTION to VALUE.", "CONTEXT OPTION VALUE");
+EZMQ_DOC(ezmq_ctx_set,  "CONTEXT OPTION VALUE", "Set a CONTEXT OPTION to VALUE.");
 emacs_value
-Fzmq_ctx_set(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_ctx_set(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(context, EZMQ_CONTEXT, args[0]);
     EZMQ_EXTRACT_INT(option, args[1]);
@@ -24,9 +24,9 @@ Fzmq_ctx_set(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     return Qnil;
 }
 
-EZMQ_DOC(zmq_ctx_get, "Get a CONTEXT OPTION.", "CONTEXT OPTION");
+EZMQ_DOC(ezmq_ctx_get,  "CONTEXTOPTION", "Get a CONTEXT OPTION.");
 emacs_value
-Fzmq_ctx_get(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_ctx_get(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     emacs_value retval = Qnil;
     EZMQ_EXTRACT_OBJ(context, EZMQ_CONTEXT, args[0]);
@@ -43,11 +43,20 @@ Fzmq_ctx_get(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     return retval;
 }
 
-EZMQ_DOC(zmq_ctx_shutdown, "Shutdown CONTEXT.", "CONTEXT");
+EZMQ_DOC(ezmq_ctx_shutdown, "CONTEXT", "Shutdown CONTEXT.");
 emacs_value
-Fzmq_ctx_shutdown(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_ctx_shutdown(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(context, EZMQ_CONTEXT, args[0]);
     EZMQ_CHECK_ERROR(zmq_ctx_shutdown(context->obj));
+    return Qnil;
+}
+
+EZMQ_DOC(ezmq_ctx_term, "CONTEXT", "Terminate CONTEXT.");
+emacs_value
+ezmq_ctx_term(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+{
+    EZMQ_EXTRACT_OBJ(context, EZMQ_CONTEXT, args[0]);
+    EZMQ_CHECK_ERROR(zmq_ctx_term(context->obj));
     return Qnil;
 }

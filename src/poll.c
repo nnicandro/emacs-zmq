@@ -1,7 +1,5 @@
 #include "poll.h"
 
-static ezmq_obj_t *sockets = NULL;
-
 static void
 ezmq_invalid_poll_event(emacs_env *env, intmax_t event)
 {
@@ -152,11 +150,9 @@ ezmq_make_pollitem_list(emacs_env *env, intmax_t nreceived, zmq_pollitem_t *item
 
         if(items[nitems].socket) {
             ezmq_obj_t *sock;
-            HASH_FIND_PTR(sockets, &items[nitems].socket, sock);
             // Only create a user pointer to the socket if we have to
             if(events != 0)
                 trigger = ezmq_new_obj_ptr(env, sock);
-            HASH_DEL(sockets, sock);
         }
 
         if(events != 0) {
@@ -172,13 +168,12 @@ ezmq_make_pollitem_list(emacs_env *env, intmax_t nreceived, zmq_pollitem_t *item
     return ritems;
 }
 
-EZMQ_DOC(zmq_poll,
+EZMQ_DOC(ezmq_poll, "ITEMS TIMEOUT",
          "Poll ITEMS until TIMEOUT.\n"
          "ITEMS is a list of cons cells of the form (SOCK-OR-FD . EVENTS)\n"
-         "where EVENTS is a list of valid poll events.",
-         "ITEMS TIMEOUT");
+         "where EVENTS is a list of valid poll events.");
 emacs_value
-Fzmq_poll(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_poll(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_INT(timeout, args[1]);
 
@@ -201,76 +196,84 @@ Fzmq_poll(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     return retval;
 }
 
-EZMQ_DOC(zmq_poller_new,
-         "Create a new `zmq-poller' object.",
-         "");
+EZMQ_DOC(ezmq_poller_new,
+         "",
+         "Create a new `zmq-poller' object.");
 emacs_value
-Fzmq_poller_new(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_poller_new(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     void *poller = zmq_poller_new();
     EZMQ_CHECK_NULL_ERROR(poller);
     return ezmq_new_obj_ptr(env, ezmq_new_obj(env, EZMQ_POLLER, poller));
 }
 
-EZMQ_DOC(zmq_poller_add,
+EZMQ_DOC(ezmq_poller_add,
+         "POLLER SOCK EVENTS",
          "Listen for EVENTS on SOCK using POLLER.\n"
          "SOCK-OR-FD can either be a `zmq-socket' or a file descriptor.\n"
          "EVENTS can either be a list of events (one of `zmq-POLLIN',\n"
          "`zmq-POLLOUT', `zmq-POLLERR') or a bitwise-or of events. Optional\n"
-         "arguments USER-DATA is currently ignored.",
-         "POLLER SOCK EVENTS");
+         "arguments USER-DATA is currently ignored.");
 emacs_value
-Fzmq_poller_add(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_poller_add(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(poller, EZMQ_POLLER, args[0]);
 
-    if(EQ(TYPE(args[2]), Qcons)) {
-        short events = ezmq_merge_poll_events(env, args[2]);
-        if(!EZMQ_NONLOCAL_EXIT()) {
-            if(EQ(TYPE(args[1]), Qinteger)) {
-                EZMQ_EXTRACT_INT(fd, args[1]);
-                EZMQ_CHECK_ERROR(zmq_poller_add_fd(poller->obj, fd, NULL, events));
-            } else {
-                EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[1]);
-                EZMQ_CHECK_ERROR(zmq_poller_add(poller->obj, sock->obj, sock, events));
-            }
-        }
-    } else
-        ezmq_wrong_type_argument(env, args[2], 1, INTERN("consp"));
-
-    return Qnil;
-}
-
-EZMQ_DOC(zmq_poller_modify,
-         "Modify the EVENTS of SOCK that POLLER listens for.",
-         "POLLER SOCK EVENTS");
-emacs_value
-Fzmq_poller_modify(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
-{
-    EZMQ_EXTRACT_OBJ(poller, EZMQ_POLLER, args[0]);
-
-    if(EQ(TYPE(args[2]), Qcons)) {
-        short events = ezmq_merge_poll_events(env, args[2]);
-        if(!EZMQ_NONLOCAL_EXIT()) {
-            if(EQ(TYPE(args[1]), Qinteger)) {
-                EZMQ_EXTRACT_INT(fd, args[1]);
-                EZMQ_CHECK_ERROR(zmq_poller_modify_fd(poller->obj, fd, events));
-            } else {
-                EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[1]);
-                EZMQ_CHECK_ERROR(zmq_poller_modify(poller->obj, sock->obj, events));
-            }
-        }
-    } else
+    short events;
+    if(EQ(TYPE(args[2]), Qcons))
+        events = ezmq_merge_poll_events(env, args[2]);
+    else if(EQ(TYPE(args[2]), Qinteger))
+        events = env->extract_integer(env, args[2]);
+    else
         ezmq_signal(env, Qwrong_type_argument, 2, args[2], INTERN("consp"));
 
+    if(!EZMQ_NONLOCAL_EXIT()) {
+        if(EQ(TYPE(args[1]), Qinteger)) {
+            EZMQ_EXTRACT_INT(fd, args[1]);
+            EZMQ_CHECK_ERROR(zmq_poller_add_fd(poller->obj, fd, NULL, events));
+        } else {
+            EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[1]);
+            EZMQ_CHECK_ERROR(zmq_poller_add(poller->obj, sock->obj, sock, events));
+        }
+    }
+
     return Qnil;
 }
 
-EZMQ_DOC(zmq_poller_remove,
-         "Remove SOCK from POLLER.",
-         "POLLER SOCK");
+EZMQ_DOC(ezmq_poller_modify,
+         "POLLER SOCK EVENTS",
+         "Modify the EVENTS of SOCK that POLLER listens for.");
 emacs_value
-Fzmq_poller_remove(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_poller_modify(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+{
+    EZMQ_EXTRACT_OBJ(poller, EZMQ_POLLER, args[0]);
+
+    short events;
+    if(EQ(TYPE(args[2]), Qcons))
+        events = ezmq_merge_poll_events(env, args[2]);
+    else if(EQ(TYPE(args[2]), Qinteger))
+        events = env->extract_integer(env, args[2]);
+    else
+        ezmq_signal(env, Qwrong_type_argument, 2, args[2], INTERN("consp"));
+
+    if(!EZMQ_NONLOCAL_EXIT()) {
+        if(EQ(TYPE(args[1]), Qinteger)) {
+            EZMQ_EXTRACT_INT(fd, args[1]);
+            EZMQ_CHECK_ERROR(zmq_poller_modify_fd(poller->obj, fd, events));
+        } else {
+            EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[1]);
+            EZMQ_CHECK_ERROR(zmq_poller_modify(poller->obj, sock->obj, events));
+        }
+    }
+
+    return Qnil;
+}
+
+EZMQ_DOC(ezmq_poller_remove,
+         "POLLER SOCK",
+         "Remove SOCK from POLLER.");
+emacs_value
+ezmq_poller_remove(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(poller, EZMQ_POLLER, args[0]);
     if(EQ(TYPE(args[1]), Qinteger)) {
@@ -283,15 +286,26 @@ Fzmq_poller_remove(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *da
     return Qnil;
 }
 
-EZMQ_DOC(zmq_poller_wait,
+EZMQ_DOC(ezmq_poller_destroy,
+         "POLLER",
+         "Destroy POLLER");
+emacs_value
+ezmq_poller_destroy(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+{
+    EZMQ_EXTRACT_OBJ(poller, EZMQ_POLLER, args[0]);
+    EZMQ_CHECK_ERROR(zmq_poller_destroy(&poller->obj));
+    return Qnil;
+}
+
+EZMQ_DOC(ezmq_poller_wait,
+         "POLLER TIMEOUT",
          "Poll for an event with POLLER until TIMEOUT ms.\n"
          "If an event occures before TIMEOUT ms, return a cons\n"
          "cell (SOCK-OR-FD . EVENTS) where EVENTS is a list of events which\n"
          "occured before TIMEOUT. Otherwise return nil. If TIMEOUT is -1,\n"
-         "wait forever until an event arrives.",
-         "POLLER TIMEOUT");
+         "wait forever until an event arrives.");
 emacs_value
-Fzmq_poller_wait(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_poller_wait(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(poller, EZMQ_POLLER, args[0]);
     EZMQ_EXTRACT_INT(timeout, args[1]);
@@ -312,19 +326,18 @@ Fzmq_poller_wait(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data
     return Qnil;
 }
 
-EZMQ_DOC(zmq_poller_wait_all,
+EZMQ_DOC(ezmq_poller_wait_all,
+         "POLLER NEVENTS TIMEOUT",
          "Wait until TIMEOUT for NEVENTS on POLLER."
-
          "If between 1 and NEVENTS events occured within TIMEOUT (measured\n"
          "in milliseconds) return a list of cons cells, each element having\n"
          "the form (SOCK-OR-FD . EVENTS). EVENTS is a list of events which\n"
          "occured on SOCK-OR-FD during the polling period. Note that the\n"
          "length of the returned list may be less than NEVENTS if less than\n"
          "NEVENTS events occurred within TIMEOUT. If TIMEOUT is -1, wait\n"
-         "forever.",
-         "POLLER NEVENTS TIMEOUT");
+         "forever.");
 emacs_value
-Fzmq_poller_wait_all(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_poller_wait_all(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(poller, EZMQ_POLLER, args[0]);
     EZMQ_EXTRACT_INT(nevents, args[1]);

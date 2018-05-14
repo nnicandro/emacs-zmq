@@ -101,13 +101,13 @@
         }                                       \
     } while(0)
 
-#define EZMQ_DOC(name, doc, args)                               \
-    const char *__zmq_doc_##name = doc "\n\n\\(fn " args ")"
+#define EZMQ_DOC(name, args, doc)                         \
+    const char *__zmq_doc_##name = doc "\n\n(fn " args ")"
 
-#define EZMQ_DEFUN(name)                                                \
+#define EZMQ_DEFUN_PROTO(name)                                          \
     extern const char *__zmq_doc_##name;                                \
     extern emacs_value                                                  \
-    F##name(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+    name(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 
 enum ezmq_obj_t {
     EZMQ_CONTEXT,
@@ -126,25 +126,21 @@ typedef struct {
     intmax_t refcount;
 } ezmq_obj_t;
 
-emacs_value Qzmq_error, Qt, Qnil, Qlist,
+extern emacs_value Qzmq_error, Qt, Qnil, Qlist,
     Qwrong_type_argument, Qargs_out_of_range,
     Qcons, Qstring, Qvector, Qcar, Qcdr, Qlength, Qinteger, Qequal,
     Qzmq_POLLIN, Qzmq_POLLERR, Qzmq_POLLOUT,
     Izmq_POLLIN, Izmq_POLLERR, Izmq_POLLOUT;
 
 extern void
-ezmq_error(emacs_env *env, emacs_value err, const char *msg);
-
-extern void
 ezmq_signal(emacs_env *env, emacs_value err, int nargs, ...);
 
 extern void
 ezmq_wrong_type_argument(emacs_env *env, emacs_value val, int nvalid, ...);
+
 /**
    Called when an error occured in ZMQ to notify Emacs to exit nonlocally.
 */
-// TODO: More general error handling, many places that have a lot boiler plate
-// just to send an error out.
 extern void
 ezmq_signal_error(emacs_env *env);
 
@@ -158,17 +154,28 @@ ezmq_signal_error(emacs_env *env);
 extern emacs_value
 ezmq_new_obj_ptr(emacs_env *env, ezmq_obj_t *obj);
 
+/**
+   Allocate and return an ezmq_obj_t with TYPE and OBJ. Signal a non-local exit
+   if anything goes wrong.
+*/
 extern ezmq_obj_t *
 ezmq_new_obj(emacs_env *env, enum ezmq_obj_t type, void *obj);
 
+/**
+   Free the memory used to wrap a ZMQ object. Note this only free's the memoery
+   used by a ezmq_obj_t not the underlying object it points to. See
+   ezmq_obj_finalizer for freeing up the resources used by the ZMQ objects.
+*/
 extern void
 ezmq_free_obj(ezmq_obj_t *obj);
 
+/**
+   Extract an ezmq_obj_t from the Lisp object in OBJ. Signal a non-local exit
+   if the extracted object doesn't match TYPE.
+*/
 extern ezmq_obj_t *
 ezmq_extract_obj(emacs_env *env, enum ezmq_obj_t type, emacs_value obj);
 
-// NOTE: Exposed here so that we can identify user-ptr's of ZMQ objects. See
-// zmq-equal.
 extern void
 ezmq_obj_finalizer(void *);
 

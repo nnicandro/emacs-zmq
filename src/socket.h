@@ -4,14 +4,15 @@
 
 #include "core.h"
 
-EZMQ_DEFUN(zmq_socket);
-EZMQ_DEFUN(zmq_send);
-EZMQ_DEFUN(zmq_recv);
-EZMQ_DEFUN(zmq_bind);
-EZMQ_DEFUN(zmq_connect);
-EZMQ_DEFUN(zmq_unbind);
-EZMQ_DEFUN(zmq_disconnect);
-EZMQ_DEFUN(zmq_setsockopt);
-EZMQ_DEFUN(zmq_getsockopt);
+EZMQ_DEFUN_PROTO(ezmq_socket);
+EZMQ_DEFUN_PROTO(ezmq_send);
+EZMQ_DEFUN_PROTO(ezmq_recv);
+EZMQ_DEFUN_PROTO(ezmq_bind);
+EZMQ_DEFUN_PROTO(ezmq_connect);
+EZMQ_DEFUN_PROTO(ezmq_unbind);
+EZMQ_DEFUN_PROTO(ezmq_disconnect);
+EZMQ_DEFUN_PROTO(ezmq_close);
+EZMQ_DEFUN_PROTO(ezmq_setsockopt);
+EZMQ_DEFUN_PROTO(ezmq_getsockopt);
 
 #endif /* __SOCKET_H__ */

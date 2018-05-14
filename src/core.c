@@ -1,9 +1,12 @@
 #include "core.h"
 #include <pthread.h>
 
-#define ERR_CASE(err)                                       \
-    case err:                                               \
-    ezmq_error(env, INTERN("zmq-"#err), zmq_strerror(err)); \
+#define ERR_CASE(err)                                              \
+    case err: {                                                    \
+        const char *msg = zmq_strerror(err);                       \
+        ptrdiff_t len = (ptrdiff_t)strlen(msg);                    \
+        ezmq_signal(env, INTERN("zmq-"#err), 1, STRING(msg, len)); \
+    }                                                              \
     break;
 
 void
@@ -34,17 +37,10 @@ ezmq_signal_error(emacs_env *env)
     ERR_CASE(EMFILE);
     default: {
         const char *msg = zmq_strerror(zmq_errno());
-        ezmq_error(env, Qzmq_error, msg);
+        ptrdiff_t len = (ptrdiff_t)strlen(msg);
+        ezmq_signal(env, Qzmq_error, 1, STRING(msg, len));
     }
     }
-}
-
-// TODO: Make different error functions for specific purposes
-void
-ezmq_error(emacs_env *env, emacs_value err, const char *msg)
-{
-    emacs_value data = msg ? LIST(1, STRING(msg, strlen(msg))) : Qnil;
-    env->non_local_exit_signal(env, err, data);
 }
 
 char *
@@ -73,6 +69,18 @@ ezmq_type_symbol(emacs_env *env, enum ezmq_obj_t type)
     default:
         return Qnil;
     }
+}
+
+void
+ezmq_signal(emacs_env *env, emacs_value err, int nargs, ...)
+{
+    va_list args;
+    emacs_value data[nargs];
+    va_start(args, nargs);
+    for(int i = 0; i < nargs; i++) {
+        data[i] = va_arg(args, emacs_value);
+    }
+    env->non_local_exit_signal(env, err, env->funcall(env, Qlist, nargs, data));
 }
 
 static void
@@ -211,16 +219,4 @@ ezmq_copy_string(emacs_env *env, emacs_value str, ptrdiff_t *size)
     // byte.
     if(size != NULL) *size = sz - 1;
     return buf;
-}
-
-void
-ezmq_signal(emacs_env *env, emacs_value err, int nargs, ...)
-{
-    va_list args;
-    emacs_value data[nargs];
-    va_start(args, nargs);
-    for(int i = 0; i < nargs; i++) {
-        data[i] = va_arg(args, emacs_value);
-    }
-    env->non_local_exit_signal(env, err, env->funcall(env, Qlist, nargs, data));
 }

@@ -50,14 +50,14 @@ ezmq_extract_message_data(emacs_env *env, emacs_value val, ptrdiff_t *size)
 // TODO: From the documentation of zmq_msg_init: "never initialize the same
 // message twice", I think I do this somewhere in zmq-ffi.el or in jupyter.el,
 // find where.
-EZMQ_DOC(zmq_message,
+EZMQ_DOC(ezmq_message,
+         "&optional DATA",
          "Initialize a ZMQ message.\n"
          "If DATA is non-nil, initialize the message using DATA.\n"
          "DATA can be either a string or a vector of byte integers.\n"
-         "If DATA is nil, initialize an empty message.",
-         "&optional DATA");
+         "If DATA is nil, initialize an empty message.");
 emacs_value
-Fzmq_message(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     ezmq_obj_t *msg = ezmq_new_obj(env, EZMQ_MESSAGE, NULL);
     if(EZMQ_NONLOCAL_EXIT()) return NULL;
@@ -80,17 +80,17 @@ Fzmq_message(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     return ezmq_new_obj_ptr(env, msg);
 }
 
-EZMQ_DOC(zmq_message_size, "Get the size of MESSAGE.", "MESSAGE");
+EZMQ_DOC(ezmq_message_size, "MESSAGE", "Get the size of MESSAGE.");
 emacs_value
-Fzmq_message_size(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_size(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     return INT(zmq_msg_size(msg->obj));
 }
 
-EZMQ_DOC(zmq_message_data, "Get the data of MESSAGE.", "MESSAGE");
+EZMQ_DOC(ezmq_message_data, "MESSAGE", "Get the data of MESSAGE.");
 emacs_value
-Fzmq_message_data(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_data(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     emacs_value retval = Qnil;
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
@@ -108,9 +108,9 @@ Fzmq_message_data(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *dat
     return retval;
 }
 
-EZMQ_DOC(zmq_message_more, "Does MESSAGE have more parts?", "MESSAGE");
+EZMQ_DOC(ezmq_message_more, "MESSAGE", "Does MESSAGE have more parts?");
 emacs_value
-Fzmq_message_more(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_more(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     int retval = zmq_msg_more(msg->obj);
@@ -118,9 +118,9 @@ Fzmq_message_more(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *dat
     return retval ? Qt : Qnil;
 }
 
-EZMQ_DOC(zmq_message_copy, "Copy MESSAGE.", "MESSAGE");
+EZMQ_DOC(ezmq_message_copy, "MESSAGE", "Copy MESSAGE.");
 emacs_value
-Fzmq_message_copy(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_copy(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     ezmq_obj_t *dest = ezmq_new_obj(env, EZMQ_MESSAGE, NULL);
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
@@ -129,9 +129,9 @@ Fzmq_message_copy(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *dat
     return ezmq_new_obj_ptr(env, dest);
 }
 
-EZMQ_DOC(zmq_message_move, "Move a message from SRC to DEST.", "SRC DEST");
+EZMQ_DOC(ezmq_message_move, "SRC DEST", "Move a message from SRC to DEST.");
 emacs_value
-Fzmq_message_move(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_move(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     EZMQ_EXTRACT_OBJ(dest, EZMQ_MESSAGE, args[1]);
@@ -139,9 +139,18 @@ Fzmq_message_move(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *dat
     return Qnil;
 }
 
-EZMQ_DOC(zmq_message_set, "Set a MESSAGE's PROPERTY to VALUE.", "MESSAGE PROPERTY VALUE");
+EZMQ_DOC(ezmq_message_close, "MESSAGE", "Close a message");
 emacs_value
-Fzmq_message_set(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_close(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+{
+    EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
+    EZMQ_CHECK_ERROR(zmq_msg_close(msg->obj));
+    return Qnil;
+}
+
+EZMQ_DOC(ezmq_message_set, "MESSAGE PROPERTY VALUE", "Set a MESSAGE's PROPERTY to VALUE.");
+emacs_value
+ezmq_message_set(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     EZMQ_EXTRACT_INT(property, args[1]);
@@ -160,9 +169,9 @@ Fzmq_message_set(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data
     return Qnil;
 }
 
-EZMQ_DOC(zmq_message_get,  "Get a MESSAGE PROPERTY.", "MESSAGE PROPERTY");
+EZMQ_DOC(ezmq_message_get, "MESSAGE PROPERTY", "Get a MESSAGE PROPERTY.");
 emacs_value
-Fzmq_message_get(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_get(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     EZMQ_EXTRACT_INT(property, args[1]);
@@ -174,12 +183,11 @@ Fzmq_message_get(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data
         return INT(retval);
 }
 
-EZMQ_DOC(zmq_message_recv,
+EZMQ_DOC(ezmq_message_recv,  "MESSAGE SOCK &optional FLAGS",
          "Receive a MESSAGE from SOCK with additional FLAGS.\n"
-         "MESSAGE should be an initialized message.",
-         "MESSAGE SOCK &optional FLAGS");
+         "MESSAGE should be an initialized message.");
 emacs_value
-Fzmq_message_recv(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_recv(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[1]);
@@ -188,11 +196,10 @@ Fzmq_message_recv(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *dat
     return args[0];
 }
 
-EZMQ_DOC(zmq_message_send,
-         "Send a MESSAGE on SOCK with additional FLAGS.",
-         "MESSAGE SOCK &optional FLAGS");
+EZMQ_DOC(ezmq_message_send, "MESSAGE SOCK &optional FLAGS",
+         "Send a MESSAGE on SOCK with additional FLAGS.");
 emacs_value
-Fzmq_message_send(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_send(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[1]);
@@ -201,13 +208,12 @@ Fzmq_message_send(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *dat
     return Qnil;
 }
 
-EZMQ_DOC(zmq_message_gets,
+EZMQ_DOC(ezmq_message_gets, "MESSAGE PROPERTY",
          "Get a MESSAGE's metadata PROPERTY.\n"
          "PROPERTY is a keyword and can only be one of those in\n"
-         "`zmq-message-properties'.",
-         "MESSAGE PROPERTY");
+         "`zmq-message-properties'.");
 emacs_value
-Fzmq_message_gets(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_gets(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     EZMQ_EXTRACT_STRING(property, plen, args[1]);
@@ -217,17 +223,17 @@ Fzmq_message_gets(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *dat
     return STRING(retval, strlen(retval));
 }
 
-EZMQ_DOC(zmq_message_routing_id, "Get the routing ID of MESSAGE.", "MESSAGE");
+EZMQ_DOC(ezmq_message_routing_id, "MESSAGE", "Get the routing ID of MESSAGE.");
 emacs_value
-Fzmq_message_routing_id(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_routing_id(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     return INT(zmq_msg_routing_id(msg->obj));
 }
 
-EZMQ_DOC(zmq_message_set_routing_id, "Set the routing ID of MESSAGE.", "MESSAGE");
+EZMQ_DOC(ezmq_message_set_routing_id, "MESSAGE", "Set the routing ID of MESSAGE.");
 emacs_value
-Fzmq_message_set_routing_id(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_set_routing_id(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[0]);
     EZMQ_EXTRACT_INT(id, args[1]);

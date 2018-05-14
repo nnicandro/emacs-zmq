@@ -1,8 +1,8 @@
 #include "util.h"
 
-EZMQ_DOC(zmq_has, "Return non-nil if ZMQ has CAPABILITY.", "CAPABILITY");
+EZMQ_DOC(ezmq_has, "CAPABILITY", "Return non-nil if ZMQ has CAPABILITY.");
 emacs_value
-Fzmq_has(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_has(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_STRING(capability, clen, args[0]);
     emacs_value retval = zmq_has(capability) ? Qt : Qnil;
@@ -10,9 +10,9 @@ Fzmq_has(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     return retval;
 }
 
-EZMQ_DOC(zmq_version, "Return the currently installed version of ZMQ.", "");
+EZMQ_DOC(ezmq_version, "", "Return the currently installed version of ZMQ.");
 emacs_value
-Fzmq_version(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_version(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     int major, minor, patch;
     char buf[16];
@@ -21,9 +21,9 @@ Fzmq_version(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     return STRING(buf, strlen(buf));
 }
 
-EZMQ_DOC(zmq_z85_decode, "Decode a z85 encoded KEY.", "KEY");
+EZMQ_DOC(ezmq_z85_decode, "KEY", "Decode a z85 encoded KEY.");
 emacs_value
-Fzmq_z85_decode(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_z85_decode(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     emacs_value retval = Qnil;
 
@@ -51,9 +51,9 @@ Fzmq_z85_decode(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     return retval;
 }
 
-EZMQ_DOC(zmq_z85_encode, "Encode DATA using the z85 encoding.", "DATA");
+EZMQ_DOC(ezmq_z85_encode, "DATA", "Encode DATA using the z85 encoding.");
 emacs_value
-Fzmq_z85_encode(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_z85_encode(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     emacs_value retval = Qnil;
 
@@ -79,9 +79,9 @@ Fzmq_z85_encode(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     return retval;
 }
 
-EZMQ_DOC(zmq_curve_keypair, "Return a (PUBLIC-KEY . SECRET-KEY) pair.", "");
+EZMQ_DOC(ezmq_curve_keypair, "", "Return a (PUBLIC-KEY . SECRET-KEY) pair.");
 emacs_value
-Fzmq_curve_keypair(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_curve_keypair(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     emacs_value retval = Qnil;
 
@@ -97,15 +97,17 @@ Fzmq_curve_keypair(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *da
 
         free(public);
         free(private);
-    } else
-        ezmq_error(env, Qzmq_error, "ZMQ not built with CURVE security");
+    } else {
+        const char *msg =  "ZMQ not built with CURVE security";
+        ezmq_signal(env, Qzmq_error, 1, STRING(msg, strlen(msg)));
+    }
 
     return retval;
 }
 
-EZMQ_DOC(zmq_curve_public, "Return the corresponding public key of SECRET-KEY.", "SECRET-KEY");
+EZMQ_DOC(ezmq_curve_public, "SECRET-KEY", "Return the corresponding public key of SECRET-KEY.");
 emacs_value
-Fzmq_curve_public(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_curve_public(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     emacs_value retval = Qnil;
 
@@ -121,15 +123,17 @@ Fzmq_curve_public(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *dat
 
         free(public);
         free(private);
-    } else
-        ezmq_error(env, Qzmq_error, "ZMQ not built with CURVE security");
+    } else {
+        const char *msg =  "ZMQ not built with CURVE security";
+        ezmq_signal(env, Qzmq_error, 1, STRING(msg, strlen(msg)));
+    }
 
     return retval;
 }
 
-EZMQ_DOC(zmq_equal, "Same as `equal' but properly handles ZMQ objects.", "O1 O2");
+EZMQ_DOC(ezmq_equal,  "O1 O2", "Same as `equal' but properly handles ZMQ objects.");
 emacs_value
-Fzmq_equal(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_equal(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     if(!EQUAL(args[0], args[1])) {
         ezmq_obj_t *a = env->get_user_ptr(env, args[0]);
@@ -164,30 +168,30 @@ ezmq_obj_of_type(emacs_env *env, emacs_value val, enum ezmq_obj_t type)
     }
 }
 
-EZMQ_DOC(zmq_message_p, "Is OBJ a `zmq-message'?", "OBJ");
+EZMQ_DOC(ezmq_message_p, "OBJ", "Is OBJ a `zmq-message'?");
 emacs_value
-Fzmq_message_p(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_message_p(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     return ezmq_obj_of_type(env, args[0], EZMQ_MESSAGE);
 }
 
-EZMQ_DOC(zmq_socket_p, "Is OBJ a `zmq-socket'?", "OBJ");
+EZMQ_DOC(ezmq_socket_p, "OBJ", "Is OBJ a `zmq-socket'?");
 emacs_value
-Fzmq_socket_p(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_socket_p(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     return ezmq_obj_of_type(env, args[0], EZMQ_SOCKET);
 }
 
-EZMQ_DOC(zmq_context_p, "Is OBJ a `zmq-context'?", "OBJ");
+EZMQ_DOC(ezmq_context_p, "OBJ", "Is OBJ a `zmq-context'?");
 emacs_value
-Fzmq_context_p(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_context_p(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     return ezmq_obj_of_type(env, args[0], EZMQ_CONTEXT);
 }
 
-EZMQ_DOC(zmq_poller_p, "Is OBJ a `zmq-poller'?", "OBJ");
+EZMQ_DOC(ezmq_poller_p, "OBJ", "Is OBJ a `zmq-poller'?");
 emacs_value
-Fzmq_poller_p(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_poller_p(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     return ezmq_obj_of_type(env, args[0], EZMQ_POLLER);
 }

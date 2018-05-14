@@ -5,11 +5,17 @@
                        ename,                               \
                        env->make_function(env,              \
                                           argmin, argmax,   \
-                                          &F##name,         \
+                                          &name,            \
                                           __zmq_doc_##name, \
                                           NULL))
 
 int plugin_is_GPL_compatible;
+
+emacs_value Qzmq_error, Qt, Qnil, Qlist,
+    Qwrong_type_argument, Qargs_out_of_range,
+    Qcons, Qstring, Qvector, Qcar, Qcdr, Qlength, Qinteger, Qequal,
+    Qzmq_POLLIN, Qzmq_POLLERR, Qzmq_POLLOUT,
+    Izmq_POLLIN, Izmq_POLLERR, Izmq_POLLOUT;
 
 static void
 ezmq_bind_function(emacs_env *env, const char *name, emacs_value Sfun)
@@ -32,7 +38,6 @@ ezmq_provide(emacs_env *env, const char *feature)
     env->funcall (env, Qprovide, 1, args);
 }
 
-// TODO: Why -1?
 #define DEF_ERR(err)                            \
     args[0] = INTERN("zmq-"#err);               \
     args[1] = STRING(#err, sizeof(#err) - 1);   \
@@ -112,62 +117,63 @@ emacs_module_init(struct emacs_runtime *ert)
     Izmq_POLLERR = env->funcall(env, Qsval, 1, &Qzmq_POLLERR);
 
     // Sockets
-    EZMQ_MAKE_FUN(2, 2, zmq_socket, "zmq-socket");
-    EZMQ_MAKE_FUN(2, 3, zmq_send, "zmq-send");
-    EZMQ_MAKE_FUN(1, 3, zmq_recv, "zmq-recv");
-    EZMQ_MAKE_FUN(2, 2, zmq_bind, "zmq-bind");
-    EZMQ_MAKE_FUN(2, 2, zmq_connect, "zmq-connect");
-    EZMQ_MAKE_FUN(2, 2, zmq_unbind, "zmq-unbind");
-    EZMQ_MAKE_FUN(2, 2, zmq_disconnect, "zmq-disconnect");
-    EZMQ_MAKE_FUN(3, 3, zmq_setsockopt, "zmq-socket-set");
-    EZMQ_MAKE_FUN(2, 2, zmq_getsockopt, "zmq-socket-get");
+    EZMQ_MAKE_FUN(2, 2, ezmq_socket, "zmq-socket");
+    EZMQ_MAKE_FUN(2, 3, ezmq_send, "zmq-send");
+    EZMQ_MAKE_FUN(1, 3, ezmq_recv, "zmq-recv");
+    EZMQ_MAKE_FUN(2, 2, ezmq_bind, "zmq-bind");
+    EZMQ_MAKE_FUN(1, 1, ezmq_close, "zmq-close");
+    EZMQ_MAKE_FUN(2, 2, ezmq_connect, "zmq-connect");
+    EZMQ_MAKE_FUN(2, 2, ezmq_unbind, "zmq-unbind");
+    EZMQ_MAKE_FUN(2, 2, ezmq_disconnect, "zmq-disconnect");
+    EZMQ_MAKE_FUN(3, 3, ezmq_setsockopt, "zmq-socket-set");
+    EZMQ_MAKE_FUN(2, 2, ezmq_getsockopt, "zmq-socket-get");
 
     // Contexts
-    EZMQ_MAKE_FUN(0, 0, zmq_context, "zmq-context");
-    EZMQ_MAKE_FUN(3, 3, zmq_ctx_set, "zmq-context-set");
-    EZMQ_MAKE_FUN(2, 2, zmq_ctx_get, "zmq-context-get");
-    EZMQ_MAKE_FUN(3, 3, zmq_ctx_shutdown, "zmq-shutdown-context");
+    EZMQ_MAKE_FUN(0, 0, ezmq_context, "zmq-context");
+    EZMQ_MAKE_FUN(3, 3, ezmq_ctx_set, "zmq-context-set");
+    EZMQ_MAKE_FUN(2, 2, ezmq_ctx_get, "zmq-context-get");
+    EZMQ_MAKE_FUN(1, 1, ezmq_ctx_shutdown, "zmq-context-shutdown");
+    EZMQ_MAKE_FUN(1, 1, ezmq_ctx_term, "zmq-context-terminate");
 
     // Messages
-    EZMQ_MAKE_FUN(0, 1, zmq_message, "zmq-message");
-    EZMQ_MAKE_FUN(1, 1, zmq_message_size, "zmq-message-size");
-    EZMQ_MAKE_FUN(1, 1, zmq_message_data, "zmq-message-data");
-    EZMQ_MAKE_FUN(1, 1, zmq_message_more, "zmq-message-more-p");
-    EZMQ_MAKE_FUN(1, 1, zmq_message_copy, "zmq-message-copy");
-    EZMQ_MAKE_FUN(2, 2, zmq_message_move, "zmq-message-move");
-    EZMQ_MAKE_FUN(3, 3, zmq_message_set, "zmq-message-set");
-    EZMQ_MAKE_FUN(2, 2, zmq_message_get, "zmq-message-get");
-    EZMQ_MAKE_FUN(2, 3, zmq_message_recv, "zmq-message-recv");
-    EZMQ_MAKE_FUN(2, 3, zmq_message_send, "zmq-message-send");
-    EZMQ_MAKE_FUN(2, 2, zmq_message_gets, "zmq-message-gets");
+    EZMQ_MAKE_FUN(0, 1, ezmq_message, "zmq-message");
+    EZMQ_MAKE_FUN(1, 1, ezmq_message_size, "zmq-message-size");
+    EZMQ_MAKE_FUN(1, 1, ezmq_message_data, "zmq-message-data");
+    EZMQ_MAKE_FUN(1, 1, ezmq_message_more, "zmq-message-more-p");
+    EZMQ_MAKE_FUN(1, 1, ezmq_message_copy, "zmq-message-copy");
+    EZMQ_MAKE_FUN(2, 2, ezmq_message_move, "zmq-message-move");
+    EZMQ_MAKE_FUN(1, 1, ezmq_message_close, "zmq-message-close");
+    EZMQ_MAKE_FUN(3, 3, ezmq_message_set, "zmq-message-set");
+    EZMQ_MAKE_FUN(2, 2, ezmq_message_get, "zmq-message-get");
+    EZMQ_MAKE_FUN(2, 3, ezmq_message_recv, "zmq-message-recv");
+    EZMQ_MAKE_FUN(2, 3, ezmq_message_send, "zmq-message-send");
+    EZMQ_MAKE_FUN(2, 2, ezmq_message_gets, "zmq-message-gets");
     // These require that the draft API is available
-    EZMQ_MAKE_FUN(1, 1, zmq_message_routing_id, "zmq-message-routing-id");
-    EZMQ_MAKE_FUN(2, 2, zmq_message_set_routing_id, "zmq-message-set-routing-id");
+    EZMQ_MAKE_FUN(1, 1, ezmq_message_routing_id, "zmq-message-routing-id");
+    EZMQ_MAKE_FUN(2, 2, ezmq_message_set_routing_id, "zmq-message-set-routing-id");
 
     // Polling
-    EZMQ_MAKE_FUN(2, 2, zmq_poll, "zmq-poll");
-    EZMQ_MAKE_FUN(0, 0, zmq_poller_new, "zmq-poller");
-    EZMQ_MAKE_FUN(3, 3, zmq_poller_add, "zmq-poller-add");
-    EZMQ_MAKE_FUN(3, 3, zmq_poller_add_fd, "zmq-poller-add-fd");
-    EZMQ_MAKE_FUN(3, 3, zmq_poller_modify, "zmq-poller-modify");
-    EZMQ_MAKE_FUN(3, 3, zmq_poller_modify_fd, "zmq-poller-modify-fd");
-    EZMQ_MAKE_FUN(2, 2, zmq_poller_remove, "zmq-poller-remove");
-    EZMQ_MAKE_FUN(2, 2, zmq_poller_remove_fd, "zmq-poller-remove-fd");
-    EZMQ_MAKE_FUN(2, 2, zmq_poller_wait, "zmq-poller-wait");
-    EZMQ_MAKE_FUN(3, 3, zmq_poller_wait_all, "zmq-poller-wait-all");
+    EZMQ_MAKE_FUN(2, 2, ezmq_poll, "zmq-poll");
+    EZMQ_MAKE_FUN(0, 0, ezmq_poller_new, "zmq-poller");
+    EZMQ_MAKE_FUN(3, 3, ezmq_poller_add, "zmq-poller-add");
+    EZMQ_MAKE_FUN(3, 3, ezmq_poller_modify, "zmq-poller-modify");
+    EZMQ_MAKE_FUN(2, 2, ezmq_poller_remove, "zmq-poller-remove");
+    EZMQ_MAKE_FUN(1, 1, ezmq_poller_destroy, "zmq-poller-destroy");
+    EZMQ_MAKE_FUN(2, 2, ezmq_poller_wait, "zmq-poller-wait");
+    EZMQ_MAKE_FUN(3, 3, ezmq_poller_wait_all, "zmq-poller-wait-all");
 
     // Util
-    EZMQ_MAKE_FUN(0, 0, zmq_version, "zmq-version");
-    EZMQ_MAKE_FUN(1, 1, zmq_has, "zmq-has");
-    EZMQ_MAKE_FUN(1, 1, zmq_z85_decode, "zmq-z85-decode");
-    EZMQ_MAKE_FUN(1, 1, zmq_z85_encode, "zmq-z85-encode");
-    EZMQ_MAKE_FUN(0, 0, zmq_curve_keypair, "zmq-curve-keypair");
-    EZMQ_MAKE_FUN(1, 1, zmq_curve_public, "zmq-curve-public");
-    EZMQ_MAKE_FUN(2, 2, zmq_equal, "zmq-equal");
-    EZMQ_MAKE_FUN(1, 1, zmq_message_p, "zmq-message-p");
-    EZMQ_MAKE_FUN(1, 1, zmq_socket_p, "zmq-socket-p");
-    EZMQ_MAKE_FUN(1, 1, zmq_context_p, "zmq-context-p");
-    EZMQ_MAKE_FUN(1, 1, zmq_poller_p, "zmq-poller-p");
+    EZMQ_MAKE_FUN(0, 0, ezmq_version, "zmq-version");
+    EZMQ_MAKE_FUN(1, 1, ezmq_has, "zmq-has");
+    EZMQ_MAKE_FUN(1, 1, ezmq_z85_decode, "zmq-z85-decode");
+    EZMQ_MAKE_FUN(1, 1, ezmq_z85_encode, "zmq-z85-encode");
+    EZMQ_MAKE_FUN(0, 0, ezmq_curve_keypair, "zmq-curve-keypair");
+    EZMQ_MAKE_FUN(1, 1, ezmq_curve_public, "zmq-curve-public");
+    EZMQ_MAKE_FUN(2, 2, ezmq_equal, "zmq-equal");
+    EZMQ_MAKE_FUN(1, 1, ezmq_message_p, "zmq-message-p");
+    EZMQ_MAKE_FUN(1, 1, ezmq_socket_p, "zmq-socket-p");
+    EZMQ_MAKE_FUN(1, 1, ezmq_context_p, "zmq-context-p");
+    EZMQ_MAKE_FUN(1, 1, ezmq_poller_p, "zmq-poller-p");
 
     ezmq_provide(env, "zmq-core");
 
