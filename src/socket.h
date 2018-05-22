@@ -12,6 +12,9 @@ EZMQ_DEFUN_PROTO(ezmq_connect);
 EZMQ_DEFUN_PROTO(ezmq_unbind);
 EZMQ_DEFUN_PROTO(ezmq_disconnect);
 EZMQ_DEFUN_PROTO(ezmq_close);
+EZMQ_DEFUN_PROTO(ezmq_proxy);
+EZMQ_DEFUN_PROTO(ezmq_proxy_steerable);
+EZMQ_DEFUN_PROTO(ezmq_socket_monitor);
 EZMQ_DEFUN_PROTO(ezmq_setsockopt);
 EZMQ_DEFUN_PROTO(ezmq_getsockopt);
 

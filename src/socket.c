@@ -1,5 +1,7 @@
 #include "socket.h"
 
+// TODO: Use the actual documentation of the ZMQ API for all functions.
+
 EZMQ_DOC(ezmq_socket,  "CONTEXT TYPE",
          "Return a new socket of TYPE in CONTEXT.");
 emacs_value
@@ -120,12 +122,114 @@ ezmq_disconnect(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     return Qnil;
 }
 
-EZMQ_DOC(ezmq_close, "Close SOCK.", "SOCK");
+EZMQ_DOC(ezmq_close, "SOCK", "Close SOCK.");
 emacs_value
 ezmq_close(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
     EZMQ_CHECK_ERROR(zmq_close(sock->obj));
+    return Qnil;
+}
+
+EZMQ_DOC(ezmq_proxy,
+         "FRONTEND BACKEND &optional CAPTURE",
+         "Start the builtin ZMQ proxy.\n"
+         "Connect the FRONTEND socket to the BACKEND socket. Depending on\n"
+         "the socket types, replies may flow in the opposite direction. The\n"
+         "direction is conceptual only; the proxy is fully symmetric and there\n"
+         "is no technical difference between frontend and backend.\n\n"
+         "If the CAPTURE socket is non-nil, the proxy shall send all\n"
+         "messages, received on both FRONTEND and BACKEND, to the CAPTURE\n"
+         "socket. The CAPTURE socket should be a `zmq-PUB', `zmq-DEALER',\n"
+         "`zmq-PUSH', or `zmq-PAIR' socket.");
+emacs_value
+ezmq_proxy(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+{
+    EZMQ_EXTRACT_OBJ(frontend, EZMQ_SOCKET, args[0]);
+    EZMQ_EXTRACT_OBJ(backend, EZMQ_SOCKET, args[1]);
+    ezmq_obj_t *capture = NULL;
+    if(nargs == 3 && !EQ(args[2], Qnil)) {
+        capture = ezmq_extract_obj(env, EZMQ_SOCKET, args[2]);
+        if(EZMQ_NONLOCAL_EXIT()) return NULL;
+    }
+    EZMQ_CHECK_ERROR(zmq_proxy(frontend->obj,
+                               backend->obj,
+                               capture ? capture->obj : NULL));
+    return Qnil;
+}
+
+EZMQ_DOC(ezmq_proxy_steerable,
+         "FRONTEND BACKEND &optional CAPTURE CONTROL",
+         "Start the builtin ZMQ proxy with control flow.\n"
+         "Starts the builtin ZMQ proxy with additional control flow\n"
+         "(see `zmq-proxy') provided by the CONTROL socket if it is non-nil.\n"
+         "If PAUSE is received on this socket, the proxy suspends its\n"
+         "activities. If RESUME is received, it goes on. If TERMINATE is\n"
+         "received, it terminates smoothly. At start, the proxy runs\n"
+         "normally as if `zmq-proxy' was used.");
+emacs_value
+ezmq_proxy_steerable(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+{
+    EZMQ_EXTRACT_OBJ(frontend, EZMQ_SOCKET, args[0]);
+    EZMQ_EXTRACT_OBJ(backend, EZMQ_SOCKET, args[1]);
+    ezmq_obj_t *capture = NULL;
+    ezmq_obj_t *control = NULL;
+    if(nargs >= 3) {
+        if(!EQ(args[2], Qnil)) {
+            capture = ezmq_extract_obj(env, EZMQ_SOCKET, args[2]);
+            if(EZMQ_NONLOCAL_EXIT()) return NULL;
+        }
+        if(nargs > 3 && !EQ(args[3], Qnil)) {
+            control = ezmq_extract_obj(env, EZMQ_SOCKET, args[3]);
+            if(EZMQ_NONLOCAL_EXIT()) return NULL;
+        }
+    }
+    EZMQ_CHECK_ERROR(zmq_proxy_steerable(frontend->obj,
+                                         backend->obj,
+                                         capture ? capture->obj : NULL,
+                                         control ? control->obj : NULL));
+    return Qnil;
+}
+
+EZMQ_DOC(ezmq_socket_monitor,
+         "SOCK ENDPOINT EVENTS",
+         "The `zmq-socket-monitor' method lets an application thread track\n"
+         "socket events (like connects) on a ZeroMQ SOCK. Each call to\n"
+         "this method creates a `zmq-PAIR' socket and binds that to the\n"
+         "specified inproc:// ENDPOINT. To collect the socket events, you\n"
+         "must create your own `zmq-PAIR' socket, and connect that to the\n"
+         "ENDPOINT.\n\n"
+         "The EVENTS argument is a list of the socket events you wish to\n"
+         "monitor, see the C API for the events. To monitor all events, use\n"
+         "the event value `zmq-EVENT-ALL'. NOTE: as new events are added, the\n"
+         "catch-all value will start returning them. An application that\n"
+         "relies on a strict and fixed sequence of events must not use\n"
+         "`zmq-EVENT-ALL' in order to guarantee compatibility with future\n"
+         "versions.\n\n"
+         "Each event is sent as two frames. The first frame contains an\n"
+         "event number (16 bits), and an event value (32 bits) that\n"
+         "provides additional data according to the event number. The\n"
+         "second frame contains a string that specifies the affected TCP or\n"
+         "IPC endpoint.");
+emacs_value
+ezmq_socket_monitor(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+{
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
+    EZMQ_EXTRACT_STRING(endpoint, elen, args[1]);
+    intmax_t events = 0;
+    emacs_value list = args[1];
+    if(EQ(TYPE(list), Qcons)) {
+        while(!NILP(list)) {
+            // TODO: Verify event, raise an error if invalid
+            intmax_t event = env->extract_integer(env, CAR(list));
+            if(EZMQ_NONLOCAL_EXIT()) return Qnil;
+            events |= event;
+            list = CDR(list);
+        }
+    } else
+        ezmq_wrong_type_argument(env, list, 1, Qlist);
+
+    EZMQ_CHECK_ERROR(zmq_socket_monitor(sock, endpoint, events));
     return Qnil;
 }
 

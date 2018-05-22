@@ -121,10 +121,13 @@ emacs_module_init(struct emacs_runtime *ert)
     EZMQ_MAKE_FUN(2, 3, ezmq_send, "zmq-send");
     EZMQ_MAKE_FUN(1, 3, ezmq_recv, "zmq-recv");
     EZMQ_MAKE_FUN(2, 2, ezmq_bind, "zmq-bind");
-    EZMQ_MAKE_FUN(1, 1, ezmq_close, "zmq-close");
     EZMQ_MAKE_FUN(2, 2, ezmq_connect, "zmq-connect");
     EZMQ_MAKE_FUN(2, 2, ezmq_unbind, "zmq-unbind");
     EZMQ_MAKE_FUN(2, 2, ezmq_disconnect, "zmq-disconnect");
+    EZMQ_MAKE_FUN(1, 1, ezmq_close, "zmq-close");
+    EZMQ_MAKE_FUN(2, 3, ezmq_proxy, "zmq-proxy");
+    EZMQ_MAKE_FUN(2, 4, ezmq_proxy_steerable, "zmq-proxy-steerable");
+    EZMQ_MAKE_FUN(3, 3, ezmq_socket_monitor, "zmq-socket-monitor");
     EZMQ_MAKE_FUN(3, 3, ezmq_setsockopt, "zmq-socket-set");
     EZMQ_MAKE_FUN(2, 2, ezmq_getsockopt, "zmq-socket-get");
 
