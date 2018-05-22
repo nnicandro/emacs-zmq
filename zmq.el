@@ -68,15 +68,14 @@ newly created context."
 
 ADDR must be an address string without the port.
 
-Randomly bind SOCK to ADDR on a port between MIN-PORT and
-MAX-PORT. If the port assigned is in use on ADDR, try a different
-port. Repeat MAX-TRIES times until SOCK is successfully bound. If
-SOCK could not be bound after MAX-TRIES return nil, otherwise
-return the port SOCK was bound to.
+Randomly bind SOCK to ADDR on a port in the range
 
-MIN-PORT defaults to 49152, MAX-PORT defaults to 65536, and
-MAX-TRIES defaults to 100. Note that the actual range of ports
-used is [MIN-PORT, MAX-PORT)."
+    [MIN-PORT,MAX-PORT)
+
+If the port assigned is in use on ADDR, try a different port. If
+SOCK could not be bound after MAX-TRIES return nil, otherwise
+return the port SOCK was bound to. MIN-PORT defaults to 49152,
+MAX-PORT defaults to 65536, and MAX-TRIES defaults to 100."
   (setq min-port (or min-port 49152)
         max-port (or max-port 65536)
         max-tries (or max-tries 100))
