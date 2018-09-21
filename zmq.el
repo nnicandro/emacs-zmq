@@ -61,6 +61,30 @@ newly created context."
 `zmq-equal' is used for comparison."
   (cl-assoc item list :test #'zmq-equal))
 
+;;; Tunneling
+
+;; TODO: Add password handling, or how could we make TRAMP do most of the work?
+(defun zmq-make-tunnel (lport rport server &optional remoteip)
+  "Forward traffic from LPORT on the localhost to REMOTEIP:RPORT on SERVER.
+If REMOTEIP is nil, forward LPORT to RPORT on SERVER."
+  (or remoteip (setq remoteip "127.0.0.1"))
+  (let ((sock (zmq-socket (zmq-current-context) zmq-PUB)))
+    (unwind-protect
+        (start-process
+         "zmq-tunnel" nil
+         "ssh"
+         ;; Run in background
+         "-f"
+         ;; Wait until the tunnel is open
+         "-o ExitOnForwardFailure=yes"
+         ;; Local forward
+         "-L" (format "127.0.0.1:%d:%s:%d" lport remoteip rport)
+         server
+         ;; Close the tunnel if no other connections are made within 60
+         ;; seconds
+         "sleep 60")
+      (zmq-close sock))))
+
 ;;; Socket functions
 
 (defun zmq-bind-to-random-port (sock addr &optional min-port max-port max-tries)
@@ -92,28 +116,6 @@ MAX-PORT defaults to 65536, and MAX-TRIES defaults to 100."
            (when (eq (car err) 'zmq-EADDRINUSE)
              (unless (eq system-type 'windows-nt)
                (signal (car err) (cdr err))))))))))
-
-;; TODO: Add password handling, or how could we make TRAMP do most of the work?
-(defun zmq-make-tunnel (lport rport server &optional remoteip)
-  "Forward traffic from LPORT on the localhost to REMOTEIP:RPORT on SERVER.
-If REMOTEIP is nil, forward LPORT to RPORT on SERVER."
-  (or remoteip (setq remoteip "127.0.0.1"))
-  (let ((sock (zmq-socket (zmq-current-context) zmq-PUB)))
-    (unwind-protect
-        (start-process
-         "zmq-tunnel" nil
-         "ssh"
-         ;; Run in background
-         "-f"
-         ;; Wait until the tunnel is open
-         "-o ExitOnForwardFailure=yes"
-         ;; Local forward
-         "-L" (format "127.0.0.1:%d:%s:%d" lport remoteip rport)
-         server
-         ;; Close the tunnel if no other connections are made within 60
-         ;; seconds
-         "sleep 60")
-      (zmq-close sock))))
 
 ;;; Encoding/decoding messages and socket options
 
