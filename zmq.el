@@ -245,14 +245,29 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
   (prin1 sexp)
   (zmq-flush 'stdout))
 
-;; TODO: Why are errors no propogating back to the parent?
-(defun zmq--init-subprocess ()
+(defvar zmq-backtrace nil
+  "The backtrace stored when debugging the subprocess.")
+
+(defun zmq--init-subprocess (&optional backtrace)
+  "Initialize the ZMQ subprocess.
+Call `zmq-subprocess-read' and assuming the read s-expression is
+a function, call the function. If the function accepts a single
+argument pass in the `zmq-current-context' as the argument.
+
+If BACKTRACE is non-nil and an error occurs when evaluating send
+the backtrace to the parent process. This should only be used for
+debugging purposes."
   (if (not noninteractive) (error "Not a subprocess")
     (let* ((debug-on-event nil)
-           (debug-on-signal nil)
-           (debug-on-quit nil)
-           (debug-on-error nil)
            (coding-system-for-write 'utf-8-auto)
+           (signal-hook-function
+            (when backtrace
+              (lambda (&rest _)
+                (setq zmq-backtrace
+                      (with-temp-buffer
+                        (let ((standard-output (current-buffer)))
+                          (backtrace))
+                        (buffer-string))))))
            (sexp (eval (zmq-subprocess-read)))
            (wrap-context (= (length (cadr sexp)) 1)))
       (setq sexp (byte-compile sexp))
@@ -260,7 +275,10 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
           (if wrap-context
               (funcall sexp (zmq-current-context))
             (funcall sexp))
-        (error (zmq-prin1 (cons 'error err)))))))
+        (error
+         (zmq-prin1 (cons 'error (list (car err)
+                                       (or zmq-backtrace
+                                           (cdr err))))))))))
 
 (defun zmq--subprocess-read-output (output)
   "Return a list of s-expressions read from OUTPUT.
@@ -379,7 +397,7 @@ EVENT-FILTER has the same meaning as in `zmq-start-process'."
 SENTINEL has the same meaning as in `zmq-start-process'."
   (process-put process :sentinel sentinel))
 
-(defun zmq-start-process (sexp &optional event-filter sentinel buffer)
+(defun zmq-start-process (sexp &optional event-filter sentinel buffer backtrace)
   "Start an Emacs subprocess initializing it with SEXP.
 Return the newly created process.
 
@@ -395,15 +413,17 @@ process' stdout.
 
 SENTINEL has the same meaning as in `make-process'.
 
-If BUFFER is non-nil, then it is a buffer that will be set as the
-`process-buffer' for the returned process. After this function is
-called, the buffer should not be used for any other purpose since
-it will be used to store intermediate output from the subprocess
-that will eventually be read and sent to EVENT-FILTER. If BUFFER
-is nil, a new buffer is generated. Note that in the case that
-BUFFER is nil, the generated buffer will be killed upon process
-exit. If BUFFER is non-nil, no cleanup of BUFFER is performed on
-process exit."
+BUFFER will be set as the `process-buffer' for the returnd
+process if non-nil. When BUFFER is nil, a new buffer will be
+created. When a BUFFER is supplied, it should not be used for any
+other purpose after a call to this function since it will be used
+to store intermediate output from the subprocess. If this
+function creates a new buffer that buffer will be killed on
+process exit, but it the responsiblity of the caller to kill the
+buffer if a buffer is supplied to this function.
+
+If BACKTRACE is non-nil, then have the subprocess return a
+backtrace if it errors out. This is used for debugging purposes."
   (cond
    ((functionp sexp)
     (unless (listp sexp)
@@ -427,7 +447,8 @@ process exit."
                              "-Q" "-batch"
                              "-L" (file-name-directory zmq-path)
                              "-l" zmq-path
-                             "-f" "zmq--init-subprocess"))))
+                             "-e" (format "(zmq--init-subprocess %s)"
+                                          (when backtrace t))))))
     (process-put process :filter event-filter)
     (process-put process :sentinel sentinel)
     (process-put process :owns-buffer (null buffer))
