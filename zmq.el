@@ -177,6 +177,7 @@ FLAGS has the same meaning as in `zmq-recv'."
 ;;; Setting/getting options from contexts, sockets, messages
 
 (defun zmq--set-get-option (set object option &optional value)
+  "Helper function for `zmq-get-option' and `zmq-set-option'."
   (let ((fun (cond
               ((zmq-socket-p object)
                (if set #'zmq-socket-set #'zmq-socket-get))
@@ -297,11 +298,9 @@ should be current for subsequent calls."
   "Create a stream of s-expressions based on PROCESS' OUTPUT.
 If PROCESS has a non-nil `:filter' property then it should be a
 function with the same meaning as the EVENT-FILTER argument in
-`zmq-start-process'. If the `:filter' function is present, call
-the function for each valid s-expression in OUTPUT. OUTPUT will
-first be converted to a list of s-expressions using called for
-each s-expression in OUTPUT where output is converted
-`zmq--subprocess-read-output'.
+`zmq-start-process', OUTPUT will be converted into a list of
+s-expressions and the `:filter' function called for every valid
+s-expression in OUTPUT.
 
 As a special case, if any of the s-expressions is a list with the
 `car' being the symbol error, a `zmq-subprocess-error' is
@@ -319,8 +318,17 @@ signaled using the `cdr' of the list for the error data."
            else do (funcall filter event)))))))
 
 (defun zmq--subprocess-sentinel (process event)
+  "Sentinel function for ZMQ subprocesses.
+If a PROCESS has a `:sentinel' property that is a function, the
+function is called with identical arguments as this function.
+
+When EVENT represents any of the events that notify when a
+subprocess has exited, kill the process buffer only when the
+`:owns-buffer' property of the PROCESS is non-nil. Otherwise the
+process buffer is left alive and assumed to be a buffer that was
+initially passed to `zmq-start-process'."
   (let ((sentinel (process-get process :sentinel)))
-    (when sentinel
+    (when (functionp sentinel)
       (funcall sentinel process event)))
   (when (and (process-get process :owns-buffer)
              (cl-loop
