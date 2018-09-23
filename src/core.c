@@ -123,8 +123,17 @@ static void *
 ezmq_wait_for_context_destruction(void *obj)
 {
     ezmq_obj_t *ctx = (ezmq_obj_t *)obj;
-    zmq_ctx_term(ctx->obj);
-    ezmq_free_obj(ctx);
+    if((zmq_ctx_term(ctx->obj) == -1) && (zmq_errno() == EINTR)) {
+        pthread_t thread;
+        // If we are in here, the context is no longer
+        // accessible from Emacs so we can't really do much
+        // except to try to destroy it again.
+        pthread_create(&thread,
+                       NULL,
+                       &ezmq_wait_for_context_destruction,
+                       obj);
+    } else
+        ezmq_free_obj(ctx);
     return NULL;
 }
 
@@ -152,10 +161,8 @@ ezmq_new_obj(enum ezmq_obj_t type, void *obj)
     return eobj;
 }
 
-// TODO: Properly handle EINTR for the context
-//
-// TODO: Handle the case of multiple context objects, we will need to join
-// multiple threads at the end.
+// TODO: Handle the case of multiple context objects, we
+// will need to join multiple threads at the end.
 void
 ezmq_obj_finalizer(void *ptr)
 {
