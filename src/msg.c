@@ -22,14 +22,11 @@ ezmq_extract_message_data(emacs_env *env, emacs_value val, ptrdiff_t *size)
         ptrdiff_t clen = env->vec_size(env, val);
         char *content = ezmq_malloc(env, clen);
 
-        if(!EZMQ_NONLOCAL_EXIT()) {
+        if(!NONLOCAL_EXIT()) {
             ptrdiff_t i;
             for(i = 0; i < clen; i++) {
-                // TODO: Give a more informative error, i.e. that a vector
-                // doesn't contnain an integer. What we can do is do validation
-                // on the whole vector up front.
-                if(EZMQ_NONLOCAL_EXIT()) break;
                 EZMQ_EXTRACT_INT(byte, AREF(val, i));
+
                 if(!(0 <= byte && byte <= 255)) {
                     ezmq_signal(env, Qargs_out_of_range, 2, byte,
                                 LIST(3, INTERN("<="), INT(0), INTERN("X"), INT(255)));
@@ -37,7 +34,7 @@ ezmq_extract_message_data(emacs_env *env, emacs_value val, ptrdiff_t *size)
                 }
                 content[i] = byte;
             }
-            if(!EZMQ_NONLOCAL_EXIT()) {
+            if(!NONLOCAL_EXIT()) {
                 *size = clen;
                 return content;
             }
@@ -61,19 +58,19 @@ emacs_value
 ezmq_message(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
     ezmq_obj_t *msg = ezmq_new_obj(env, EZMQ_MESSAGE, NULL);
-    if(EZMQ_NONLOCAL_EXIT()) return NULL;
+    if(NONLOCAL_EXIT()) return NULL;
 
     if(nargs != 0) {
         ptrdiff_t size = 0;
         char *data = ezmq_extract_message_data(env, args[0], &size);
 
-        if(!EZMQ_NONLOCAL_EXIT()) {
+        if(!NONLOCAL_EXIT()) {
             EZMQ_CHECK_ERROR(zmq_msg_init_data(msg->obj,
                                                data,
                                                size,
                                                &ezmq_free_message,
                                                NULL));
-            if(EZMQ_NONLOCAL_EXIT()) free(data);
+            if(NONLOCAL_EXIT()) free(data);
         }
     } else
         EZMQ_CHECK_ERROR(zmq_msg_init(msg->obj));

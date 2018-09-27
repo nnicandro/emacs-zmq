@@ -56,21 +56,21 @@ ezmq_recv(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 
     zmq_msg_t msg;
     EZMQ_CHECK_ERROR(zmq_msg_init(&msg));
-    if(EZMQ_NONLOCAL_EXIT()) return NULL;
+    if(NONLOCAL_EXIT()) return NULL;
 
     EZMQ_CHECK_ERROR(zmq_msg_recv(&msg, sock->obj, flags));
-    if(!EZMQ_NONLOCAL_EXIT()) {
+    if(!NONLOCAL_EXIT()) {
         if(copy) {
             size_t size = zmq_msg_size(&msg);
             char *buf = ezmq_malloc(env, size + 1);
-            if(!EZMQ_NONLOCAL_EXIT()) {
+            if(!NONLOCAL_EXIT()) {
                 buf[size] = 0;
                 memcpy(buf, zmq_msg_data(&msg), size);
                 return STRING(buf, size);
             }
         } else {
             ezmq_obj_t *obj = ezmq_new_obj(env, EZMQ_MESSAGE, NULL);
-            if(!EZMQ_NONLOCAL_EXIT())
+            if(!NONLOCAL_EXIT())
                 memcpy(obj->obj, &msg, sizeof(zmq_msg_t));
             return ezmq_new_obj_ptr(env, obj);
         }
@@ -150,7 +150,7 @@ ezmq_proxy(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     ezmq_obj_t *capture = NULL;
     if(nargs == 3 && !EQ(args[2], Qnil)) {
         capture = ezmq_extract_obj(env, EZMQ_SOCKET, args[2]);
-        if(EZMQ_NONLOCAL_EXIT()) return NULL;
+        if(NONLOCAL_EXIT()) return NULL;
     }
     EZMQ_CHECK_ERROR(zmq_proxy(frontend->obj,
                                backend->obj,
@@ -177,11 +177,11 @@ ezmq_proxy_steerable(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *
     if(nargs >= 3) {
         if(!EQ(args[2], Qnil)) {
             capture = ezmq_extract_obj(env, EZMQ_SOCKET, args[2]);
-            if(EZMQ_NONLOCAL_EXIT()) return NULL;
+            if(NONLOCAL_EXIT()) return NULL;
         }
         if(nargs > 3 && !EQ(args[3], Qnil)) {
             control = ezmq_extract_obj(env, EZMQ_SOCKET, args[3]);
-            if(EZMQ_NONLOCAL_EXIT()) return NULL;
+            if(NONLOCAL_EXIT()) return NULL;
         }
     }
     EZMQ_CHECK_ERROR(zmq_proxy_steerable(frontend->obj,
@@ -221,8 +221,7 @@ ezmq_socket_monitor(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *d
     if(EQ(TYPE(list), Qcons)) {
         while(!NILP(list)) {
             // TODO: Verify event, raise an error if invalid
-            intmax_t event = env->extract_integer(env, CAR(list));
-            if(EZMQ_NONLOCAL_EXIT()) return Qnil;
+            EZMQ_EXTRACT_INT(event, CAR(list));
             events |= event;
             list = CDR(list);
         }
@@ -350,7 +349,7 @@ ezmq_getsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
         int val;
         size = sizeof(int);
         EZMQ_CHECK_ERROR(zmq_getsockopt(sock->obj, option, buf, &size));
-        if(!EZMQ_NONLOCAL_EXIT()) {
+        if(!NONLOCAL_EXIT()) {
             memcpy(&val, buf, size);
             return INT(val);
         }
@@ -365,7 +364,7 @@ ezmq_getsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
         uint64_t val;
         size = sizeof(uint64_t);
         EZMQ_CHECK_ERROR(zmq_getsockopt(sock->obj, option, buf, &size));
-        if(!EZMQ_NONLOCAL_EXIT()) {
+        if(!NONLOCAL_EXIT()) {
             memcpy(&val, buf, size);
             return INT(val);
         }
@@ -378,7 +377,7 @@ ezmq_getsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
         int val;
         size = sizeof(int);
         EZMQ_CHECK_ERROR(zmq_getsockopt(sock->obj, option, buf, &size));
-        if(!EZMQ_NONLOCAL_EXIT()) {
+        if(!NONLOCAL_EXIT()) {
             memcpy(&val, buf, size);
             return val ? Qt : Qnil;
         }
@@ -389,7 +388,7 @@ ezmq_getsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
         bool val;
         size = sizeof(bool);
         EZMQ_CHECK_ERROR(zmq_getsockopt(sock->obj, option, buf, &size));
-        if(!EZMQ_NONLOCAL_EXIT()) {
+        if(!NONLOCAL_EXIT()) {
             memcpy(&val, buf, size);
             return val ? Qt : Qnil;
         }
@@ -401,14 +400,14 @@ ezmq_getsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     case ZMQ_SOCKS_PROXY: case ZMQ_ZAP_DOMAIN:
         size = 256;
         EZMQ_CHECK_ERROR(zmq_getsockopt(sock->obj, option, buf, &size));
-        if(!EZMQ_NONLOCAL_EXIT())
+        if(!NONLOCAL_EXIT())
             return STRING(buf, size - 1);
         break;
         // BINARY
     case ZMQ_ROUTING_ID:
         size = 256;
         EZMQ_CHECK_ERROR(zmq_getsockopt(sock->obj, option, buf, &size));
-        if(!EZMQ_NONLOCAL_EXIT()) {
+        if(!NONLOCAL_EXIT()) {
             buf[size] = 0;
             return STRING(buf, size);
         }
@@ -418,7 +417,7 @@ ezmq_getsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     case ZMQ_CURVE_PUBLICKEY: case ZMQ_CURVE_SECRETKEY: case ZMQ_CURVE_SERVERKEY:
         size = 41;
         EZMQ_CHECK_ERROR(zmq_getsockopt(sock->obj, option, buf, &size));
-        if(!EZMQ_NONLOCAL_EXIT())
+        if(!NONLOCAL_EXIT())
             return STRING(buf, size - 1);
         break;
     default: {

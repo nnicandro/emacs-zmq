@@ -47,7 +47,7 @@ char *
 ezmq_malloc(emacs_env *env, size_t nbytes)
 {
     char *buf = NULL;
-    if(!EZMQ_NONLOCAL_EXIT()) {
+    if(!NONLOCAL_EXIT()) {
         buf = malloc(nbytes);
         if(!buf) ezmq_signal_error(env);
     }
@@ -112,7 +112,7 @@ ezmq_obj_t *
 ezmq_extract_obj(emacs_env *env, enum ezmq_obj_t type, emacs_value val)
 {
     ezmq_obj_t *obj = env->get_user_ptr(env, val);
-    if(!EZMQ_NONLOCAL_EXIT() && obj->type != type)
+    if(obj != NULL && !NONLOCAL_EXIT() && obj->type != type)
         ezmq_wrong_object_type(env, obj, type);
     return obj;
 }
@@ -130,7 +130,7 @@ ezmq_obj_t *
 ezmq_new_obj(emacs_env *env, enum ezmq_obj_t type, void *obj)
 {
     ezmq_obj_t *eobj = (ezmq_obj_t *)ezmq_malloc(env, sizeof(*eobj));
-    if(!EZMQ_NONLOCAL_EXIT()) {
+    if(!NONLOCAL_EXIT()) {
         switch(type) {
         case EZMQ_MESSAGE:
             if(!obj) {
@@ -192,7 +192,7 @@ ezmq_obj_finalizer(void *ptr)
 emacs_value
 ezmq_new_obj_ptr(emacs_env *env, ezmq_obj_t *obj)
 {
-    if(!EZMQ_NONLOCAL_EXIT())
+    if(!NONLOCAL_EXIT())
         obj->refcount++;
     return env->make_user_ptr(env, &ezmq_obj_finalizer, obj);
 }

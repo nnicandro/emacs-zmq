@@ -35,7 +35,7 @@ ezmq_z85_decode(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
         ptrdiff_t dlen = (ptrdiff_t)(0.8*klen);
         char *decoded = ezmq_malloc(env, dlen + 1);
 
-        if(!EZMQ_NONLOCAL_EXIT()) {
+        if(!NONLOCAL_EXIT()) {
             decoded[dlen] = 0;
             if(zmq_z85_decode((uint8_t *)decoded, key))
                 retval = STRING(decoded, dlen);
@@ -63,7 +63,7 @@ ezmq_z85_encode(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
         ptrdiff_t elen = (ptrdiff_t)(1.25*(float)clen);
         char *encoded = ezmq_malloc(env, elen + 1);
 
-        if(!EZMQ_NONLOCAL_EXIT()) {
+        if(!NONLOCAL_EXIT()) {
             if(zmq_z85_encode(encoded, (uint8_t *)content, clen))
                 retval = STRING(encoded, elen);
         }
@@ -89,9 +89,9 @@ ezmq_curve_keypair(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *da
         char *public = ezmq_malloc(env, 41);
         char *private = ezmq_malloc(env, 41);
 
-        if(!EZMQ_NONLOCAL_EXIT()) {
+        if(!NONLOCAL_EXIT()) {
             EZMQ_CHECK_ERROR(zmq_curve_keypair(public, private));
-            if(!EZMQ_NONLOCAL_EXIT())
+            if(!NONLOCAL_EXIT())
                 retval = CONS(STRING(public, 40), STRING(private, 40));
         }
 
@@ -115,9 +115,9 @@ ezmq_curve_public(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *dat
         EZMQ_EXTRACT_STRING(private, plen, args[0]);
         char *public = ezmq_malloc(env, 41);
 
-        if(!EZMQ_NONLOCAL_EXIT()) {
+        if(!NONLOCAL_EXIT()) {
             EZMQ_CHECK_ERROR(zmq_curve_public(public, private));
-            if(!EZMQ_NONLOCAL_EXIT())
+            if(!NONLOCAL_EXIT())
                 retval = STRING(public, 40);
         }
 
@@ -139,7 +139,7 @@ ezmq_equal(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
         ezmq_obj_t *a = env->get_user_ptr(env, args[0]);
         ezmq_obj_t *b = env->get_user_ptr(env, args[1]);
 
-        if(!EZMQ_NONLOCAL_EXIT() &&
+        if(!NONLOCAL_EXIT() &&
            // If both objects are user-ptrs, ensure the objects indeed point to
            // ZMQ objects
            env->get_user_finalizer(env, args[0]) == &ezmq_obj_finalizer &&
@@ -147,7 +147,7 @@ ezmq_equal(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
            a == b) {
             return Qt;
         } else {
-            env->non_local_exit_clear(env);
+            CLEAR_NONLOCAL_EXIT();
             return Qnil;
         }
     } else
@@ -157,13 +157,13 @@ ezmq_equal(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 static emacs_value
 ezmq_obj_of_type(emacs_env *env, emacs_value val, enum ezmq_obj_t type)
 {
-    ezmq_obj_t *obj = env->get_user_ptr(env, val);
-    if(!EZMQ_NONLOCAL_EXIT() &&
-       env->get_user_finalizer(env, val) == &ezmq_obj_finalizer &&
+    ezmq_obj_t *obj = USER_PTR(val);
+    if(!NONLOCAL_EXIT() &&
+       USER_FINALIZER(val) == &ezmq_obj_finalizer &&
        obj->type == type) {
         return Qt;
     } else {
-        env->non_local_exit_clear(env);
+        CLEAR_NONLOCAL_EXIT();
         return Qnil;
     }
 }

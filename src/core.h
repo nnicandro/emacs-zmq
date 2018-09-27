@@ -53,8 +53,11 @@
 
 #define LENGTH(list) env->extract_integer(env, FUNCALL(Qlength, 1, &list))
 
-#define EZMQ_NONLOCAL_EXIT() (env->non_local_exit_check(env) != emacs_funcall_exit_return)
 #define AREF(vec, i) env->vec_get(env, val, i)
+
+#define NONLOCAL_EXIT() (env->non_local_exit_check(env) != emacs_funcall_exit_return)
+
+#define CLEAR_NONLOCAL_EXIT() env->non_local_exit_clear(env)
 
 #define SIGNAL(err, data) env->non_local_exit_signal(env, err, data)
 
@@ -68,7 +71,7 @@
 #define EZMQ_EXTRACT_INT(name, val)                 \
     intmax_t name = env->extract_integer(env, val); \
     do {                                            \
-        if(EZMQ_NONLOCAL_EXIT()) {                  \
+        if(NONLOCAL_EXIT()) {                       \
             return NULL;                            \
         }                                           \
     } while(0)
@@ -77,20 +80,20 @@
     intmax_t name = EQ(val, Qnil) ? 0 :         \
         env->extract_integer(env, val);         \
     do {                                        \
-        if(EZMQ_NONLOCAL_EXIT()) {              \
+        if(NONLOCAL_EXIT()) {                   \
             return NULL;                        \
         }                                       \
     } while(0)
 
- #define EZMQ_EXTRACT_OBJ(name, type, val)                \
-    ezmq_obj_t *name = ezmq_extract_obj(env, type, val);  \
-    if(EZMQ_NONLOCAL_EXIT()) return NULL                  \
+#define EZMQ_EXTRACT_OBJ(name, type, val)                   \
+    ezmq_obj_t *name = ezmq_extract_obj(env, type, val);    \
+    if(NONLOCAL_EXIT()) return NULL                         \
 
 #define EZMQ_EXTRACT_STRING(name, len, val)         \
     ptrdiff_t len = 0;                              \
     char *name = ezmq_copy_string(env, val, &len);  \
     do {                                            \
-        if(EZMQ_NONLOCAL_EXIT()) {                  \
+        if(NONLOCAL_EXIT()) {                       \
             return NULL;                            \
         }                                           \
     } while(0)
@@ -110,7 +113,7 @@
         }                                       \
     } while(0)
 
-#define EZMQ_DOC(name, args, doc)                         \
+#define EZMQ_DOC(name, args, doc)                           \
     const char *__zmq_doc_##name = doc "\n\n(fn " args ")"
 
 #define EZMQ_DEFUN_PROTO(name)                                          \
@@ -119,10 +122,10 @@
     name(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 
 enum ezmq_obj_t {
-    EZMQ_CONTEXT,
-    EZMQ_MESSAGE,
-    EZMQ_SOCKET,
-    EZMQ_POLLER
+                 EZMQ_CONTEXT,
+                 EZMQ_MESSAGE,
+                 EZMQ_SOCKET,
+                 EZMQ_POLLER
 };
 
 typedef struct {
