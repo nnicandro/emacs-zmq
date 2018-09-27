@@ -482,4 +482,7 @@ backtrace if it errors out. This is used for debugging purposes."
 
 (provide 'zmq)
 
+;; Local Variables:
+;; byte-compile-warnings: (not free-vars unresolved)
+;; End:
 ;;; zmq.el ends here
