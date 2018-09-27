@@ -1,9 +1,10 @@
 ROOT = .
 EMACS ?= emacs
 FILES = zmq.el
+# CFLAGS = -g
 ELCFILES = $(FILES:.el=.elc)
 
-.PHONY: all compile
+.PHONY: all compile lib clean
 
 all: emacs-zmq.so compile
 
@@ -11,10 +12,16 @@ test:
 	$(EMACS) -nw -Q -batch -L . -l ert -l zmq-tests.el \
 --eval "(ert-run-tests-batch-and-exit)"
 
+clean:
+	$(MAKE) -C src clean
+	rm emacs-zmq.so
+
 compile: $(ELCFILES)
 
-emacs-zmq.so: src/configure src/Makefile
-	cd src && make install
+lib: emacs-zmq.so
+
+emacs-zmq.so: src/Makefile src/emacs-zmq.so
+	$(MAKE) -C src install
 	cp src/emacs-zmq.so .
 
 src/configure:
