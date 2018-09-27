@@ -85,9 +85,9 @@
         }                                       \
     } while(0)
 
-#define EZMQ_EXTRACT_OBJ(name, type, val)                   \
-    ezmq_obj_t *name = ezmq_extract_obj(env, type, val);    \
-    if(NONLOCAL_EXIT()) return NULL                         \
+#define EZMQ_EXTRACT_OBJ(name, type, val)                               \
+    ezmq_obj_t *name = (val) == Qnil ? NULL : ezmq_extract_obj(env, type, (val)); \
+    if(NONLOCAL_EXIT()) return NULL                                     \
 
 #define EZMQ_EXTRACT_STRING(name, len, val)         \
     ptrdiff_t len = 0;                              \
