@@ -25,11 +25,11 @@ ezmq_extract_message_data(emacs_env *env, emacs_value val, ptrdiff_t *size)
         if(!EZMQ_NONLOCAL_EXIT()) {
             ptrdiff_t i;
             for(i = 0; i < clen; i++) {
-                intmax_t byte = env->extract_integer(env, env->vec_get(env, val, i));
                 // TODO: Give a more informative error, i.e. that a vector
                 // doesn't contnain an integer. What we can do is do validation
                 // on the whole vector up front.
                 if(EZMQ_NONLOCAL_EXIT()) break;
+                EZMQ_EXTRACT_INT(byte, AREF(val, i));
                 if(!(0 <= byte && byte <= 255)) {
                     ezmq_signal(env, Qargs_out_of_range, 2, byte,
                                 LIST(3, INTERN("<="), INT(0), INTERN("X"), INT(255)));

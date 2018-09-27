@@ -112,9 +112,6 @@ emacs_module_init(struct emacs_runtime *ert)
     Qzmq_POLLERR = INTERN("zmq-POLLERR");
 
     emacs_value Qsval = INTERN("symbol-value");
-    Izmq_POLLIN = env->funcall(env, Qsval, 1, &Qzmq_POLLIN);
-    Izmq_POLLOUT = env->funcall(env, Qsval, 1, &Qzmq_POLLOUT);
-    Izmq_POLLERR = env->funcall(env, Qsval, 1, &Qzmq_POLLERR);
 
     // Sockets
     EZMQ_MAKE_FUN(2, 2, ezmq_socket, "zmq-socket");
@@ -177,6 +174,9 @@ emacs_module_init(struct emacs_runtime *ert)
     EZMQ_MAKE_FUN(1, 1, ezmq_socket_p, "zmq-socket-p");
     EZMQ_MAKE_FUN(1, 1, ezmq_context_p, "zmq-context-p");
     EZMQ_MAKE_FUN(1, 1, ezmq_poller_p, "zmq-poller-p");
+    Izmq_POLLIN = FUNCALL(Qsval, 1, &Qzmq_POLLIN);
+    Izmq_POLLOUT = FUNCALL(Qsval, 1, &Qzmq_POLLOUT);
+    Izmq_POLLERR = FUNCALL(Qsval, 1, &Qzmq_POLLERR);
 
     ezmq_provide(env, "zmq-core");
 

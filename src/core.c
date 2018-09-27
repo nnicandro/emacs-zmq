@@ -81,16 +81,16 @@ ezmq_signal(emacs_env *env, emacs_value err, int nargs, ...)
     for(i = 0; i < nargs; i++) {
         data[i] = va_arg(args, emacs_value);
     }
-    env->non_local_exit_signal(env, err, env->funcall(env, Qlist, nargs, data));
+    SIGNAL(err, FUNCALL(Qlist, nargs, data));
 }
 
 static void
 ezmq_wrong_object_type(emacs_env *env, ezmq_obj_t *obj, enum ezmq_obj_t expected)
 {
-    env->non_local_exit_signal(env, Qwrong_type_argument,
-                               LIST(2,
-                                    ezmq_type_symbol(env, expected),
-                                    ezmq_type_symbol(env, obj->type)));
+    SIGNAL(Qwrong_type_argument,
+           LIST(2,
+                ezmq_type_symbol(expected),
+                ezmq_type_symbol(obj->type)));
 }
 
 void
@@ -104,9 +104,8 @@ ezmq_wrong_type_argument(emacs_env *env, emacs_value val, int nvalid, ...)
     for(i = 0; i < nvalid; i++) {
         options[i] = va_arg(args, emacs_value);
     }
-    emacs_value options_list = env->funcall(env, Qlist, nvalid + 1, options);
-    env->non_local_exit_signal(env, Qwrong_type_argument,
-                               LIST(2, val, options_list));
+    emacs_value options_list = FUNCALL(Qlist, nvalid + 1, options);
+    SIGNAL(Qwrong_type_argument, LIST(2, val, options_list));
 }
 
 ezmq_obj_t *

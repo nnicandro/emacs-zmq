@@ -2,8 +2,8 @@
 
 #define EZMQ_DEFCONST(sym, val)                \
     args[1] = INTERN(sym); args[2] = INT(val); \
-    list = env->funcall(env, Qlist, 3, args);  \
-    env->funcall(env, Qeval, 1, &list);
+    list = FUNCALL(Qlist, 3, args);            \
+    FUNCALL(Qeval, 1, &list);
 
 // Automatically generated
 void

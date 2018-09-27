@@ -25,29 +25,38 @@
 */
 #define INTERN(val) env->intern(env, val)
 
-#define CAR(list) env->funcall(env, Qcar, 1, &list)
+#define FUNCALL(fun, nargs, args) env->funcall(env, fun, nargs, args)
 
-#define CDR(list) env->funcall(env, Qcdr, 1, &list)
+#define CAR(list) FUNCALL(Qcar, 1, &list)
+
+#define CDR(list) FUNCALL(Qcdr, 1, &list)
 
 #define INT(i) env->make_integer(env, i)
 
 #define STRING(str, len) env->make_string(env, str, len)
 
-#define LIST(count, ...) env->funcall(env, Qlist, count, (emacs_value []){ __VA_ARGS__ })
+#define LIST(count, ...) FUNCALL(Qlist, count, ((emacs_value []){ __VA_ARGS__ }))
 
-#define CONS(car, cdr) env->funcall(env, Qcons, 2, (emacs_value []){ car, cdr })
+#define CONS(car, cdr) FUNCALL(Qcons, 2, ((emacs_value []){ car, cdr }))
 
 #define TYPE(val) env->type_of(env, val)
+
+#define USER_PTR(val) env->get_user_ptr(env, val)
+
+#define USER_FINALIZER(val) env->get_user_finalizer(env, val)
 
 #define EQ(a, b) env->eq(env, a, b)
 
 #define NILP(a) !env->is_not_nil(env, a)
 
-#define EQUAL(a, b) EQ(env->funcall(env, Qequal, 2, (emacs_value []){ a, b }), Qt)
+#define EQUAL(a, b) EQ(FUNCALL(Qequal, 2, ((emacs_value []){ a, b })), Qt)
 
-#define LENGTH(list) env->extract_integer(env, env->funcall(env, Qlength, 1, &list))
+#define LENGTH(list) env->extract_integer(env, FUNCALL(Qlength, 1, &list))
 
 #define EZMQ_NONLOCAL_EXIT() (env->non_local_exit_check(env) != emacs_funcall_exit_return)
+#define AREF(vec, i) env->vec_get(env, val, i)
+
+#define SIGNAL(err, data) env->non_local_exit_signal(env, err, data)
 
 /**
    EZMQ_EXTRACT_* macros transform the Lisp object representations to their
