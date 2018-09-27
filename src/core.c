@@ -43,12 +43,14 @@ ezmq_signal_error()
     }
 }
 
-char *
+#undef ERR_CASE
+
+void *
 ezmq_malloc(size_t nbytes)
 {
-    char *buf = NULL;
+    void *buf = NULL;
     if(!NONLOCAL_EXIT()) {
-        buf = malloc(nbytes);
+        buf = (void *)malloc(nbytes);
         if(!buf) ezmq_signal_error();
     }
     return buf;
@@ -129,12 +131,12 @@ ezmq_wait_for_context_destruction(void *obj)
 ezmq_obj_t *
 ezmq_new_obj(enum ezmq_obj_t type, void *obj)
 {
-    ezmq_obj_t *eobj = (ezmq_obj_t *)ezmq_malloc(sizeof(*eobj));
+    ezmq_obj_t *eobj = ezmq_malloc(sizeof(*eobj));
     if(!NONLOCAL_EXIT()) {
         switch(type) {
         case EZMQ_MESSAGE:
             if(!obj) {
-                obj = (zmq_msg_t *)ezmq_malloc(sizeof(zmq_msg_t));
+                obj = ezmq_malloc(sizeof(zmq_msg_t));
                 if(!obj) {
                     free(eobj);
                     return NULL;

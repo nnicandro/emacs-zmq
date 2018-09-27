@@ -198,7 +198,7 @@ ezmq_obj_finalizer(void *);
    do not attempt to allocate if a non-local exit is pending. In both cases,
    return NULL.
 */
-extern char *
+extern void *
 ezmq_malloc(size_t nbytes);
 
 /**
