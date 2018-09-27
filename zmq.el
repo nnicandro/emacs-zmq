@@ -117,34 +117,33 @@ If REMOTEIP is nil, forward LPORT to RPORT on SERVER."
 
 ;;; Encoding/decoding messages and socket options
 
-(defun zmq-send-encoded (sock str &optional coding-system flags)
-  "Send encoded data on SOCK.
-STR is the data to encode using CODING-SYSTEM. CODING-SYSTEM
-defaults to utf-8. FLAGS has the same meaning as in `zmq-send'."
+(defun zmq-send-encoded (sock message &optional coding-system flags)
+  "Send a message on SOCK, encoded it before sending.
+MESSAGE is the message string to encoded using CODING-SYSTEM.
+CODING-SYSTEM defaults to utf-8. FLAGS has the same meaning as in
+`zmq-send'."
   (setq coding-system (or coding-system 'utf-8))
-  (zmq-send sock (encode-coding-string str coding-system) flags))
+  (zmq-send sock (encode-coding-string message coding-system) flags))
 
 (defun zmq-recv-decoded (sock &optional coding-system flags)
-  "Received decoded data on SOCK.
-CODING-SYSTEM is the coding system to decode the a message
-received on SOCK and defaults to utf-8. FLAGS has the same
-meaning as in `zmq-recv'."
+  "Receive a message on SOCK, return the decoded message.
+Use CODING-SYSTEM to decode the message received on SOCK.
+CODING-SYSTEM defaults to utf-8. FLAGS has the same meaning as in
+`zmq-recv'."
   (setq coding-system (or coding-system 'utf-8))
   (decode-coding-string (zmq-recv sock flags) coding-system))
 
 (defun zmq-socket-set-encoded (sock option value &optional coding-system)
-  "Set an option of SOCK, encoding its value first.
-OPTION is the socket option to set and VALUE is its value. Encode
-VALUE using CODING-SYSTEM before setting OPTION. CODING-SYSTEM
-defaults to utf-8."
+  "Set a SOCK option, encoding its value before setting.
+Use CODING-SYSTEM to encode VALUE. CODING-SYSTEM defaults to
+utf-8."
   (setq coding-system (or coding-system 'utf-8))
   (zmq-set-option sock option (encode-coding-string value coding-system)))
 
 (defun zmq-socket-get-decoded (sock option &optional coding-system)
-  "Get an option of SOCK, return its decoded value.
-OPTION is the socket option to get and CODING-SYSTEM is the
-coding system to use for decoding. CODING-SYSTEM defaults to
-utf-8."
+  "Get a SOCK OPTION, return its decoded value.
+Use CODING-SYSTEM to decode OPTION's value. CODING-SYSTEM
+defaults to utf-8."
   (setq coding-system (or coding-system 'utf-8))
   (decode-coding-string (zmq-get-option sock option) coding-system))
 

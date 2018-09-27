@@ -16,7 +16,7 @@ ezmq_socket(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 }
 
 EZMQ_DOC(ezmq_send,
-         "SOCK MESSAGE FLAGS",
+         "SOCK MESSAGE &optional FLAGS",
          "Send a single message on SOCK.\n"
          "MESSAGE can either be a `zmq-message' or a string containing only\n"
          "unibyte characters. FLAGS is a bitmask of flag options. See the\n"
@@ -39,7 +39,7 @@ ezmq_send(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 }
 
 EZMQ_DOC(ezmq_recv,
-         "SOCK FLAGS COPY",
+         "SOCK &optional FLAGS COPY",
          "Receive a message on SOCK.\n"
          "If COPY is non-nil, return a copy of the message data received,\n"
          "otherwise return the `zmq-message' object storing the message data.\n"
@@ -78,7 +78,7 @@ ezmq_recv(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     return Qnil;
 }
 
-EZMQ_DOC(ezmq_bind,  "SOCK ENDPOINT", "Bind SOCK to ENDPOINT.");
+EZMQ_DOC(ezmq_bind, "SOCK ENDPOINT", "Bind SOCK to ENDPOINT.");
 emacs_value
 ezmq_bind(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
@@ -259,7 +259,8 @@ ezmq_setsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     }
         // UINT64
         // TODO: Figure out the best way to handle U?INT64 since Emacs integers
-        // are all signed and only 30 bits wide.
+        // are all signed and only 30 bits wide. This won't
+        // be the case with bignum support in future Emacsen.
     case ZMQ_AFFINITY: case ZMQ_VMCI_BUFFER_SIZE:
     case ZMQ_VMCI_BUFFER_MAX_SIZE: case ZMQ_VMCI_BUFFER_MIN_SIZE:
         // INT64

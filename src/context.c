@@ -24,7 +24,7 @@ ezmq_ctx_set(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     return Qnil;
 }
 
-EZMQ_DOC(ezmq_ctx_get,  "CONTEXTOPTION", "Get a CONTEXT OPTION.");
+EZMQ_DOC(ezmq_ctx_get, "CONTEXT OPTION", "Get a CONTEXT OPTION.");
 emacs_value
 ezmq_ctx_get(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {

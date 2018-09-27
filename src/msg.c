@@ -232,7 +232,7 @@ ezmq_message_routing_id(emacs_env *env, ptrdiff_t nargs, emacs_value args[], voi
     return INT(zmq_msg_routing_id(msg->obj));
 }
 
-EZMQ_DOC(ezmq_message_set_routing_id, "MESSAGE", "Set the routing ID of MESSAGE.");
+EZMQ_DOC(ezmq_message_set_routing_id, "MESSAGE ID", "Set MESSAGE's routing ID.");
 emacs_value
 ezmq_message_set_routing_id(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 {
