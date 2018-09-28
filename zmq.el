@@ -434,6 +434,8 @@ backtrace if it errors out. This is used for debugging purposes."
     (error "Invalid function to send to process, can only have 0 or 1 arguments"))
   (let* ((process-connection-type nil)
          (zmq-path (locate-library "zmq"))
+         (cmd (format "(zmq--init-subprocess %s)"
+                      (when backtrace t)))
          (process (make-process
                    :name "zmq"
                    :buffer (or buffer (generate-new-buffer " *zmq*"))
@@ -447,9 +449,7 @@ backtrace if it errors out. This is used for debugging purposes."
                                                 invocation-directory))
                              "-Q" "-batch"
                              "-L" (file-name-directory zmq-path)
-                             "-l" zmq-path
-                             "-e" (format "(zmq--init-subprocess %s)"
-                                          (when backtrace t))))))
+                             "-l" zmq-path "--eval" cmd))))
     (process-put process :filter event-filter)
     (process-put process :sentinel sentinel)
     (process-put process :owns-buffer (null buffer))
