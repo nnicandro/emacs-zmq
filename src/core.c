@@ -5,12 +5,12 @@
     case err: {                                                    \
         const char *msg = zmq_strerror(err);                       \
         ptrdiff_t len = (ptrdiff_t)strlen(msg);                    \
-        ezmq_signal(env, INTERN("zmq-"#err), 1, STRING(msg, len)); \
+        ezmq_signal(INTERN("zmq-"#err), 1, STRING(msg, len));      \
     }                                                              \
     break;
 
 void
-ezmq_signal_error(emacs_env *env)
+ezmq_signal_error()
 {
     // TODO: Define error symbols for common errors and use Qzmq_error as a
     // catch all. Look at the zmq documentation for all of the errors that can
@@ -38,24 +38,24 @@ ezmq_signal_error(emacs_env *env)
     default: {
         const char *msg = zmq_strerror(zmq_errno());
         ptrdiff_t len = (ptrdiff_t)strlen(msg);
-        ezmq_signal(env, Qzmq_error, 1, STRING(msg, len));
+        ezmq_signal(Qzmq_error, 1, STRING(msg, len));
     }
     }
 }
 
 char *
-ezmq_malloc(emacs_env *env, size_t nbytes)
+ezmq_malloc(size_t nbytes)
 {
     char *buf = NULL;
     if(!NONLOCAL_EXIT()) {
         buf = malloc(nbytes);
-        if(!buf) ezmq_signal_error(env);
+        if(!buf) ezmq_signal_error();
     }
     return buf;
 }
 
 static emacs_value
-ezmq_type_symbol(emacs_env *env, enum ezmq_obj_t type)
+ezmq_type_symbol(enum ezmq_obj_t type)
 {
     switch(type) {
     case EZMQ_CONTEXT:
@@ -72,7 +72,7 @@ ezmq_type_symbol(emacs_env *env, enum ezmq_obj_t type)
 }
 
 void
-ezmq_signal(emacs_env *env, emacs_value err, int nargs, ...)
+ezmq_signal(emacs_value err, int nargs, ...)
 {
     va_list args;
     emacs_value data[nargs];
@@ -85,7 +85,7 @@ ezmq_signal(emacs_env *env, emacs_value err, int nargs, ...)
 }
 
 static void
-ezmq_wrong_object_type(emacs_env *env, ezmq_obj_t *obj, enum ezmq_obj_t expected)
+ezmq_wrong_object_type(ezmq_obj_t *obj, enum ezmq_obj_t expected)
 {
     SIGNAL(Qwrong_type_argument,
            LIST(2,
@@ -94,7 +94,7 @@ ezmq_wrong_object_type(emacs_env *env, ezmq_obj_t *obj, enum ezmq_obj_t expected
 }
 
 void
-ezmq_wrong_type_argument(emacs_env *env, emacs_value val, int nvalid, ...)
+ezmq_wrong_type_argument(emacs_value val, int nvalid, ...)
 {
     va_list args;
     emacs_value options[nvalid + 1];
@@ -109,11 +109,11 @@ ezmq_wrong_type_argument(emacs_env *env, emacs_value val, int nvalid, ...)
 }
 
 ezmq_obj_t *
-ezmq_extract_obj(emacs_env *env, enum ezmq_obj_t type, emacs_value val)
+ezmq_extract_obj(enum ezmq_obj_t type, emacs_value val)
 {
-    ezmq_obj_t *obj = env->get_user_ptr(env, val);
+    ezmq_obj_t *obj = NILP(val) ? NULL : USER_PTR(val);
     if(obj != NULL && !NONLOCAL_EXIT() && obj->type != type)
-        ezmq_wrong_object_type(env, obj, type);
+        ezmq_wrong_object_type(obj, type);
     return obj;
 }
 
@@ -127,14 +127,14 @@ ezmq_wait_for_context_destruction(void *obj)
 }
 
 ezmq_obj_t *
-ezmq_new_obj(emacs_env *env, enum ezmq_obj_t type, void *obj)
+ezmq_new_obj(enum ezmq_obj_t type, void *obj)
 {
-    ezmq_obj_t *eobj = (ezmq_obj_t *)ezmq_malloc(env, sizeof(*eobj));
+    ezmq_obj_t *eobj = (ezmq_obj_t *)ezmq_malloc(sizeof(*eobj));
     if(!NONLOCAL_EXIT()) {
         switch(type) {
         case EZMQ_MESSAGE:
             if(!obj) {
-                obj = (zmq_msg_t *)ezmq_malloc(env, sizeof(zmq_msg_t));
+                obj = (zmq_msg_t *)ezmq_malloc(sizeof(zmq_msg_t));
                 if(!obj) {
                     free(eobj);
                     return NULL;
@@ -189,8 +189,11 @@ ezmq_obj_finalizer(void *ptr)
     }
 }
 
+// TODO: What if the make_user_ptr fails, the object
+// will leak since this is usally the last call when
+// creating new objects.
 emacs_value
-ezmq_new_obj_ptr(emacs_env *env, ezmq_obj_t *obj)
+ezmq_new_obj_ptr(ezmq_obj_t *obj)
 {
     if(!NONLOCAL_EXIT())
         obj->refcount++;
@@ -209,12 +212,12 @@ ezmq_free_obj(ezmq_obj_t *obj)
 }
 
 char *
-ezmq_copy_string(emacs_env *env, emacs_value str, ptrdiff_t *size)
+ezmq_copy_string(emacs_value str, ptrdiff_t *size)
 {
     *size = 0;
     ptrdiff_t sz = 1;
     if(!env->copy_string_contents(env, str, NULL, &sz)) return NULL;
-    char *buf = ezmq_malloc(env, sz);
+    char *buf = ezmq_malloc(sz);
     env->copy_string_contents(env, str, buf, &sz);
     // The size returned by copy_string_contents contains the terminanting NULL
     // byte.

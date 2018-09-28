@@ -4,18 +4,18 @@
 
 #include "core.h"
 
-EZMQ_DEFUN_PROTO(ezmq_socket);
-EZMQ_DEFUN_PROTO(ezmq_send);
-EZMQ_DEFUN_PROTO(ezmq_recv);
-EZMQ_DEFUN_PROTO(ezmq_bind);
-EZMQ_DEFUN_PROTO(ezmq_connect);
-EZMQ_DEFUN_PROTO(ezmq_unbind);
-EZMQ_DEFUN_PROTO(ezmq_disconnect);
-EZMQ_DEFUN_PROTO(ezmq_close);
-EZMQ_DEFUN_PROTO(ezmq_proxy);
-EZMQ_DEFUN_PROTO(ezmq_proxy_steerable);
-EZMQ_DEFUN_PROTO(ezmq_socket_monitor);
-EZMQ_DEFUN_PROTO(ezmq_setsockopt);
-EZMQ_DEFUN_PROTO(ezmq_getsockopt);
+EZMQ_FUN(ezmq_socket, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_send, emacs_value, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_recv, emacs_value, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_bind, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_connect, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_unbind, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_disconnect, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_close, emacs_value);
+EZMQ_FUN(ezmq_proxy, emacs_value, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_proxy_steerable, emacs_value, emacs_value, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_socket_monitor, emacs_value, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_setsockopt, emacs_value, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_getsockopt, emacs_value, emacs_value);
 
 #endif /* __SOCKET_H__ */

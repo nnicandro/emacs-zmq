@@ -3,19 +3,19 @@
 
 #include "core.h"
 
-EZMQ_DEFUN_PROTO(ezmq_message);
-EZMQ_DEFUN_PROTO(ezmq_message_size);
-EZMQ_DEFUN_PROTO(ezmq_message_data);
-EZMQ_DEFUN_PROTO(ezmq_message_more);
-EZMQ_DEFUN_PROTO(ezmq_message_copy);
-EZMQ_DEFUN_PROTO(ezmq_message_move);
-EZMQ_DEFUN_PROTO(ezmq_message_close);
-EZMQ_DEFUN_PROTO(ezmq_message_set);
-EZMQ_DEFUN_PROTO(ezmq_message_get);
-EZMQ_DEFUN_PROTO(ezmq_message_recv);
-EZMQ_DEFUN_PROTO(ezmq_message_send);
-EZMQ_DEFUN_PROTO(ezmq_message_gets);
-EZMQ_DEFUN_PROTO(ezmq_message_routing_id);
-EZMQ_DEFUN_PROTO(ezmq_message_set_routing_id);
+EZMQ_FUN(ezmq_message, emacs_value);
+EZMQ_FUN(ezmq_message_size, emacs_value);
+EZMQ_FUN(ezmq_message_data, emacs_value);
+EZMQ_FUN(ezmq_message_more, emacs_value);
+EZMQ_FUN(ezmq_message_copy, emacs_value);
+EZMQ_FUN(ezmq_message_move, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_message_close, emacs_value);
+EZMQ_FUN(ezmq_message_set, emacs_value, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_message_get, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_message_recv, emacs_value, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_message_send, emacs_value, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_message_gets, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_message_routing_id, emacs_value);
+EZMQ_FUN(ezmq_message_set_routing_id, emacs_value, emacs_value);
 
 #endif /* __MSG_H__ */

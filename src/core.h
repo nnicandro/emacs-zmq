@@ -8,6 +8,9 @@
 #include <stdbool.h>
 #include "emacs-module.h"
 
+// Set to the current Emacs environment, see ezmq_dispatch
+extern emacs_env *env;
+
 /**
    About what environment functions do when a non-local exit is pending, from
    http://phst.github.io/emacs-modules.html#when-a-nonlocal-exit-is-pending-module-functions-silently-do-nothing:
@@ -86,12 +89,12 @@
     } while(0)
 
 #define EZMQ_EXTRACT_OBJ(name, type, val)                               \
-    ezmq_obj_t *name = (val) == Qnil ? NULL : ezmq_extract_obj(env, type, (val)); \
+    ezmq_obj_t *name = (val) == Qnil ? NULL : ezmq_extract_obj(type, (val)); \
     if(NONLOCAL_EXIT()) return NULL                                     \
 
 #define EZMQ_EXTRACT_STRING(name, len, val)         \
     ptrdiff_t len = 0;                              \
-    char *name = ezmq_copy_string(env, val, &len);  \
+    char *name = ezmq_copy_string(val, &len);       \
     do {                                            \
         if(NONLOCAL_EXIT()) {                       \
             return NULL;                            \
@@ -102,24 +105,23 @@
     do {                                        \
         int __retcode = expr;                   \
         if(__retcode == -1) {                   \
-            ezmq_signal_error(env);             \
+            ezmq_signal_error();                \
         }                                       \
     } while(0)
 
 #define EZMQ_CHECK_NULL_ERROR(expr)             \
     do {                                        \
         if((void *)(expr) == NULL) {            \
-            ezmq_signal_error(env);             \
+            ezmq_signal_error();                \
         }                                       \
     } while(0)
 
 #define EZMQ_DOC(name, args, doc)                           \
     const char *__zmq_doc_##name = doc "\n\n(fn " args ")"
 
-#define EZMQ_DEFUN_PROTO(name)                                          \
-    extern const char *__zmq_doc_##name;                                \
-    extern emacs_value                                                  \
-    name(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+#define EZMQ_FUN(name, ...)                  \
+    extern const char *__zmq_doc_##name;     \
+    extern emacs_value name(__VA_ARGS__)
 
 enum ezmq_obj_t {
                  EZMQ_CONTEXT,
@@ -145,16 +147,16 @@ extern emacs_value Qzmq_error, Qt, Qnil, Qlist,
     Izmq_POLLIN, Izmq_POLLERR, Izmq_POLLOUT;
 
 extern void
-ezmq_signal(emacs_env *env, emacs_value err, int nargs, ...);
+ezmq_signal(emacs_value err, int nargs, ...);
 
 extern void
-ezmq_wrong_type_argument(emacs_env *env, emacs_value val, int nvalid, ...);
+ezmq_wrong_type_argument(emacs_value val, int nvalid, ...);
 
 /**
    Called when an error occured in ZMQ to notify Emacs to exit nonlocally.
 */
 extern void
-ezmq_signal_error(emacs_env *env);
+ezmq_signal_error();
 
 /**
    Create a new ezmq_obj with type and obj and returns a user-ptr to it. As a
@@ -164,14 +166,14 @@ ezmq_signal_error(emacs_env *env);
    error is signaled and this function will return NULL.
 */
 extern emacs_value
-ezmq_new_obj_ptr(emacs_env *env, ezmq_obj_t *obj);
+ezmq_new_obj_ptr(ezmq_obj_t *obj);
 
 /**
    Allocate and return an ezmq_obj_t with TYPE and OBJ. Signal a non-local exit
    if anything goes wrong.
 */
 extern ezmq_obj_t *
-ezmq_new_obj(emacs_env *env, enum ezmq_obj_t type, void *obj);
+ezmq_new_obj(enum ezmq_obj_t type, void *obj);
 
 /**
    Free the memory used to wrap a ZMQ object. Note this only free's the memoery
@@ -186,7 +188,7 @@ ezmq_free_obj(ezmq_obj_t *obj);
    if the extracted object doesn't match TYPE.
 */
 extern ezmq_obj_t *
-ezmq_extract_obj(emacs_env *env, enum ezmq_obj_t type, emacs_value obj);
+ezmq_extract_obj(enum ezmq_obj_t type, emacs_value obj);
 
 extern void
 ezmq_obj_finalizer(void *);
@@ -197,13 +199,13 @@ ezmq_obj_finalizer(void *);
    return NULL.
 */
 extern char *
-ezmq_malloc(emacs_env *env, size_t nbytes);
+ezmq_malloc(size_t nbytes);
 
 /**
    Copy and return a pointer to an Emacs string. The caller is responsible for
    freeing the memory returned.
 */
 extern char *
-ezmq_copy_string(emacs_env *env, emacs_value str, ptrdiff_t *size);
+ezmq_copy_string(emacs_value str, ptrdiff_t *size);
 
 #endif /* __CORE_H__ */

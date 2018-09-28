@@ -5,14 +5,15 @@
 EZMQ_DOC(ezmq_socket,  "CONTEXT TYPE",
          "Return a new socket of TYPE in CONTEXT.");
 emacs_value
-ezmq_socket(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_socket(emacs_value econtext, emacs_value etype)
 {
-    EZMQ_EXTRACT_OBJ(context, EZMQ_CONTEXT, args[0]);
-    EZMQ_EXTRACT_INT(type, args[1]);
+    EZMQ_EXTRACT_OBJ(context, EZMQ_CONTEXT, econtext);
+    EZMQ_EXTRACT_INT(type, etype);
 
     void *sock = zmq_socket(context->obj, type);
     EZMQ_CHECK_NULL_ERROR(sock);
-    return ezmq_new_obj_ptr(env, ezmq_new_obj(env, EZMQ_SOCKET, sock));
+
+    return ezmq_new_obj_ptr(ezmq_new_obj(EZMQ_SOCKET, sock));
 }
 
 EZMQ_DOC(ezmq_send,
@@ -22,17 +23,17 @@ EZMQ_DOC(ezmq_send,
          "unibyte characters. FLAGS is a bitmask of flag options. See the\n"
          "documentation of zmq_send in the C API for the values FLAGS can take.");
 emacs_value
-ezmq_send(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_send(emacs_value esock, emacs_value emsg, emacs_value eflags)
 {
-    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
-    EZMQ_EXTRACT_OPTIONAL_INT(flags, nargs == 3 ? args[2] : Qnil);
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+    EZMQ_EXTRACT_OPTIONAL_INT(flags, eflags);
 
-    if(EQ(TYPE(args[1]), Qstring)) {
-        EZMQ_EXTRACT_STRING(msg, size, args[1]);
+    if(EQ(TYPE(emsg), Qstring)) {
+        EZMQ_EXTRACT_STRING(msg, size, emsg);
         EZMQ_CHECK_ERROR(zmq_send(sock->obj, msg, size, flags));
         free(msg);
     } else {
-        EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, args[1]);
+        EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, emsg);
         EZMQ_CHECK_ERROR(zmq_msg_send(msg->obj, sock->obj, flags));
     }
     return Qnil;
@@ -46,13 +47,11 @@ EZMQ_DOC(ezmq_recv,
          "FLAGS is a bitmask of flag options. See the documentation of\n"
          "zmq_recv in the C API for the values FLAGS can take.");
 emacs_value
-ezmq_recv(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_recv(emacs_value esock, emacs_value eflags, emacs_value ecopy)
 {
-    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
-    EZMQ_EXTRACT_OPTIONAL_INT(flags, nargs >= 2 ? args[1] : Qnil);
-    bool copy = true;
-    if(nargs == 3)
-        copy = !NILP(args[1]);
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+    EZMQ_EXTRACT_OPTIONAL_INT(flags, eflags);
+    bool copy = !NILP(ecopy);
 
     zmq_msg_t msg;
     EZMQ_CHECK_ERROR(zmq_msg_init(&msg));
@@ -62,17 +61,17 @@ ezmq_recv(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     if(!NONLOCAL_EXIT()) {
         if(copy) {
             size_t size = zmq_msg_size(&msg);
-            char *buf = ezmq_malloc(env, size + 1);
+            char *buf = ezmq_malloc(size + 1);
             if(!NONLOCAL_EXIT()) {
                 buf[size] = 0;
                 memcpy(buf, zmq_msg_data(&msg), size);
                 return STRING(buf, size);
             }
         } else {
-            ezmq_obj_t *obj = ezmq_new_obj(env, EZMQ_MESSAGE, NULL);
+            ezmq_obj_t *obj = ezmq_new_obj(EZMQ_MESSAGE, NULL);
             if(!NONLOCAL_EXIT())
                 memcpy(obj->obj, &msg, sizeof(zmq_msg_t));
-            return ezmq_new_obj_ptr(env, obj);
+            return ezmq_new_obj_ptr(obj);
         }
     }
     return Qnil;
@@ -80,10 +79,10 @@ ezmq_recv(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 
 EZMQ_DOC(ezmq_bind, "SOCK ENDPOINT", "Bind SOCK to ENDPOINT.");
 emacs_value
-ezmq_bind(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_bind(emacs_value esock, emacs_value eendpoint)
 {
-    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
-    EZMQ_EXTRACT_STRING(endpoint, elen, args[1]);
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+    EZMQ_EXTRACT_STRING(endpoint, elen, eendpoint);
     EZMQ_CHECK_ERROR(zmq_bind(sock->obj, endpoint));
     free(endpoint);
     return Qnil;
@@ -91,10 +90,10 @@ ezmq_bind(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 
 EZMQ_DOC(ezmq_connect, "SOCK ENDPOINT", "Connect SOCK to ENDPOINT.");
 emacs_value
-ezmq_connect(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_connect(emacs_value esock, emacs_value eendpoint)
 {
-    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
-    EZMQ_EXTRACT_STRING(endpoint, elen, args[1]);
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+    EZMQ_EXTRACT_STRING(endpoint, elen, eendpoint);
     EZMQ_CHECK_ERROR(zmq_connect(sock->obj, endpoint));
     free(endpoint);
     return Qnil;
@@ -102,10 +101,10 @@ ezmq_connect(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 
 EZMQ_DOC(ezmq_unbind, "SOCK ENDPOINT", "Unbind SOCK from ENDPOINT.");
 emacs_value
-ezmq_unbind(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_unbind(emacs_value esock, emacs_value eendpoint)
 {
-    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
-    EZMQ_EXTRACT_STRING(endpoint, elen, args[1]);
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+    EZMQ_EXTRACT_STRING(endpoint, elen, eendpoint);
     EZMQ_CHECK_ERROR(zmq_unbind(sock->obj, endpoint));
     free(endpoint);
     return Qnil;
@@ -113,10 +112,10 @@ ezmq_unbind(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 
 EZMQ_DOC(ezmq_disconnect,  "SOCK ENDPOINT", "Disconnect SOCK from ENDPOINT.");
 emacs_value
-ezmq_disconnect(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_disconnect(emacs_value esock, emacs_value eendpoint)
 {
-    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
-    EZMQ_EXTRACT_STRING(endpoint, elen, args[1]);
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+    EZMQ_EXTRACT_STRING(endpoint, elen, eendpoint);
     EZMQ_CHECK_ERROR(zmq_disconnect(sock->obj, endpoint));
     free(endpoint);
     return Qnil;
@@ -124,9 +123,9 @@ ezmq_disconnect(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 
 EZMQ_DOC(ezmq_close, "SOCK", "Close SOCK.");
 emacs_value
-ezmq_close(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_close(emacs_value esock)
 {
-    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
     EZMQ_CHECK_ERROR(zmq_close(sock->obj));
     return Qnil;
 }
@@ -143,15 +142,11 @@ EZMQ_DOC(ezmq_proxy,
          "socket. The CAPTURE socket should be a `zmq-PUB', `zmq-DEALER',\n"
          "`zmq-PUSH', or `zmq-PAIR' socket.");
 emacs_value
-ezmq_proxy(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_proxy(emacs_value efrontend, emacs_value ebackend, emacs_value ecapture)
 {
-    EZMQ_EXTRACT_OBJ(frontend, EZMQ_SOCKET, args[0]);
-    EZMQ_EXTRACT_OBJ(backend, EZMQ_SOCKET, args[1]);
-    ezmq_obj_t *capture = NULL;
-    if(nargs == 3 && !EQ(args[2], Qnil)) {
-        capture = ezmq_extract_obj(env, EZMQ_SOCKET, args[2]);
-        if(NONLOCAL_EXIT()) return NULL;
-    }
+    EZMQ_EXTRACT_OBJ(frontend, EZMQ_SOCKET, efrontend);
+    EZMQ_EXTRACT_OBJ(backend, EZMQ_SOCKET, ebackend);
+    EZMQ_EXTRACT_OBJ(capture, EZMQ_SOCKET, ecapture);
     EZMQ_CHECK_ERROR(zmq_proxy(frontend->obj,
                                backend->obj,
                                capture ? capture->obj : NULL));
@@ -168,22 +163,12 @@ EZMQ_DOC(ezmq_proxy_steerable,
          "received, it terminates smoothly. At start, the proxy runs\n"
          "normally as if `zmq-proxy' was used.");
 emacs_value
-ezmq_proxy_steerable(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_proxy_steerable(emacs_value efrontend, emacs_value ebackend, emacs_value ecapture, emacs_value econtrol)
 {
-    EZMQ_EXTRACT_OBJ(frontend, EZMQ_SOCKET, args[0]);
-    EZMQ_EXTRACT_OBJ(backend, EZMQ_SOCKET, args[1]);
-    ezmq_obj_t *capture = NULL;
-    ezmq_obj_t *control = NULL;
-    if(nargs >= 3) {
-        if(!EQ(args[2], Qnil)) {
-            capture = ezmq_extract_obj(env, EZMQ_SOCKET, args[2]);
-            if(NONLOCAL_EXIT()) return NULL;
-        }
-        if(nargs > 3 && !EQ(args[3], Qnil)) {
-            control = ezmq_extract_obj(env, EZMQ_SOCKET, args[3]);
-            if(NONLOCAL_EXIT()) return NULL;
-        }
-    }
+    EZMQ_EXTRACT_OBJ(frontend, EZMQ_SOCKET, efrontend);
+    EZMQ_EXTRACT_OBJ(backend, EZMQ_SOCKET, ebackend);
+    EZMQ_EXTRACT_OBJ(capture, EZMQ_SOCKET, ecapture);
+    EZMQ_EXTRACT_OBJ(control, EZMQ_SOCKET, econtrol);
     EZMQ_CHECK_ERROR(zmq_proxy_steerable(frontend->obj,
                                          backend->obj,
                                          capture ? capture->obj : NULL,
@@ -212,12 +197,12 @@ EZMQ_DOC(ezmq_socket_monitor,
          "second frame contains a string that specifies the affected TCP or\n"
          "IPC endpoint.");
 emacs_value
-ezmq_socket_monitor(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_socket_monitor(emacs_value esock, emacs_value eendpoint, emacs_value eevents)
 {
-    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
-    EZMQ_EXTRACT_STRING(endpoint, elen, args[1]);
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+    EZMQ_EXTRACT_STRING(endpoint, elen, eendpoint);
     intmax_t events = 0;
-    emacs_value list = args[1];
+    emacs_value list = eevents;
     if(EQ(TYPE(list), Qcons)) {
         while(!NILP(list)) {
             // TODO: Verify event, raise an error if invalid
@@ -226,7 +211,7 @@ ezmq_socket_monitor(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *d
             list = CDR(list);
         }
     } else
-        ezmq_wrong_type_argument(env, list, 1, Qlist);
+        ezmq_wrong_type_argument(list, 1, Qlist);
 
     EZMQ_CHECK_ERROR(zmq_socket_monitor(sock, endpoint, events));
     return Qnil;
@@ -234,10 +219,10 @@ ezmq_socket_monitor(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *d
 
 EZMQ_DOC(ezmq_setsockopt,  "SOCK OPTION VALUE", "Set SOCK OPTION to VALUE.");
 emacs_value
-ezmq_setsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_setsockopt(emacs_value esock, emacs_value eoption, emacs_value evalue)
 {
-    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
-    EZMQ_EXTRACT_INT(option, args[1]);
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+    EZMQ_EXTRACT_INT(option, eoption);
 
     switch(option) {
         // INT
@@ -252,7 +237,7 @@ ezmq_setsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     case ZMQ_TCP_KEEPALIVE_CNT: case ZMQ_TCP_KEEPALIVE_IDLE:
     case ZMQ_TCP_KEEPALIVE_INTVL: case ZMQ_TCP_MAXRT: case ZMQ_TOS:
     case ZMQ_VMCI_CONNECT_TIMEOUT: {
-        EZMQ_EXTRACT_INT(value, args[2]);
+        EZMQ_EXTRACT_INT(value, evalue);
         zmq_setsockopt(sock->obj, option, &value, sizeof(int));
         break;
     }
@@ -264,7 +249,7 @@ ezmq_setsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     case ZMQ_VMCI_BUFFER_MAX_SIZE: case ZMQ_VMCI_BUFFER_MIN_SIZE:
         // INT64
     case ZMQ_MAXMSGSIZE: {
-        EZMQ_EXTRACT_INT(value, args[2]);
+        EZMQ_EXTRACT_INT(value, evalue);
         zmq_setsockopt(sock->obj, option, &value, sizeof(int64_t));
         break;
     }
@@ -276,7 +261,7 @@ ezmq_setsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     case ZMQ_ROUTER_MANDATORY: case ZMQ_ROUTER_RAW: case ZMQ_STREAM_NOTIFY:
     case ZMQ_XPUB_VERBOSE: case ZMQ_XPUB_VERBOSER: case ZMQ_XPUB_MANUAL:
     case ZMQ_XPUB_NODROP: {
-        int value = !NILP(args[2]);
+        int value = !NILP(evalue);
         zmq_setsockopt(sock->obj, option, &value, sizeof(int));
         break;
     }
@@ -285,7 +270,7 @@ ezmq_setsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     case ZMQ_GSSAPI_PRINCIPAL: case ZMQ_GSSAPI_SERVICE_PRINCIPAL:
     case ZMQ_PLAIN_PASSWORD: case ZMQ_PLAIN_USERNAME:
     case ZMQ_SOCKS_PROXY: case ZMQ_ZAP_DOMAIN: {
-        EZMQ_EXTRACT_STRING(str, len, args[2]);
+        EZMQ_EXTRACT_STRING(str, len, evalue);
         zmq_setsockopt(sock->obj, option, str, len);
         free(str);
         break;
@@ -294,7 +279,7 @@ ezmq_setsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
     case ZMQ_CONNECT_ROUTING_ID:
     case ZMQ_ROUTING_ID: case ZMQ_SUBSCRIBE: case ZMQ_UNSUBSCRIBE:
     case ZMQ_XPUB_WELCOME_MSG: {
-        EZMQ_EXTRACT_STRING(bin, size, args[2]);
+        EZMQ_EXTRACT_STRING(bin, size, evalue);
         zmq_setsockopt(sock->obj, option, bin, size);
         free(bin);
         break;
@@ -302,7 +287,7 @@ ezmq_setsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
         // CURVE
     case ZMQ_CURVE_PUBLICKEY: case ZMQ_CURVE_SECRETKEY:
     case ZMQ_CURVE_SERVERKEY: {
-        EZMQ_EXTRACT_STRING(str, len, args[2]);
+        EZMQ_EXTRACT_STRING(str, len, evalue);
         // len includes the terminating NULL
         // binary representation is 32 bytes
         // string representation is 40 bytes
@@ -311,14 +296,14 @@ ezmq_setsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
             zmq_setsockopt(sock->obj, option, str, len);
         } else {
             const char *msg = "CURVE key not of valid length.";
-            ezmq_signal(env, Qzmq_error, 1, STRING(msg, strlen(msg)));
+            ezmq_signal(Qzmq_error, 1, STRING(msg, strlen(msg)));
         }
         free(str);
         break;
     }
     default: {
         const char *msg = "Socket option not handled yet.";
-        ezmq_signal(env, Qzmq_error, 1, STRING(msg, strlen(msg)));
+        ezmq_signal(Qzmq_error, 1, STRING(msg, strlen(msg)));
     }
         break;
     }
@@ -327,12 +312,12 @@ ezmq_setsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
 
 EZMQ_DOC(ezmq_getsockopt,  "SOCK OPTION", "Get SOCK OPTION.");
 emacs_value
-ezmq_getsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
+ezmq_getsockopt(emacs_value esock, emacs_value eoption)
 {
     char buf[256];
     size_t size;
-    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, args[0]);
-    EZMQ_EXTRACT_INT(option, args[1]);
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+    EZMQ_EXTRACT_INT(option, eoption);
 
     switch(option) {
         // INT
@@ -422,7 +407,7 @@ ezmq_getsockopt(emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *data)
         break;
     default: {
         const char *msg = "Socket option not handled yet.";
-        ezmq_signal(env, Qzmq_error, 1, STRING(msg, strlen(msg)));
+        ezmq_signal(Qzmq_error, 1, STRING(msg, strlen(msg)));
     }
         break;
     }

@@ -4,10 +4,10 @@
 
 #include "core.h"
 
-EZMQ_DEFUN_PROTO(ezmq_context);
-EZMQ_DEFUN_PROTO(ezmq_ctx_set);
-EZMQ_DEFUN_PROTO(ezmq_ctx_get);
-EZMQ_DEFUN_PROTO(ezmq_ctx_shutdown);
-EZMQ_DEFUN_PROTO(ezmq_ctx_term);
+EZMQ_FUN(ezmq_context, void);
+EZMQ_FUN(ezmq_ctx_set, emacs_value, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_ctx_get, emacs_value, emacs_value);
+EZMQ_FUN(ezmq_ctx_shutdown, emacs_value);
+EZMQ_FUN(ezmq_ctx_term, emacs_value);
 
 #endif /* __CONTEXT_H__ */
