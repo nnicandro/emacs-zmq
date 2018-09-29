@@ -89,7 +89,7 @@ ezmq_bind_function(ezmq_fun_t *fun)
                                           &ezmq_dispatch,
                                           fun->doc,
                                           fun);
-    FUNCALL(INTERN("fset"), 2, ((emacs_value []){INTERN(fun->name), Sfun}));
+    FUNCALL(INTERN("defalias"), 2, ((emacs_value []){INTERN(fun->name), Sfun}));
 }
 
 
