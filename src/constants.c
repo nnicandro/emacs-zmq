@@ -7,7 +7,7 @@
 
 // Automatically generated
 void
-ezmq_expose_constants(emacs_env *env)
+ezmq_expose_constants()
 {
     emacs_value args[3];
     emacs_value list;

@@ -10,8 +10,9 @@
 
 extern int plugin_is_GPL_compatible;
 
+// Defined in constants.c
 extern void
-ezmq_expose_constants(emacs_env *env);
+ezmq_expose_constants();
 
 extern int
 emacs_module_init(struct emacs_runtime *ert);

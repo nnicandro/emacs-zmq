@@ -82,33 +82,30 @@ ezmq_dispatch(emacs_env *current_env, ptrdiff_t nargs, emacs_value args[], void 
 }
 
 static void
-ezmq_bind_function(emacs_env *env, const char *name, emacs_value Sfun)
+ezmq_bind_function(ezmq_fun_t *fun)
 {
-    emacs_value Qfset = INTERN("fset");
-    emacs_value Qsym = INTERN(name);
-    /* Prepare the arguments array */
-    emacs_value args[] = {Qsym, Sfun};
-    /* Make the call (2 == nb of arguments) */
-    env->funcall(env, Qfset, 2, args);
+    emacs_value Sfun = env->make_function(env,
+                                          fun->minarity, fun->maxarity,
+                                          &ezmq_dispatch,
+                                          fun->doc,
+                                          fun);
+    FUNCALL(INTERN("fset"), 2, ((emacs_value []){INTERN(fun->name), Sfun}));
 }
 
+
 static void
-ezmq_provide(emacs_env *env, const char *feature)
+ezmq_provide(const char *feature)
 {
-    /* call 'provide' with FEATURE converted to a symbol */
-    emacs_value Qfeat = INTERN(feature);
-    emacs_value Qprovide = INTERN("provide");
-    emacs_value args[] = { Qfeat };
-    env->funcall (env, Qprovide, 1, args);
+    FUNCALL(INTERN("provide"), 1, ((emacs_value []){ INTERN(feature) }));
 }
 
 #define EZMQ_DEFERR(err)                        \
     args[0] = INTERN("zmq-"#err);               \
     args[1] = STRING(#err, sizeof(#err) - 1);   \
-    env->funcall(env, Qdefine_error, 3, args)   \
+    FUNCALL(Qdefine_error, 3, args)             \
 
 static void
-ezmq_make_error_symbols(emacs_env *env)
+ezmq_make_error_symbols()
 {
     emacs_value Qdefine_error = INTERN("define-error");
     const char *msg =  "An error occured in ZMQ";
@@ -170,9 +167,9 @@ emacs_module_init(struct emacs_runtime *ert)
     Qlength = INTERN("length");
     Qzmq_error = INTERN("zmq-ERROR");
 
-    ezmq_make_error_symbols(env);
+    ezmq_make_error_symbols();
 
-    ezmq_expose_constants(env);
+    ezmq_expose_constants();
     Qzmq_POLLIN = INTERN("zmq-POLLIN");
     Qzmq_POLLOUT = INTERN("zmq-POLLOUT");
     Qzmq_POLLERR = INTERN("zmq-POLLERR");
@@ -247,17 +244,11 @@ emacs_module_init(struct emacs_runtime *ert)
         ezmq_fun_t *fun = (ezmq_fun_t *)ezmq_malloc(sizeof(*fun));
         if(fun) {
             memcpy(fun, &functions[i], sizeof(*fun)) ;
-            ezmq_bind_function(env,
-                               fun->name,
-                               env->make_function(env,
-                                                  fun->minarity, fun->maxarity,
-                                                  &ezmq_dispatch,
-                                                  fun->doc,
-                                                  fun));
+            ezmq_bind_function(fun);
         }
     }
 
-    ezmq_provide(env, "zmq-core");
+    ezmq_provide("zmq-core");
 
     initialized = true;
     return 0;
