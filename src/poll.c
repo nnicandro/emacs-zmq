@@ -108,7 +108,8 @@ ezmq_make_pollitem(emacs_value sock_or_fd, int events)
 
 /**
    Extract the list of pollitems along with their corresponding sockets/file
-   descriptors in triggers.
+   descriptors in triggers. Return an array of
+   zmq_pollitem_t objects that must be released by the caller.
 */
 static zmq_pollitem_t *
 ezmq_extract_pollitem_list(emacs_value list)
@@ -170,7 +171,8 @@ ezmq_make_pollitem_list(intmax_t nreceived, zmq_pollitem_t *items, intmax_t nite
 EZMQ_DOC(ezmq_poll, "ITEMS TIMEOUT",
          "Poll ITEMS until TIMEOUT.\n"
          "ITEMS is a list of cons cells of the form (SOCK-OR-FD . EVENTS)\n"
-         "where EVENTS is a list of valid poll events.");
+         "where EVENTS is a list of valid poll events. TIMEOUT is measured in\n"
+         "milliseconds.");
 emacs_value
 ezmq_poll(emacs_value eitems, emacs_value etimeout)
 {
@@ -207,12 +209,11 @@ ezmq_poller_new(void)
 }
 
 EZMQ_DOC(ezmq_poller_add,
-         "POLLER SOCK EVENTS",
+         "POLLER SOCK-OR-FD EVENTS",
          "Listen for EVENTS on SOCK using POLLER.\n"
          "SOCK-OR-FD can either be a `zmq-socket' or a file descriptor.\n"
          "EVENTS can either be a list of events (one of `zmq-POLLIN',\n"
-         "`zmq-POLLOUT', `zmq-POLLERR') or a bitwise-or of events. Optional\n"
-         "arguments USER-DATA is currently ignored.");
+         "`zmq-POLLOUT', `zmq-POLLERR') or a bitwise-or of events.");
 emacs_value
 ezmq_poller_add(emacs_value epoller, emacs_value esock, emacs_value eevents)
 {
@@ -240,8 +241,8 @@ ezmq_poller_add(emacs_value epoller, emacs_value esock, emacs_value eevents)
 }
 
 EZMQ_DOC(ezmq_poller_modify,
-         "POLLER SOCK EVENTS",
-         "Modify the EVENTS of SOCK that POLLER listens for.");
+         "POLLER SOCK-OR-FD EVENTS",
+         "Modify the EVENTS of SOCK-OR-FD that POLLER listens for.");
 emacs_value
 ezmq_poller_modify(emacs_value epoller, emacs_value esock, emacs_value eevents)
 {
@@ -269,8 +270,8 @@ ezmq_poller_modify(emacs_value epoller, emacs_value esock, emacs_value eevents)
 }
 
 EZMQ_DOC(ezmq_poller_remove,
-         "POLLER SOCK",
-         "Remove SOCK from POLLER.");
+         "POLLER SOCK-OR-FD",
+         "Remove SOCK-OR-FD from POLLER.");
 emacs_value
 ezmq_poller_remove(emacs_value epoller, emacs_value esock)
 {
