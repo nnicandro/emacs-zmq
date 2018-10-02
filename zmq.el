@@ -30,11 +30,11 @@
 
 ;;; Code:
 
+(require 'cl-lib)
+
 (defgroup zmq nil
   "ZMQ bindings for Emacs"
   :group 'communication)
-
-(require 'cl-lib)
 
 (defconst zmq-module-file
   (when module-file-suffix
