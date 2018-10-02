@@ -398,7 +398,7 @@ EVENT-FILTER has the same meaning as in `zmq-start-process'."
 SENTINEL has the same meaning as in `zmq-start-process'."
   (process-put process :sentinel sentinel))
 
-(defun zmq-start-process (sexp &optional event-filter sentinel buffer backtrace)
+(cl-defun zmq-start-process (sexp &key filter sentinel buffer backtrace)
   "Start an Emacs subprocess initializing it with SEXP.
 Return the newly created process.
 
@@ -407,10 +407,10 @@ the function can either take 0 or 1 arguments. If SEXP takes 1
 argument, then a new context object will be passed as the
 argument of the function.
 
-EVENT-FILTER has a similar meaning to process filters except raw
-text sent from the process is ignored and the EVENT-FILTER
-function will only receive complete s-expressions read from the
-process' stdout.
+FILTER has a similar meaning to process filters except raw text
+sent from the process is ignored and the FILTER function will
+only receive complete s-expressions read from the process'
+stdout.
 
 SENTINEL has the same meaning as in `make-process'.
 
@@ -419,9 +419,9 @@ process if non-nil. When BUFFER is nil, a new buffer will be
 created. When a BUFFER is supplied, it should not be used for any
 other purpose after a call to this function since it will be used
 to store intermediate output from the subprocess. If this
-function creates a new buffer that buffer will be killed on
-process exit, but it the responsiblity of the caller to kill the
-buffer if a buffer is supplied to this function.
+function creates a new buffer, that buffer will be killed on
+process exit, but it is the responsiblity of the caller to kill
+the buffer if a buffer is supplied to this function.
 
 If BACKTRACE is non-nil, then have the subprocess return a
 backtrace if it errors out. This is used for debugging purposes."
@@ -450,7 +450,7 @@ backtrace if it errors out. This is used for debugging purposes."
                              "-Q" "-batch"
                              "-L" (file-name-directory zmq-path)
                              "-l" zmq-path "--eval" cmd))))
-    (process-put process :filter event-filter)
+    (process-put process :filter filter)
     (process-put process :sentinel sentinel)
     (process-put process :owns-buffer (null buffer))
     (with-current-buffer (process-buffer process)

@@ -309,8 +309,8 @@ decoding and returns the s-expression sent from the parent process.
                          (throw 'exit t)))))))
              ;; A filter function which prints out messages sent by the
              ;; subprocess.
-             (lambda (sexp)
-               (message "echo %s" sexp)))))
+             :filter (lambda (sexp)
+                       (message "echo %s" sexp)))))
   ;; Let the process start
   (sleep-for 0.2)
   (zmq-subprocess-send proc (list 'send "topic1")))

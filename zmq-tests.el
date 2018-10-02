@@ -318,9 +318,9 @@
       (setq
        process (zmq-start-process
                 `(lambda () ,@body)
-                (lambda (event)
-                  (setq filter-called t)
-                  (should (equal (cdr event) "no context")))))
+                :filter (lambda (event)
+                          (setq filter-called t)
+                          (should (equal (cdr event) "no context")))))
       (with-timeout (0.4 nil)
         (while (not filter-called)
           (sleep-for 0.01)))
@@ -330,9 +330,9 @@
       (setq
        process (zmq-start-process
                 `(lambda (ctx) ,@body)
-                (lambda (event)
-                  (setq filter-called t)
-                  (should (equal (cdr event) "context")))))
+                :filter (lambda (event)
+                          (setq filter-called t)
+                          (should (equal (cdr event) "context")))))
       (with-timeout (0.4 nil)
         (while (not filter-called)
           (sleep-for 0.01)))
