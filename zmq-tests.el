@@ -295,7 +295,35 @@
 
            (should (equal (zmq-recv s) "msg1"))
            (setq events (zmq-poller-wait-all poller 10 100))
-           (should-not (zmq-assoc s events))))))))
+           (should-not (zmq-assoc s events))))))
+    (ert-info ("`zmq-poll'")
+      (zmq-test-with-bound-pair
+       ctx ((p zmq-PUB) (s zmq-SUB))
+       (let ((items (list
+                     (cons p (list zmq-POLLIN zmq-POLLOUT))
+                     (cons s (list zmq-POLLIN zmq-POLLOUT))))
+             (events nil))
+         (sleep-for 0.5)
+
+         ;; Subscribe to all incoming messages
+         (zmq-socket-set s zmq-SUBSCRIBE "")
+
+         (setq events (zmq-poll items 100))
+         (should (member zmq-POLLOUT (zmq-assoc p events)))
+         (should-not (alist-get s events))
+
+         (zmq-send p "msg1")
+         (setq events (zmq-poll items 100))
+         (should (member zmq-POLLOUT (zmq-assoc p events)))
+
+         (sleep-for 0.1)
+
+         (setq events (zmq-poll items 1000))
+         (should (member zmq-POLLIN (zmq-assoc s events)))
+
+         (should (equal (zmq-recv s) "msg1"))
+         (setq events (zmq-poll items 100))
+         (should-not (zmq-assoc s events)))))))
 
 (ert-deftest zmq-subprocess ()
   (ert-info ("Validating sexp")
