@@ -128,9 +128,12 @@ ezmq_extract_pollitem_list(emacs_value list)
 
         if(EQ(TYPE(head), Qcons) && EQ(TYPE(CDR(head)), Qcons))
             ezmq_extract_pollitem(CAR(head), CDR(head), &items[i]);
-        else
+        else {
+            free(items);
             // TODO: The right error convention for wrong-type-argument
             ezmq_signal(Qwrong_type_argument, 2, head, INTERN("consp"));
+            break;
+        }
     }
     return items;
 }
