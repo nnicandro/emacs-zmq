@@ -8,9 +8,6 @@
 #include <stdbool.h>
 #include "emacs-module.h"
 
-// Set to the current Emacs environment, see ezmq_dispatch
-extern emacs_env *env;
-
 /**
    About what environment functions do when a non-local exit is pending, from
    http://phst.github.io/emacs-modules.html#when-a-nonlocal-exit-is-pending-module-functions-silently-do-nothing:
@@ -124,10 +121,10 @@ extern emacs_env *env;
     extern emacs_value name(__VA_ARGS__)
 
 enum ezmq_obj_t {
-                 EZMQ_CONTEXT,
-                 EZMQ_MESSAGE,
-                 EZMQ_SOCKET,
-                 EZMQ_POLLER
+    EZMQ_CONTEXT,
+    EZMQ_MESSAGE,
+    EZMQ_SOCKET,
+    EZMQ_POLLER
 };
 
 typedef struct {
@@ -139,6 +136,9 @@ typedef struct {
     // polling information.
     intmax_t refcount;
 } ezmq_obj_t;
+
+// Set to the current Emacs environment, see ezmq_dispatch
+extern emacs_env *env;
 
 extern emacs_value Qzmq_error, Qt, Qnil, Qnth, Qlist,
     Qwrong_type_argument, Qargs_out_of_range,
