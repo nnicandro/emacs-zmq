@@ -140,7 +140,7 @@ typedef struct {
     intmax_t refcount;
 } ezmq_obj_t;
 
-extern emacs_value Qzmq_error, Qt, Qnil, Qlist,
+extern emacs_value Qzmq_error, Qt, Qnil, Qnth, Qlist,
     Qwrong_type_argument, Qargs_out_of_range,
     Qcons, Qstring, Qvector, Qcar, Qcdr, Qlength, Qinteger, Qequal,
     Qzmq_POLLIN, Qzmq_POLLERR, Qzmq_POLLOUT,

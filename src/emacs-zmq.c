@@ -11,7 +11,7 @@ typedef struct {
 } ezmq_fun_t;
 
 emacs_env *env = NULL;
-emacs_value Qzmq_error, Qt, Qnil, Qlist,
+emacs_value Qzmq_error, Qt, Qnil, Qnth, Qlist,
     Qwrong_type_argument, Qargs_out_of_range,
     Qcons, Qstring, Qvector, Qcar, Qcdr, Qlength, Qinteger, Qequal,
     Qzmq_POLLIN, Qzmq_POLLERR, Qzmq_POLLOUT,
@@ -154,6 +154,7 @@ emacs_module_init(struct emacs_runtime *ert)
 
     Qt = INTERN("t");
     Qnil = INTERN("nil");
+    Qnth = INTERN("nth");
     Qwrong_type_argument = INTERN("wrong-type-argument");
     Qargs_out_of_range = INTERN("args-out-of-range");
     Qlist = INTERN("list");

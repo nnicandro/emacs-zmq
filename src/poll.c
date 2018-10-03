@@ -137,32 +137,22 @@ ezmq_extract_pollitem_list(emacs_value list)
 
 /**
    Construct a list of cons cells containing those poll items in ITEMS that
-   received events.
+   received events. EITEMS is the original list of cons
+   cells that hold the sockets and events.
 */
 static emacs_value
-ezmq_make_pollitem_list(intmax_t nreceived, zmq_pollitem_t *items, intmax_t nitems)
+ezmq_make_pollitem_list(intmax_t nreceived, zmq_pollitem_t *items, emacs_value eitems, intmax_t nitems)
 {
     emacs_value ritems = Qnil;
     while(nreceived > 0) {
         nitems -= 1;
 
         short events = items[nitems].revents;
-        emacs_value trigger = Qnil;
-
-        if(items[nitems].socket) {
-            // Only create a user pointer to the socket if we have to
-            if(events != 0)
-                trigger = ezmq_new_obj_ptr(items[nitems].socket);
-        }
-
         if(events != 0) {
             nreceived -= 1;
 
-            // If no socket was found, it must be a file descriptor
-            if(trigger == Qnil)
-                trigger = INT(items[nitems].fd);
-
-            ritems = CONS(ezmq_make_pollitem(trigger, events), ritems);
+            emacs_value eitem = FUNCALL(Qnth, 2, ((emacs_value []){INT(nitems), eitems}));
+            ritems = CONS(ezmq_make_pollitem(CAR(eitem), events), ritems);
         }
     }
     return ritems;
@@ -188,7 +178,7 @@ ezmq_poll(emacs_value eitems, emacs_value etimeout)
             EZMQ_CHECK_ERROR(nreceived);
 
             if(!NONLOCAL_EXIT())
-                retval = ezmq_make_pollitem_list(nreceived, items, nitems);
+                retval = ezmq_make_pollitem_list(nreceived, items, eitems, nitems);
 
             free(items);
         }
