@@ -388,19 +388,22 @@
                   (should (= (length events) 2))
                   (should (equal (car events) '(event . "foo")))
                   (should (equal (cadr events) '(jelly . jam))))))
-            (ert-info ("Invalid read syntax")
+            (ert-info ("Invalid read syntax is skipped")
               (with-temp-buffer
-                (should-error (zmq--subprocess-read-output
-                               "(foo . bar)#()"))))
+                (let ((events (zmq--subprocess-read-output
+                               "(foo . bar)#()")))
+                  (should (= (length events) 2))
+                  (should (equal (car events) '(foo . bar)))
+                  (should (equal (cadr events) nil)))))
             (ert-info ("Ignoring raw text")
-              (should-not (zmq--subprocess-read-output
-                           "This is raw text"))
-              (should (equal (car (zmq--subprocess-read-output
-                                   "This is raw text 'foo"))
-                             '(quote foo)))
-              (should (equal (car (zmq--subprocess-read-output
-                                   "This is raw text \"foo\""))
-                             "foo"))))
+              (with-temp-buffer
+                (should-not (zmq--subprocess-read-output
+                             "This is raw text"))
+                (should (= (point-min) (point-max)))
+                (should-not (zmq--subprocess-read-output
+                             "This is raw text 'foo("))
+                (should (= (point-min) (1- (point-max))))
+                (should (eq (char-before) ?\()))))
           (ert-info ("Subprocess filter")
             (let ((filter-called nil))
               (process-put
@@ -413,7 +416,8 @@
               ;; emacs process, see `zmq--init-subprocess'
               (should-error (zmq--subprocess-filter process "(error . \"foo\")")
                             :type 'zmq-subprocess-error))))
-      (kill-process process))))
+      (when (process-live-p process)
+        (kill-process process)))))
 
 (provide 'zmq-tests)
 
