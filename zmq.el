@@ -281,6 +281,14 @@ debugging purposes."
                                        (or zmq-backtrace
                                            (cdr err))))))))))
 
+(defvar-local zmq--subprocess-parse-state nil
+  "The parse state of the output read from a subprocess.")
+
+(defsubst zmq--subprocess-skip-delete-to-sexp ()
+  (unless zmq--subprocess-parse-state
+    (delete-region
+     (point) (+ (point) (skip-syntax-forward "^(")))))
+
 (defun zmq--subprocess-read-output (output)
   "Return a list of s-expressions read from OUTPUT.
 OUTPUT is inserted into the `current-buffer' and `read' until the
@@ -296,23 +304,27 @@ will be ignored.
 
 Also note, for this function to work properly the same buffer
 should be current for subsequent calls."
-  (let (last-valid sexp accum)
-    (insert output)
-    (goto-char (point-min))
-    (while (setq sexp (condition-case err
-                          (read (current-buffer))
-                        (end-of-file nil)
-                        (invalid-read-syntax
-                         ;; `read' places `point' at the end of the offending
-                         ;; expression so remove it from the buffer so that
-                         ;; subsequent calls can make progress.
-                         (delete-region (or last-valid (point-min)) (point))
-                         (signal 'zmq-subprocess-error err))))
-      (setq last-valid (point))
-      ;; FIXME: Ignores raw text which gets converted to symbols
-      (unless (symbolp sexp)
-        (setq accum (cons sexp accum))))
-    (delete-region (point-min) (or last-valid (point-min)))
+  (let (accum)
+    (save-excursion (insert output))
+    (zmq--subprocess-skip-delete-to-sexp)
+    (while (/= (point) (point-max))
+      (setq zmq--subprocess-parse-state
+            (parse-partial-sexp
+             (point) (point-max) 0
+             nil zmq--subprocess-parse-state))
+      (when (= (nth 0 zmq--subprocess-parse-state) 0)
+        ;; When a complete top-level s-expression has been
+        ;; parsed, collect into the accumulated list of
+        ;; complete s-expressions.
+        (let ((beg (nth 2 zmq--subprocess-parse-state))
+              (end (point)))
+          (goto-char beg)
+          (unwind-protect
+              (push (read (current-buffer)) accum)
+            (setq zmq--subprocess-parse-state nil)
+            (goto-char end)
+            (delete-region beg end))))
+      (zmq--subprocess-skip-delete-to-sexp))
     (nreverse accum)))
 
 (defun zmq--subprocess-filter (process output)
