@@ -339,6 +339,7 @@ As a special case, if any of the s-expressions is a list with the
 `car' being the symbol error, a `zmq-subprocess-error' is
 signaled using the `cdr' of the list for the error data."
   (with-current-buffer (process-buffer process)
+    (goto-char (process-mark process))
     (let ((filter (process-get process :filter)))
       (when filter
         (let ((stream (let ((inhibit-read-only t))
@@ -348,7 +349,8 @@ signaled using the `cdr' of the list for the error data."
            if (and (listp event) (eq (car event) 'error)) do
            ;; TODO: Better way to handle this
            (signal 'zmq-subprocess-error (cdr event))
-           else do (funcall filter event)))))))
+           else do (funcall filter event)))))
+    (set-marker (process-mark process) (point-max))))
 
 (defun zmq--subprocess-sentinel (process event)
   "Sentinel function for ZMQ subprocesses.
