@@ -101,11 +101,7 @@ ezmq_message_data(emacs_value emessage)
 
     if(content) {
         size_t size = zmq_msg_size(msg->obj);
-        char *buf = malloc(size + 1);
-        buf[size] = 0;
-        memcpy(buf, zmq_msg_data(msg->obj), size);
-        retval = STRING(buf, size);
-        free(buf);
+        retval = STRING(content, size);
     }
 
     return retval;

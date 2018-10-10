@@ -61,16 +61,20 @@ ezmq_recv(emacs_value esock, emacs_value eflags, emacs_value ecopy)
     if(!NONLOCAL_EXIT()) {
         if(copy) {
             size_t size = zmq_msg_size(&msg);
-            char *buf = ezmq_malloc(size + 1);
+            // After examining emacs/src/alloc.c it looks like the null
+            // termination of STRING, i.e. env->make_string, is already taken
+            // care of when allocating in allocate_string_data so we can avoid
+            // this double copy and it looks like that has been the case since
+            // Emacs 25 when modules were introduced.
             if(!NONLOCAL_EXIT()) {
-                buf[size] = 0;
-                memcpy(buf, zmq_msg_data(&msg), size);
-                return STRING(buf, size);
+                emacs_value retval = STRING(zmq_msg_data(&msg), size);
+                zmq_msg_close(&msg);
+                return retval;
             }
         } else {
             ezmq_obj_t *obj = ezmq_new_obj(EZMQ_MESSAGE, NULL);
             if(!NONLOCAL_EXIT())
-                memcpy(obj->obj, &msg, sizeof(zmq_msg_t));
+                EZMQ_CHECK_ERROR(zmq_msg_move(obj->obj, &msg));
             return ezmq_new_obj_ptr(obj);
         }
     }
