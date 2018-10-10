@@ -70,10 +70,15 @@ ezmq_message(emacs_value edata)
                                                size,
                                                &ezmq_free_message,
                                                NULL));
-            if(NONLOCAL_EXIT()) free(data);
+            if(NONLOCAL_EXIT()) {
+                ezmq_free_obj(msg);
+                free(data);
+            }
         }
-    } else
+    } else {
         EZMQ_CHECK_ERROR(zmq_msg_init(msg->obj));
+        if(NONLOCAL_EXIT()) ezmq_free_obj(msg);
+    }
 
     return ezmq_new_obj_ptr(msg);
 }
