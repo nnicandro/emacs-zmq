@@ -1,12 +1,13 @@
-;;; zmq.el --- ZMQ bindings for Emacs -*- lexical-binding: t -*-
+;;; zmq.el --- ZMQ bindings in elisp -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2018 Nathaniel Nicandro
 
 ;; Author: Nathaniel Nicandro <nathanielnicandro@gmail.com>
 ;; Created: 05 Jan 2018
+;; URL: https://github.com/dzop/emacs-zmq
+;; Keywords: comm
 ;; Version: 0.9.0
-;; Keywords: zmq distributed messaging
-;; X-URL: https://github.com/dzop/emacs-zmq
+;; Package-Requires: ((cl-lib "0.5") (emacs "25"))
 
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
