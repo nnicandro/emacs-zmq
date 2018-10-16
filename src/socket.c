@@ -51,7 +51,7 @@ ezmq_recv(emacs_value esock, emacs_value eflags, emacs_value ecopy)
 {
     EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
     EZMQ_EXTRACT_OPTIONAL_INT(flags, eflags);
-    bool copy = !NILP(ecopy);
+    bool copy = NILP(ecopy);
 
     zmq_msg_t msg;
     EZMQ_CHECK_ERROR(zmq_msg_init(&msg));
