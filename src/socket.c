@@ -40,12 +40,12 @@ ezmq_send(emacs_value esock, emacs_value emsg, emacs_value eflags)
 }
 
 EZMQ_DOC(ezmq_recv,
-         "SOCK &optional FLAGS COPY",
+         "SOCK &optional FLAGS NOCOPY",
          "Receive a message on SOCK.\n"
-         "If COPY is non-nil, return a copy of the message data received,\n"
-         "otherwise return the `zmq-message' object storing the message data.\n"
-         "FLAGS is a bitmask of flag options. See the documentation of\n"
-         "zmq_recv in the C API for the values FLAGS can take.");
+         "If NOCOPY is nil, return a copy of the message data received,\n"
+         "otherwise when NOCOPY is non-nil, return the `zmq-message' object\n"
+         "storing the message data. FLAGS is a bitmask of flag options. See\n"
+         "the documentation of zmq_recv in the C API for the values FLAGS can take.");
 emacs_value
 ezmq_recv(emacs_value esock, emacs_value eflags, emacs_value ecopy)
 {
@@ -58,6 +58,7 @@ ezmq_recv(emacs_value esock, emacs_value eflags, emacs_value ecopy)
     if(NONLOCAL_EXIT()) return NULL;
 
     EZMQ_CHECK_ERROR(zmq_msg_recv(&msg, sock->obj, flags));
+
     if(!NONLOCAL_EXIT()) {
         if(copy) {
             size_t size = zmq_msg_size(&msg);
