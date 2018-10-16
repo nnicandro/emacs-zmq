@@ -108,15 +108,11 @@ MAX-PORT defaults to 65536, and MAX-TRIES defaults to 100."
     (catch 'bound
       (dotimes (_i max-tries)
         (setq port (+ (cl-random (- max-port min-port)) min-port))
-        (condition-case err
+        (condition-case nil
             (progn
               (zmq-bind sock (format "%s:%d" addr port))
               (throw 'bound port))
-          ((zmq-EACCES zmq-EADDRINUSE)
-           ;; From pyzmq
-           (when (eq (car err) 'zmq-EADDRINUSE)
-             (unless (eq system-type 'windows-nt)
-               (signal (car err) (cdr err))))))))))
+          ((zmq-EACCES zmq-EADDRINUSE) nil))))))
 
 ;;; Encoding/decoding messages and socket options
 
