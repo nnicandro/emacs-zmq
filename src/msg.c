@@ -63,17 +63,19 @@ ezmq_message(emacs_value edata)
     if(!NILP(edata)) {
         ptrdiff_t size = 0;
         char *data = ezmq_extract_message_data(edata, &size);
-
-        if(!NONLOCAL_EXIT()) {
-            EZMQ_CHECK_ERROR(zmq_msg_init_data(msg->obj,
-                                               data,
-                                               size,
-                                               &ezmq_free_message,
-                                               NULL));
-            if(NONLOCAL_EXIT()) {
-                ezmq_free_obj(msg);
-                free(data);
-            }
+        if(NONLOCAL_EXIT()) {
+            ezmq_free_obj(msg);
+            return NULL;
+        }
+        EZMQ_CHECK_ERROR(zmq_msg_init_data(msg->obj,
+                                           data,
+                                           size,
+                                           &ezmq_free_message,
+                                           NULL));
+        if(NONLOCAL_EXIT()) {
+            ezmq_free_obj(msg);
+            free(data);
+            return NULL;
         }
     } else {
         EZMQ_CHECK_ERROR(zmq_msg_init(msg->obj));
