@@ -14,40 +14,33 @@ ezmq_extract_message_data(emacs_value val, ptrdiff_t *size)
 
     if(EQ(type, Qstring)) {
         EZMQ_EXTRACT_STRING(content, clen, val);
-        // clen includes the terminating NULL byte, but ZMQ only works with
-        // binary data
         *size = clen;
         return content;
     } else if(EQ(type, Qvector)) {
         ptrdiff_t clen = env->vec_size(env, val);
         char *content = ezmq_malloc(clen);
+        if(NONLOCAL_EXIT()) return NULL;
 
-        if(!NONLOCAL_EXIT()) {
-            ptrdiff_t i;
-            for(i = 0; i < clen; i++) {
-                EZMQ_EXTRACT_INT(byte, AREF(val, i));
+        ptrdiff_t i;
+        for(i = 0; i < clen; i++) {
+            EZMQ_EXTRACT_INT(byte, AREF(val, i));
 
-                if(!(0 <= byte && byte <= 255)) {
-                    ezmq_signal(INTERN("args-out-of-range"),
-                                2, byte, CONS(INT(0), INT(255)));
-                    break;
-                }
-                content[i] = byte;
+            if(!(0 <= byte && byte <= 255)) {
+                ezmq_signal(INTERN("args-out-of-range"),
+                            2, byte, CONS(INT(0), INT(255)));
+                free(content);
+                return NULL;
             }
-            if(!NONLOCAL_EXIT()) {
-                *size = clen;
-                return content;
-            }
+            content[i] = (char)byte;
         }
+        *size = clen;
+        return content;
     } else
         ezmq_wrong_type_argument(val, 2, Qstring, Qvector);
 
     return NULL;
 }
 
-// TODO: From the documentation of zmq_msg_init: "never initialize the same
-// message twice", I think I do this somewhere in zmq-ffi.el or in jupyter.el,
-// find where.
 EZMQ_DOC(ezmq_message,
          "&optional DATA",
          "Initialize a ZMQ message.\n"
