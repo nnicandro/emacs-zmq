@@ -47,40 +47,40 @@ EZMQ_DOC(ezmq_recv,
          "storing the message data. FLAGS is a bitmask of flag options. See\n"
          "the documentation of zmq_recv in the C API for the values FLAGS can take.");
 emacs_value
-ezmq_recv(emacs_value esock, emacs_value eflags, emacs_value ecopy)
+ezmq_recv(emacs_value esock, emacs_value eflags, emacs_value enocopy)
 {
     EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
     EZMQ_EXTRACT_OPTIONAL_INT(flags, eflags);
-    bool copy = NILP(ecopy);
 
-    zmq_msg_t msg;
-    EZMQ_CHECK_ERROR(zmq_msg_init(&msg));
-    if(NONLOCAL_EXIT()) return NULL;
-
-    EZMQ_CHECK_ERROR(zmq_msg_recv(&msg, sock->obj, flags));
-
-    if(!NONLOCAL_EXIT()) {
-        if(copy) {
-            size_t size = zmq_msg_size(&msg);
-            // After examining emacs/src/alloc.c it looks like the null
-            // termination of STRING, i.e. env->make_string, is already taken
-            // care of when allocating in allocate_string_data so we can avoid
-            // this double copy and it looks like that has been the case since
-            // Emacs 25 when modules were introduced.
-            if(!NONLOCAL_EXIT()) {
-                emacs_value retval = STRING(zmq_msg_data(&msg), size);
-                zmq_msg_close(&msg);
-                return retval;
-            }
-        } else {
-            ezmq_obj_t *obj = ezmq_new_obj(EZMQ_MESSAGE, NULL);
-            if(!NONLOCAL_EXIT())
-                EZMQ_CHECK_ERROR(zmq_msg_move(obj->obj, &msg));
-            return ezmq_new_obj_ptr(obj);
-        }
+    zmq_msg_t *msg = ezmq_malloc(sizeof(*msg));
+    EZMQ_CHECK_ERROR(zmq_msg_init(msg));
+    if(NONLOCAL_EXIT()) {
+        free(msg);
+        return NULL;
     }
-    return Qnil;
+
+    EZMQ_CHECK_ERROR(zmq_msg_recv(msg, sock->obj, flags));
+    if(NONLOCAL_EXIT()) {
+        free(msg);
+        return NULL;
+    }
+
+    emacs_value retval = Qnil;
+    if(NILP(enocopy)) {
+        // After examining emacs/src/alloc.c it looks like the null
+        // termination of STRING, i.e. env->make_string, is already taken
+        // care of when allocating in allocate_string_data so we can avoid
+        // this double copy and it looks like that has been the case since
+        // Emacs 25 when modules were introduced.
+        retval = STRING(zmq_msg_data(msg), zmq_msg_size(msg));
+        zmq_msg_close(msg);
+        free(msg);
+    } else {
+        retval =  ezmq_new_obj_ptr(ezmq_new_obj(EZMQ_MESSAGE, msg));
+    }
+    return retval;
 }
+
 
 EZMQ_DOC(ezmq_bind, "SOCK ENDPOINT", "Bind SOCK to ENDPOINT.");
 emacs_value
