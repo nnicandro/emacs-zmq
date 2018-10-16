@@ -133,7 +133,7 @@ CODING-SYSTEM defaults to utf-8. FLAGS has the same meaning as in
   (decode-coding-string (zmq-recv sock flags) coding-system))
 
 (defun zmq-socket-set-encoded (sock option value &optional coding-system)
-  "Set a SOCK option, encoding its value before setting.
+  "Set a SOCK OPTION, encoding its value before setting.
 Use CODING-SYSTEM to encode VALUE. CODING-SYSTEM defaults to
 utf-8."
   (setq coding-system (or coding-system 'utf-8))
@@ -176,7 +176,9 @@ FLAGS has the same meaning as in `zmq-recv'."
 ;;; Setting/getting options from contexts, sockets, messages
 
 (defun zmq--set-get-option (set object option &optional value)
-  "Helper function for `zmq-get-option' and `zmq-set-option'."
+  "Helper function for `zmq-get-option' and `zmq-set-option'.
+If SET is non-nil, set OBJECT's OPTION to VALUE. Otherwise get
+OPTION's value, ignoring any VALUE argument."
   (let ((fun (cond
               ((zmq-socket-p object)
                (if set #'zmq-socket-set #'zmq-socket-get))
@@ -238,7 +240,7 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
   (set-binary-mode stream nil))
 
 (defun zmq-prin1 (sexp)
-  "Prints SEXP using `prin1' and flushes `stdout' afterwards."
+  "Print SEXP using `prin1' and flush `stdout' afterwards."
   (prin1 sexp)
   (zmq-flush 'stdout))
 
@@ -251,7 +253,7 @@ Call `zmq-subprocess-read' and assuming the read s-expression is
 a function, call the function. If the function accepts a single
 argument pass in the `zmq-current-context' as the argument.
 
-If BACKTRACE is non-nil and an error occurs when evaluating send
+If BACKTRACE is non-nil and an error occurs when evaluating, send
 the backtrace to the parent process. This should only be used for
 debugging purposes."
   (if (not noninteractive) (error "Not a subprocess")
@@ -294,9 +296,7 @@ OUTPUT have been processed. After reading, the contents of the
 s-expression is removed and a list of all the valid s-expressions
 in OUTPUT is returned.
 
-Note, if OUTPUT contains any expressions that are read as
-symbols, i.e. contains raw text not surrounded by quotes, they
-will be ignored.
+Any other text in OUTPUT that is not an s-expression is ignored.
 
 Also note, for this function to work properly the same buffer
 should be current for subsequent calls."
@@ -331,9 +331,9 @@ function with the same meaning as the EVENT-FILTER argument in
 s-expressions and the `:filter' function called for every valid
 s-expression in OUTPUT.
 
-As a special case, if any of the s-expressions is a list with the
-`car' being the symbol error, a `zmq-subprocess-error' is
-signaled using the `cdr' of the list for the error data."
+As a special case, if the `car' of an s-expression is the symbol
+error, a `zmq-subprocess-error' is signaled using the `cdr' of
+the list for the error data."
   (with-current-buffer (process-buffer process)
     (goto-char (process-mark process))
     (let ((filter (process-get process :filter)))
