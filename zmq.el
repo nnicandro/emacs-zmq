@@ -65,27 +65,25 @@ newly created context."
 
 ;;; Tunneling
 
-;; TODO: Add password handling, or how could we make TRAMP do most of the work?
+;; TODO: Add password handling
 (defun zmq-make-tunnel (lport rport server &optional remoteip)
   "Forward traffic from LPORT on the localhost to REMOTEIP:RPORT on SERVER.
-If REMOTEIP is nil, forward LPORT to RPORT on SERVER."
+If REMOTEIP is nil, forward LPORT to RPORT on SERVER.
+Forwarding is done with ssh."
   (or remoteip (setq remoteip "127.0.0.1"))
-  (let ((sock (zmq-socket (zmq-current-context) zmq-PUB)))
-    (unwind-protect
-        (start-process
-         "zmq-tunnel" nil
-         "ssh"
-         ;; Run in background
-         "-f"
-         ;; Wait until the tunnel is open
-         "-o ExitOnForwardFailure=yes"
-         ;; Local forward
-         "-L" (format "127.0.0.1:%d:%s:%d" lport remoteip rport)
-         server
-         ;; Close the tunnel if no other connections are made within 60
-         ;; seconds
-         "sleep 60")
-      (zmq-close sock))))
+  (start-process
+   "zmq-tunnel" nil
+   "ssh"
+   ;; Run in background
+   "-f"
+   ;; Wait until the tunnel is open
+   "-o ExitOnForwardFailure=yes"
+   ;; Local forward
+   "-L" (format "127.0.0.1:%d:%s:%d" lport remoteip rport)
+   server
+   ;; Close the tunnel if no other connections are made within 60
+   ;; seconds
+   "sleep 60"))
 
 ;;; Socket functions
 
