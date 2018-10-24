@@ -284,6 +284,9 @@ debugging purposes."
   "The parse state of the output read from a subprocess.")
 
 (defsubst zmq--subprocess-skip-delete-to-sexp ()
+  "Skip to the start of a list.
+Delete the region between `point' and the start of the next list.
+Only skip and delete if `zmq--subprocess-parse-state' is nil."
   (unless zmq--subprocess-parse-state
     (delete-region
      (point) (+ (point) (skip-syntax-forward "^(")))))
