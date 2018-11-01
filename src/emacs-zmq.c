@@ -166,14 +166,14 @@ emacs_module_init(struct emacs_runtime *ert)
     Qequal = INTERN("equal");
     Qinteger = INTERN("integer");
     Qlength = INTERN("length");
-    Qzmq_error = INTERN("zmq-ERROR");
+    Qzmq_error = GLOBREF(INTERN("zmq-ERROR"));
 
     ezmq_make_error_symbols();
 
     ezmq_expose_constants();
-    Qzmq_POLLIN = INTERN("zmq-POLLIN");
-    Qzmq_POLLOUT = INTERN("zmq-POLLOUT");
-    Qzmq_POLLERR = INTERN("zmq-POLLERR");
+    Qzmq_POLLIN = GLOBREF(INTERN("zmq-POLLIN"));
+    Qzmq_POLLOUT = GLOBREF(INTERN("zmq-POLLOUT"));
+    Qzmq_POLLERR = GLOBREF(INTERN("zmq-POLLERR"));
 
     emacs_value Qsval = INTERN("symbol-value");
     Izmq_POLLIN = FUNCALL(Qsval, 1, &Qzmq_POLLIN);
