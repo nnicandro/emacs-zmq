@@ -89,10 +89,8 @@ ezmq_signal(emacs_value err, int nargs, ...)
 static void
 ezmq_wrong_object_type(ezmq_obj_t *obj, enum ezmq_obj_t expected)
 {
-    SIGNAL(Qwrong_type_argument,
-           LIST(2,
-                ezmq_type_symbol(expected),
-                ezmq_type_symbol(obj->type)));
+    ezmq_wrong_type_argument(ezmq_type_symbol(obj->type),
+                             1, ezmq_type_symbol(expected));
 }
 
 void

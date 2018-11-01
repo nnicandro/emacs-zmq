@@ -131,7 +131,7 @@ ezmq_extract_pollitem_list(emacs_value list)
         else {
             free(items);
             // TODO: The right error convention for wrong-type-argument
-            ezmq_signal(Qwrong_type_argument, 2, head, INTERN("consp"));
+            ezmq_wrong_type_argument(head, 1, INTERN("consp"));
             break;
         }
     }
@@ -186,7 +186,7 @@ ezmq_poll(emacs_value eitems, emacs_value etimeout)
             free(items);
         }
     } else
-        ezmq_signal(Qwrong_type_argument, 1, INTERN("consp"));
+        ezmq_wrong_type_argument(eitems, 1, INTERN("consp"));
     return retval;
 }
 
@@ -218,7 +218,7 @@ ezmq_poller_add(emacs_value epoller, emacs_value esock, emacs_value eevents)
     else if(EQ(TYPE(eevents), Qinteger))
         events = EXTRACT_INT(eevents);
     else
-        ezmq_signal(Qwrong_type_argument, 2, eevents, INTERN("consp"));
+        ezmq_wrong_type_argument(eevents, 1, INTERN("consp"));
 
     if(!NONLOCAL_EXIT()) {
         if(EQ(TYPE(esock), Qinteger)) {
@@ -247,7 +247,7 @@ ezmq_poller_modify(emacs_value epoller, emacs_value esock, emacs_value eevents)
     else if(EQ(TYPE(eevents), Qinteger))
         events = EXTRACT_INT(eevents);
     else
-        ezmq_signal(Qwrong_type_argument, 2, eevents, INTERN("consp"));
+        ezmq_wrong_type_argument(eevents, 1, INTERN("consp"));
 
     if(!NONLOCAL_EXIT()) {
         if(EQ(TYPE(esock), Qinteger)) {
