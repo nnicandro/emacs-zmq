@@ -21,7 +21,7 @@ ezmq_extract_message_data(emacs_value val, ptrdiff_t *size)
         *size = clen;
         return content;
     } else if(EQ(type, Qvector)) {
-        ptrdiff_t clen = env->vec_size(env, val);
+        ptrdiff_t clen = VEC_LENGTH(val);
         char *content = ezmq_malloc(clen);
         if(NONLOCAL_EXIT()) return NULL;
 
