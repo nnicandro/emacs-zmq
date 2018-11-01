@@ -23,37 +23,37 @@
    expect an implicit emacs_env variable named env to be defined in the calling
    environment of the macro.
 */
-#define INTERN(val) env->intern(env, val)
+#define INTERN(val) env->intern(env, (val))
 
-#define FUNCALL(fun, nargs, args) env->funcall(env, fun, nargs, args)
+#define FUNCALL(fun, nargs, args) env->funcall(env, (fun), (nargs), (args))
 
-#define CAR(list) FUNCALL(Qcar, 1, &list)
+#define CAR(list) FUNCALL(Qcar, 1, &(list))
 
-#define CDR(list) FUNCALL(Qcdr, 1, &list)
+#define CDR(list) FUNCALL(Qcdr, 1, &(list))
 
-#define INT(i) env->make_integer(env, i)
+#define INT(i) env->make_integer(env, (i))
 
-#define STRING(str, len) env->make_string(env, str, len)
+#define STRING(str, len) env->make_string(env, (str), (len))
 
-#define LIST(count, ...) FUNCALL(Qlist, count, ((emacs_value []){ __VA_ARGS__ }))
+#define LIST(count, ...) FUNCALL(Qlist, (count), ((emacs_value []){ __VA_ARGS__ }))
 
-#define CONS(car, cdr) FUNCALL(Qcons, 2, ((emacs_value []){ car, cdr }))
+#define CONS(car, cdr) FUNCALL(Qcons, 2, ((emacs_value []){ (car), (cdr) }))
 
-#define TYPE(val) env->type_of(env, val)
+#define TYPE(val) env->type_of(env, (val))
 
-#define USER_PTR(val) env->get_user_ptr(env, val)
+#define USER_PTR(val) env->get_user_ptr(env, (val))
 
-#define USER_FINALIZER(val) env->get_user_finalizer(env, val)
+#define USER_FINALIZER(val) env->get_user_finalizer(env, (val))
 
-#define EQ(a, b) env->eq(env, a, b)
+#define EQ(a, b) env->eq(env, (a), (b))
 
-#define NILP(a) !env->is_not_nil(env, a)
+#define NILP(a) !env->is_not_nil(env, (a))
 
-#define EQUAL(a, b) EQ(FUNCALL(Qequal, 2, ((emacs_value []){ a, b })), Qt)
+#define EQUAL(a, b) EQ(FUNCALL(Qequal, 2, ((emacs_value []){ (a), (b) })), Qt)
 
-#define LENGTH(list) env->extract_integer(env, FUNCALL(Qlength, 1, &list))
+#define LENGTH(list) env->extract_integer(env, FUNCALL(Qlength, 1, &(list)))
 
-#define AREF(vec, i) env->vec_get(env, vec, i)
+#define AREF(vec, i) env->vec_get(env, (vec), (i))
 
 #define VEC_LENGTH(vec) env->vec_size(env, (vec))
 
@@ -65,7 +65,7 @@
 
 #define CLEAR_NONLOCAL_EXIT() env->non_local_exit_clear(env)
 
-#define SIGNAL(err, data) env->non_local_exit_signal(env, err, data)
+#define SIGNAL(err, data) env->non_local_exit_signal(env, (err), (data))
 
 /**
    EZMQ_EXTRACT_* macros transform the Lisp object representations to their
@@ -74,17 +74,17 @@
    returning NULL.
 */
 
-#define EZMQ_EXTRACT_INT(name, val)                 \
-    intmax_t name = env->extract_integer(env, val); \
-    do {                                            \
-        if(NONLOCAL_EXIT()) {                       \
-            return NULL;                            \
-        }                                           \
+#define EZMQ_EXTRACT_INT(name, val)                     \
+    intmax_t name = env->extract_integer(env, (val));   \
+    do {                                                \
+        if(NONLOCAL_EXIT()) {                           \
+            return NULL;                                \
+        }                                               \
     } while(0)
 
 #define EZMQ_EXTRACT_OPTIONAL_INT(name, val)    \
-    intmax_t name = EQ(val, Qnil) ? 0 :         \
-        env->extract_integer(env, val);         \
+    intmax_t name = EQ((val), Qnil) ? 0 :       \
+        env->extract_integer(env, (val));       \
     do {                                        \
         if(NONLOCAL_EXIT()) {                   \
             return NULL;                        \
@@ -97,7 +97,7 @@
 
 #define EZMQ_EXTRACT_STRING(name, len, val)         \
     ptrdiff_t len = 0;                              \
-    char *name = ezmq_copy_string(val, &len);       \
+    char *name = ezmq_copy_string((val), &len);     \
     do {                                            \
         if(NONLOCAL_EXIT()) {                       \
             return NULL;                            \
@@ -106,7 +106,7 @@
 
 #define EZMQ_CHECK_ERROR(expr)                  \
     do {                                        \
-        int __retcode = expr;                   \
+        int __retcode = (expr);                 \
         if(__retcode == -1) {                   \
             ezmq_signal_error();                \
         }                                       \
