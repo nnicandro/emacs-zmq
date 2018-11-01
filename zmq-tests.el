@@ -327,13 +327,13 @@
 
 (ert-deftest zmq-subprocess ()
   (ert-info ("Validating sexp")
-    (let (proc foo)
+    (let (proc)
       (unwind-protect
           (progn
             (should-error (setq proc (zmq-start-process (list 1 2 3))))
             (ert-info ("Only functions with 0 or 1 arguments")
               (should-error (setq proc (zmq-start-process
-                                        (lambda (a b)))))))
+                                        (lambda (_a _b)))))))
         (when proc
           (delete-process proc)))))
   (ert-info ("Subprocess wraps function with context")
