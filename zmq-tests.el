@@ -316,9 +316,7 @@
          (setq events (zmq-poll items 100))
          (should (member zmq-POLLOUT (zmq-assoc p events)))
 
-         (sleep-for 0.1)
-
-         (setq events (zmq-poll items 1000))
+         (setq events (zmq-poll items 10000))
          (should (member zmq-POLLIN (zmq-assoc s events)))
 
          (should (equal (zmq-recv s) "msg1"))
