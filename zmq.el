@@ -49,10 +49,9 @@
 
 (defun zmq-current-context ()
   "Return the `zmq-current-context'.
-Return the symbol value of `zmq-current-context' if non-nil. In
-the case that `zmq-current-context' is nil: create a new
-`zmq-context', bind it to `zmq-current-context', and return the
-newly created context."
+Return the symbol value of `zmq-current-context' if non-nil.
+Otherwise, create a new `zmq-context', bind it to
+`zmq-current-context', and return the newly created context."
   (or zmq-current-context
       (setq zmq-current-context (zmq-context))))
 
