@@ -44,8 +44,6 @@
      (file-name-directory (locate-library "zmq"))))
   "The module file for ZMQ or nil if modules are not supported.")
 
-;;; Convencience macros for contexts, sockets, and pollers
-
 (defvar zmq-current-context nil
   "The context set by the function `zmq-current-context'.")
 
