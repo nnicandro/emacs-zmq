@@ -110,6 +110,20 @@ ezmq_wrong_type_argument(emacs_value val, int nvalid, ...)
     SIGNAL(Qwrong_type_argument, LIST(2, val, options_list));
 }
 
+int
+ezmq_obj_of_type(emacs_value val, enum ezmq_obj_t type)
+{
+    ezmq_obj_t *obj = USER_PTR(val);
+    if(!NONLOCAL_EXIT() &&
+       USER_FINALIZER(val) == &ezmq_obj_finalizer &&
+       obj->type == type) {
+        return 1;
+    } else {
+        CLEAR_NONLOCAL_EXIT();
+        return 0;
+    }
+}
+
 ezmq_obj_t *
 ezmq_extract_obj(enum ezmq_obj_t type, emacs_value val)
 {

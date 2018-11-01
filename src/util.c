@@ -151,44 +151,30 @@ ezmq_equal(emacs_value ea, emacs_value eb)
         return Qt;
 }
 
-static emacs_value
-ezmq_obj_of_type(emacs_value val, enum ezmq_obj_t type)
-{
-    ezmq_obj_t *obj = USER_PTR(val);
-    if(!NONLOCAL_EXIT() &&
-       USER_FINALIZER(val) == &ezmq_obj_finalizer &&
-       obj->type == type) {
-        return Qt;
-    } else {
-        CLEAR_NONLOCAL_EXIT();
-        return Qnil;
-    }
-}
-
 EZMQ_DOC(ezmq_message_p, "OBJ", "Is OBJ a `zmq-message'?");
 emacs_value
 ezmq_message_p(emacs_value obj)
 {
-    return ezmq_obj_of_type(obj, EZMQ_MESSAGE);
+    return ezmq_obj_of_type(obj, EZMQ_MESSAGE) ? Qt : Qnil;
 }
 
 EZMQ_DOC(ezmq_socket_p, "OBJ", "Is OBJ a `zmq-socket'?");
 emacs_value
 ezmq_socket_p(emacs_value obj)
 {
-    return ezmq_obj_of_type(obj, EZMQ_SOCKET);
+    return ezmq_obj_of_type(obj, EZMQ_SOCKET) ? Qt : Qnil;
 }
 
 EZMQ_DOC(ezmq_context_p, "OBJ", "Is OBJ a `zmq-context'?");
 emacs_value
 ezmq_context_p(emacs_value obj)
 {
-    return ezmq_obj_of_type(obj, EZMQ_CONTEXT);
+    return ezmq_obj_of_type(obj, EZMQ_CONTEXT) ? Qt : Qnil;
 }
 
 EZMQ_DOC(ezmq_poller_p, "OBJ", "Is OBJ a `zmq-poller'?");
 emacs_value
 ezmq_poller_p(emacs_value obj)
 {
-    return ezmq_obj_of_type(obj, EZMQ_POLLER);
+    return ezmq_obj_of_type(obj, EZMQ_POLLER) ? Qt : Qnil;
 }

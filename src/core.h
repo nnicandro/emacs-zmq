@@ -201,6 +201,12 @@ extern void
 ezmq_free_obj(ezmq_obj_t *obj);
 
 /**
+   Return 1 if Emacs VAL is a ZMQ object with TYPE, 0 otherwise.
+*/
+extern int
+ezmq_obj_of_type(emacs_value val, enum ezmq_obj_t type);
+
+/**
    Extract an ezmq_obj_t from the Lisp object in OBJ. Signal a non-local exit
    if the extracted object doesn't match TYPE.
 */
