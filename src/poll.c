@@ -21,7 +21,7 @@ ezmq_invalid_poll_event(intmax_t event)
 static intmax_t
 ezmq_extract_poll_event(emacs_value val)
 {
-    intmax_t event = env->extract_integer(env, val);
+    intmax_t event = EXTRACT_INT(val);
     if(NONLOCAL_EXIT()) return -1;
     if(event != ZMQ_POLLIN && event != ZMQ_POLLOUT && event != ZMQ_POLLERR) {
         ezmq_invalid_poll_event(event);
@@ -216,7 +216,7 @@ ezmq_poller_add(emacs_value epoller, emacs_value esock, emacs_value eevents)
     if(EQ(TYPE(eevents), Qcons))
         events = ezmq_merge_poll_events(eevents);
     else if(EQ(TYPE(eevents), Qinteger))
-        events = env->extract_integer(env, eevents);
+        events = EXTRACT_INT(eevents);
     else
         ezmq_signal(Qwrong_type_argument, 2, eevents, INTERN("consp"));
 
@@ -245,7 +245,7 @@ ezmq_poller_modify(emacs_value epoller, emacs_value esock, emacs_value eevents)
     if(EQ(TYPE(eevents), Qcons))
         events = ezmq_merge_poll_events(eevents);
     else if(EQ(TYPE(eevents), Qinteger))
-        events = env->extract_integer(env, eevents);
+        events = EXTRACT_INT(eevents);
     else
         ezmq_signal(Qwrong_type_argument, 2, eevents, INTERN("consp"));
 

@@ -33,6 +33,10 @@
 
 #define INT(i) env->make_integer(env, (i))
 
+// Should only be used when i is guaranteed to be an integer, otherwise use
+// EZMQ_EXTRACT_INT
+#define EXTRACT_INT(i) env->extract_integer(env, (i))
+
 #define STRING(str, len) env->make_string(env, (str), (len))
 
 #define LIST(count, ...) FUNCALL(Qlist, (count), ((emacs_value []){ __VA_ARGS__ }))
