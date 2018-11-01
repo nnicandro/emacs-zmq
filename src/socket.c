@@ -12,8 +12,11 @@ ezmq_socket(emacs_value econtext, emacs_value etype)
 
     void *sock = zmq_socket(context->obj, type);
     EZMQ_CHECK_NULL_ERROR(sock);
-
-    return ezmq_new_obj_ptr(ezmq_new_obj(EZMQ_SOCKET, sock));
+    ezmq_obj_t *obj = ezmq_new_obj(EZMQ_SOCKET, sock);
+    // Ensure the context does not get garbage collected while the socket is in
+    // use
+    ezmq_obj_set_val(obj, econtext);
+    return ezmq_new_obj_ptr(obj);
 }
 
 EZMQ_DOC(ezmq_send,
