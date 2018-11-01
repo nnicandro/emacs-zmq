@@ -14,7 +14,7 @@ test:
 
 clean:
 	$(MAKE) -C src clean
-	rm emacs-zmq.so
+	rm emacs-zmq.so $(ELCFILES)
 
 compile: $(ELCFILES)
 
