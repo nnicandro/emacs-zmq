@@ -234,6 +234,10 @@ ezmq_poller_add(emacs_value epoller, emacs_value esock, emacs_value eevents)
         } else {
             EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
             EZMQ_CHECK_ERROR(zmq_poller_add(poller->obj, sock->obj, sock, events));
+            // Keep track of sockets added to ensure they do not get garbage
+            // collected
+            if(!NONLOCAL_EXIT())
+                ezmq_obj_set_val(poller, CONS(esock, ezmq_obj_get_val(poller)));
         }
     }
 
@@ -282,6 +286,11 @@ ezmq_poller_remove(emacs_value epoller, emacs_value esock)
     } else {
         EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
         EZMQ_CHECK_ERROR(zmq_poller_remove(poller->obj, sock->obj));
+        if(!NONLOCAL_EXIT()) {
+            emacs_value new_val = FUNCALL(INTERN("delq"), 2,
+                                          ((emacs_value []){esock, ezmq_obj_get_val(poller)}));
+            ezmq_obj_set_val(poller, new_val);
+        }
     }
     return Qnil;
 }
@@ -294,6 +303,8 @@ ezmq_poller_destroy(emacs_value epoller)
 {
     EZMQ_EXTRACT_OBJ(poller, EZMQ_POLLER, epoller);
     EZMQ_CHECK_ERROR(zmq_poller_destroy(&poller->obj));
+    if(!NONLOCAL_EXIT())
+        ezmq_obj_set_val(poller, NULL);
     return Qnil;
 }
 
@@ -309,7 +320,16 @@ ezmq_get_poll_trigger(ezmq_obj_t *poller, zmq_poller_event_t event)
 {
     emacs_value trigger = Qnil;
     if(event.socket) {
-        trigger = ezmq_new_obj_ptr((ezmq_obj_t *)event.user_data);
+        emacs_value socks = ezmq_obj_get_val(poller);
+        while(!NILP(socks)) {
+            emacs_value esock = CAR(socks);
+            EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+            if(sock->obj == event.socket) {
+                trigger = esock;
+                break;
+            }
+            socks = CDR(socks);
+        }
     } else
         trigger = INT(event.fd);
 
