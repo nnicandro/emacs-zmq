@@ -229,6 +229,18 @@ emacs_value
 ezmq_obj_get_val(ezmq_obj_t *obj);
 
 /**
+   Add OBJ's val field to stack of values to call FREE_GLOBREF() on next dispatch.
+*/
+extern void
+ezmq_obj_push_val_for_release(ezmq_obj_t *obj);
+
+/**
+   Remove a value from stack of values pushed to by ezmq_obj_push_val_for_release()
+*/
+extern emacs_value
+ezmq_obj_pop_val_for_release();
+
+/**
    Return 1 if Emacs VAL is a ZMQ object with TYPE, 0 otherwise.
 */
 extern int

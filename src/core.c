@@ -1,5 +1,11 @@
 #include "core.h"
 #include <pthread.h>
+#include <assert.h>
+
+#define EZMQ_GLOBREF_STACK_MAX 5
+
+static intmax_t globref_stack_idx = -1;
+static emacs_value globref_stack[EZMQ_GLOBREF_STACK_MAX];
 
 #define ERR_CASE(err)                                              \
     case err: {                                                    \
@@ -235,6 +241,7 @@ ezmq_free_obj(ezmq_obj_t *obj)
         if(obj->type == EZMQ_MESSAGE) {
             free(obj->obj);
         }
+        ezmq_obj_push_val_for_release(obj);
         free(obj);
     }
 }
@@ -242,9 +249,7 @@ ezmq_free_obj(ezmq_obj_t *obj)
 void
 ezmq_obj_set_val(ezmq_obj_t *obj, emacs_value val)
 {
-    if(obj->val) {
-        FREE_GLOBREF(obj->val);
-    }
+    ezmq_obj_push_val_for_release(obj);
     obj->val = val ? GLOBREF(val) : NULL;
 }
 
@@ -252,6 +257,27 @@ emacs_value
 ezmq_obj_get_val(ezmq_obj_t *obj)
 {
     return obj->val ? obj->val : Qnil;
+}
+
+void
+ezmq_obj_push_val_for_release(ezmq_obj_t *obj)
+{
+    if(obj->val) {
+        globref_stack_idx += 1;
+        assert(globref_stack_idx < EZMQ_GLOBREF_STACK_MAX);
+        globref_stack[globref_stack_idx] = obj->val;
+    }
+}
+
+emacs_value
+ezmq_obj_pop_val_for_release()
+{
+    if(globref_stack_idx >= 0) {
+        emacs_value val = globref_stack[globref_stack_idx];
+        globref_stack_idx -= 1;
+        return val;
+    } else
+        return NULL;
 }
 
 char *

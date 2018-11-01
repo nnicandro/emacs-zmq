@@ -17,6 +17,21 @@ emacs_value Qzmq_error, Qt, Qnil, Qnth, Qlist,
     Qzmq_POLLIN, Qzmq_POLLERR, Qzmq_POLLOUT,
     Izmq_POLLIN, Izmq_POLLERR, Izmq_POLLOUT;
 
+EZMQ_DOC(ezmq_cleanup_globrefs, "",
+         "Free global references flagged for release.\n"
+         "Internally, ZMQ keeps references to Emacs objects that are still in use.\n"
+         "Most notably, a `zmq-poller' objects keeps track of all the sockets added to it\n"
+         "so that they do not get cleaned up by garbage collection if they go out of scope\n"
+         "while a the poller is still using them.");
+static void
+ezmq_cleanup_globrefs()
+{
+    emacs_value val;
+    while((val = ezmq_obj_pop_val_for_release())) {
+        FREE_GLOBREF(val);
+    }
+}
+
 #define EZMQ_MAXARGS 5
 
 static emacs_value _fargs[EZMQ_MAXARGS];
@@ -89,6 +104,10 @@ ezmq_dispatch(emacs_env *current_env, ptrdiff_t nargs, emacs_value args[], void 
                                                  args[4]);
         break;
     }
+
+    // Cleanup global references flagged for deletion
+    ezmq_cleanup_globrefs();
+
     return ret;
 }
 
@@ -175,6 +194,9 @@ ezmq_define_functions()
 {
     ezmq_fun_t *info = malloc(sizeof(ezmq_fun_t));
     ezmq_fun_t _info;
+
+    // Define garbage collection functions for freeing global references
+    EZMQ_DEFFUN("zmq--cleanup-globrefs", ezmq_cleanup_globrefs, 0, 0);
     EZMQ_DEFFUN("zmq-socket", ezmq_socket, 2, 2);
     EZMQ_DEFFUN("zmq-send", ezmq_send, 2, 3);
     EZMQ_DEFFUN("zmq-recv", ezmq_recv, 1, 3);

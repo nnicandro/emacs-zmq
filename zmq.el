@@ -485,7 +485,8 @@ backtrace if it errors out. This is used for debugging purposes."
                   (remove-hook 'compilation-finish-functions #'load-zmq)))
               (add-hook 'compilation-finish-functions #'load-zmq)
               (compile "make")))))
-    (user-error "Modules are not supported")))
+    (user-error "Modules are not supported"))
+  (add-hook 'post-gc-hook #'zmq--cleanup-globrefs))
 
 (zmq-load)
 
