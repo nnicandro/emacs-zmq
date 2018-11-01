@@ -79,8 +79,8 @@ ezmq_split_poll_events(int events)
 }
 
 /**
-   Given a SOCK-OR-FD and a list of poll EVENTS, construct a zmq_pollitem_t and
-   store it in ITEM. A non-local exit is pending if a poll item could not be
+   Given a SOCK-OR-FD and a list of poll EVENTS, construct a zmq_pollitem_t.
+   Store it in ITEM. A non-local exit is pending if a poll item could not be
    constructed.
 */
 static void *
@@ -98,6 +98,10 @@ ezmq_extract_pollitem(emacs_value sock_or_fd, emacs_value events, zmq_pollitem_t
     return NULL;
 }
 
+/**
+   Return (SOCK-OR-FD . SEVENTS) where SEVENTS is a list socket events.
+   See ezmq_split_poll_events() for how SEVENTS is constructed from EVENTS.
+ */
 static emacs_value
 ezmq_make_pollitem(emacs_value sock_or_fd, int events)
 {
@@ -107,9 +111,11 @@ ezmq_make_pollitem(emacs_value sock_or_fd, int events)
 }
 
 /**
-   Extract the list of pollitems along with their corresponding sockets/file
-   descriptors in triggers. Return an array of
-   zmq_pollitem_t objects that must be released by the caller.
+   Return an array of zmq_pollitem_t objects constructed from LIST.
+   LIST is a list of (SOCK-OR-FD . EVENTS) pairs from which to construct
+   zmq_pollitem_t objects from. EVENTS can either be an integer or a list
+   containing any of zmq-POLLIN, zmq-POLLOUT, or zmq-POLLERR.
+   The returned array must be released by the called.
 */
 static zmq_pollitem_t *
 ezmq_extract_pollitem_list(emacs_value list)
@@ -139,9 +145,10 @@ ezmq_extract_pollitem_list(emacs_value list)
 }
 
 /**
-   Construct a list of cons cells containing those poll items in ITEMS that
-   received events. EITEMS is the original list of cons
-   cells that hold the sockets and events.
+   Return a list of (SOCK-OR-FD . EVENTS) pairs constructed from ITEMS.
+   EITEMS is the original list of pairs that was given to ezmq_poll().
+   NRECEIVED are the number of received events returned by zmq_poll(). NITEMS
+   are the number of items in EITEMS.
 */
 static emacs_value
 ezmq_make_pollitem_list(intmax_t nreceived, zmq_pollitem_t *items, emacs_value eitems, intmax_t nitems)

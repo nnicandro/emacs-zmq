@@ -163,14 +163,24 @@ extern emacs_value Qzmq_error, Qt, Qnil, Qnth, Qlist,
     Qzmq_POLLIN, Qzmq_POLLERR, Qzmq_POLLOUT,
     Izmq_POLLIN, Izmq_POLLERR, Izmq_POLLOUT;
 
+/**
+   Signal an Emacs error.
+   ERR is the error symbol, the remaining arguments are used as the error data.
+*/
 extern void
 ezmq_signal(emacs_value err, int nargs, ...);
 
+/**
+   Signal an Emacs `wrong-type-argument` error.
+
+   VAL is the object with a wrong type, the remaining arguments should be the
+   types that VAL should take.
+*/
 extern void
 ezmq_wrong_type_argument(emacs_value val, int nvalid, ...);
 
 /**
-   Called when an error occurred in ZMQ to notify Emacs to exit non-locally.
+   Signal an error created from the current value of zmq_errno().
 */
 extern void
 ezmq_signal_error();
@@ -213,6 +223,10 @@ ezmq_obj_of_type(emacs_value val, enum ezmq_obj_t type);
 extern ezmq_obj_t *
 ezmq_extract_obj(enum ezmq_obj_t type, emacs_value obj);
 
+/**
+   Cleanup resources of a ezmq_obj_t. Meant to be added as the object finalizer
+   when wrapping ezmq_obj_t objects as a user_ptr.
+*/
 extern void
 ezmq_obj_finalizer(void *);
 
