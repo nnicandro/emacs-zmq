@@ -180,7 +180,6 @@ ezmq_new_obj(enum ezmq_obj_t type, void *obj)
         }
         eobj->obj = obj;
         eobj->type = type;
-        eobj->refcount = 0;
         eobj->val = NULL;
     }
     return eobj;
@@ -193,44 +192,37 @@ ezmq_obj_finalizer(void *ptr)
 {
     ezmq_obj_t *obj = (ezmq_obj_t *)ptr;
 
-    if((obj->refcount--) <= 0) {
-        switch(obj->type) {
-        case EZMQ_MESSAGE:
-            zmq_msg_close(obj->obj);
-            break;
-        case EZMQ_SOCKET: {
-            // http://zguide.zeromq.org/page:all#Making-a-Clean-Exit
-            int opt = 0;
-            zmq_setsockopt(obj->obj, ZMQ_LINGER, &opt, sizeof(opt));
-            zmq_close(obj->obj);
-            break;
-        }
-        case EZMQ_CONTEXT: {
-            pthread_t thread;
-            // Avoid blocking Emacs when waiting for all sockets to close.
-            pthread_create(&thread,
-                           NULL,
-                           &ezmq_wait_for_context_destruction,
-                           obj);
-            // Don't free obj
-            return;
-        }
-        case EZMQ_POLLER:
-            zmq_poller_destroy(&(obj->obj));
-            break;
-        }
-        ezmq_free_obj(obj);
+    switch(obj->type) {
+    case EZMQ_MESSAGE:
+        zmq_msg_close(obj->obj);
+        break;
+    case EZMQ_SOCKET: {
+        // http://zguide.zeromq.org/page:all#Making-a-Clean-Exit
+        int opt = 0;
+        zmq_setsockopt(obj->obj, ZMQ_LINGER, &opt, sizeof(opt));
+        zmq_close(obj->obj);
+        break;
     }
+    case EZMQ_CONTEXT: {
+        pthread_t thread;
+        // Avoid blocking Emacs when waiting for all sockets to close.
+        pthread_create(&thread,
+                       NULL,
+                       &ezmq_wait_for_context_destruction,
+                       obj);
+        // Don't free obj
+        return;
+    }
+    case EZMQ_POLLER:
+        zmq_poller_destroy(&(obj->obj));
+        break;
+    }
+    ezmq_free_obj(obj);
 }
 
-// TODO: What if the make_user_ptr fails, the object
-// will leak since this is usally the last call when
-// creating new objects.
 emacs_value
 ezmq_new_obj_ptr(ezmq_obj_t *obj)
 {
-    if(!NONLOCAL_EXIT())
-        obj->refcount++;
     return env->make_user_ptr(env, &ezmq_obj_finalizer, obj);
 }
 

@@ -147,11 +147,6 @@ enum ezmq_obj_t {
 typedef struct {
     void *obj;
     enum ezmq_obj_t type;
-    // Stores how many times a user-ptr has been created for the object, we use
-    // this reference count as opposed to make_global_ref because it is easier
-    // to just create new user-ptr objects to ZMQ sockets when extracting the
-    // polling information.
-    intmax_t refcount;
     // Extra object that can be stored, use ezmq_obj_get_val() and
     // ezmq_obj_set_val() to access it.
     emacs_value val;
