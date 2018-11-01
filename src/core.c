@@ -175,6 +175,7 @@ ezmq_new_obj(enum ezmq_obj_t type, void *obj)
         eobj->obj = obj;
         eobj->type = type;
         eobj->refcount = 0;
+        eobj->val = NULL;
     }
     return eobj;
 }
@@ -236,6 +237,21 @@ ezmq_free_obj(ezmq_obj_t *obj)
         }
         free(obj);
     }
+}
+
+void
+ezmq_obj_set_val(ezmq_obj_t *obj, emacs_value val)
+{
+    if(obj->val) {
+        FREE_GLOBREF(obj->val);
+    }
+    obj->val = val ? GLOBREF(val) : NULL;
+}
+
+emacs_value
+ezmq_obj_get_val(ezmq_obj_t *obj)
+{
+    return obj->val ? obj->val : Qnil;
 }
 
 char *

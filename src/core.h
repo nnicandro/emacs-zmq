@@ -152,6 +152,9 @@ typedef struct {
     // to just create new user-ptr objects to ZMQ sockets when extracting the
     // polling information.
     intmax_t refcount;
+    // Extra object that can be stored, use ezmq_obj_get_val() and
+    // ezmq_obj_set_val() to access it.
+    emacs_value val;
 } ezmq_obj_t;
 
 // Set to the current Emacs environment, see ezmq_dispatch
@@ -209,6 +212,21 @@ ezmq_new_obj(enum ezmq_obj_t type, void *obj);
 */
 extern void
 ezmq_free_obj(ezmq_obj_t *obj);
+
+/**
+   Set the VAL field of OBJ.
+   Un-reference any current value stored in OBJ, make a global reference to VAL
+   and store in OBJ.val.
+*/
+extern void
+ezmq_obj_set_val(ezmq_obj_t *obj, emacs_value val);
+
+/**
+   Return the VAL field of OBJ.
+   If OBJ's VAL field is empty, return Qnil.
+*/
+emacs_value
+ezmq_obj_get_val(ezmq_obj_t *obj);
 
 /**
    Return 1 if Emacs VAL is a ZMQ object with TYPE, 0 otherwise.
