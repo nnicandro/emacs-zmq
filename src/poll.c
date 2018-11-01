@@ -297,6 +297,31 @@ ezmq_poller_destroy(emacs_value epoller)
     return Qnil;
 }
 
+/**
+   Return the socket or file descriptor contained in EVENT as an Emacs value.
+
+   If EVENT has a socket, the socket from EVENT is matched to one of the
+   sockets in POLLER's list of sockets and returned. Otherwise, the file
+   descriptor is returned.
+*/
+static emacs_value
+ezmq_get_poll_trigger(ezmq_obj_t *poller, zmq_poller_event_t event)
+{
+    emacs_value trigger = Qnil;
+    if(event.socket) {
+        trigger = ezmq_new_obj_ptr((ezmq_obj_t *)event.user_data);
+    } else
+        trigger = INT(event.fd);
+
+    if(EQ(trigger, Qnil)) {
+        // This is mostly a sanity check.
+        char *msg = "Socket not found in poller!";
+        FUNCALL(INTERN("error"), 1, (emacs_value []){STRING(msg, strlen(msg))});
+    }
+
+    return trigger;
+}
+
 EZMQ_DOC(ezmq_poller_wait,
          "POLLER TIMEOUT",
          "Poll for an event with POLLER until TIMEOUT ms.\n"
@@ -315,11 +340,7 @@ ezmq_poller_wait(emacs_value epoller, emacs_value etimeout)
 
     if(!NONLOCAL_EXIT()) {
         emacs_value sevents = ezmq_split_poll_events(event.events);
-        emacs_value trigger;
-        if(event.socket)
-            trigger = ezmq_new_obj_ptr((ezmq_obj_t *)event.user_data);
-        else
-            trigger = INT(event.fd);
+        emacs_value trigger = ezmq_get_poll_trigger(poller, event);
 
         return CONS(trigger, sevents);
     }
@@ -355,12 +376,7 @@ ezmq_poller_wait_all(emacs_value epoller, emacs_value enevents, emacs_value etim
         for(i = 0; i < ntriggered; i++) {
             zmq_poller_event_t event = revents[i];
             emacs_value sevents = ezmq_split_poll_events(event.events);
-            emacs_value trigger;
-            if(event.socket)
-                trigger = ezmq_new_obj_ptr((ezmq_obj_t *)event.user_data);
-            else
-                trigger = INT(event.fd);
-
+            emacs_value trigger = ezmq_get_poll_trigger(poller, event);
             retval = CONS(CONS(trigger, sevents), retval);
         }
     }
