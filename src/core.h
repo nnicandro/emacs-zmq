@@ -53,7 +53,7 @@
 
 #define LENGTH(list) env->extract_integer(env, FUNCALL(Qlength, 1, &list))
 
-#define AREF(vec, i) env->vec_get(env, val, i)
+#define AREF(vec, i) env->vec_get(env, vec, i)
 
 #define NONLOCAL_EXIT() (env->non_local_exit_check(env) != emacs_funcall_exit_return)
 
