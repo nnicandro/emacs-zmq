@@ -55,6 +55,12 @@
 
 #define AREF(vec, i) env->vec_get(env, vec, i)
 
+#define VEC_LENGTH(vec) env->vec_size(env, (vec))
+
+#define GLOBREF(val) env->make_global_ref(env, (val))
+
+#define FREE_GLOBREF(val) env->free_global_ref(env, (val))
+
 #define NONLOCAL_EXIT() (env->non_local_exit_check(env) != emacs_funcall_exit_return)
 
 #define CLEAR_NONLOCAL_EXIT() env->non_local_exit_clear(env)
