@@ -104,6 +104,13 @@
         }                                           \
     } while(0)
 
+/**
+   The EZMQ_CHECK_* macros check that that expression passed as their argument
+   evaluates to something other than -1 (EZMQ_CHECK_ERROR) or NULL
+   (EZMQ_CHECK_NULL_ERROR). If they do evaluate to -1 or NULL, they signal an
+   error.
+*/
+
 #define EZMQ_CHECK_ERROR(expr)                  \
     do {                                        \
         int __retcode = (expr);                 \
@@ -159,7 +166,7 @@ extern void
 ezmq_wrong_type_argument(emacs_value val, int nvalid, ...);
 
 /**
-   Called when an error occured in ZMQ to notify Emacs to exit nonlocally.
+   Called when an error occurred in ZMQ to notify Emacs to exit non-locally.
 */
 extern void
 ezmq_signal_error();

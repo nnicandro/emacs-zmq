@@ -6,10 +6,12 @@ ezmq_free_message(void *data, void *hint)
     free(data);
 }
 
-// Return a copy of the data contained in VAL. VAL is either a string or vector
-// of bytes. SIZE will be updated with the number of bytes contained in VAL.
-// In the case that VAL is a vector, an `args-out-ouf-range` error is raised if
-// the integers are not within range of a byte.
+/**
+   Return a copy of the data contained in VAL. VAL is either a string or vector
+   of bytes. SIZE will be updated with the number of bytes contained in VAL. In
+   the case that VAL is a vector, an `args-out-ouf-range` error is raised if
+   the integers are not within range of a byte.
+*/
 static char *
 ezmq_extract_message_data(emacs_value val, ptrdiff_t *size)
 {

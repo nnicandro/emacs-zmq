@@ -21,11 +21,20 @@ emacs_value Qzmq_error, Qt, Qnil, Qnth, Qlist,
 
 static emacs_value _fargs[EZMQ_MAXARGS];
 
+/**
+   Dispatch to the intended C function from a call to a ZMQ function in Emacs.
+
+   CURRENT_ENV is the current Emacs environment for the dispatch call. NARGS is
+   the number of arguments for this call whose values are contained in ARGS.
+   INFO is the ezmq_fun_t* which holds the function to dispatch to.
+*/
 static emacs_value
 ezmq_dispatch(emacs_env *current_env, ptrdiff_t nargs, emacs_value args[], void *info)
 {
+    // Set the global environment for this dispatch call.
     env = current_env;
 
+    // Ensure the number of arguments are within range
     emacs_value ret = Qnil;
     if(nargs > EZMQ_MAXARGS) {
         // Better error
@@ -33,6 +42,7 @@ ezmq_dispatch(emacs_env *current_env, ptrdiff_t nargs, emacs_value args[], void 
         return ret;
     }
 
+    // Extract the function information
     void *fun = ((ezmq_fun_t *)info)->fun;
     ptrdiff_t maxargs = ((ezmq_fun_t *)info)->maxarity;
 
@@ -49,6 +59,7 @@ ezmq_dispatch(emacs_env *current_env, ptrdiff_t nargs, emacs_value args[], void 
         nargs = maxargs;
     }
 
+    // Dispatch based on number of arguments
     switch(nargs) {
     case 0:
         ret = ((emacs_value(*)(void))fun)();
@@ -89,6 +100,8 @@ ezmq_bind_function(ezmq_fun_t *fun)
                                           &ezmq_dispatch,
                                           fun->doc,
                                           fun);
+    // Use defalias here so that at least we get a link to zmq.el when examining
+    // the documentation for a zmq function.
     FUNCALL(INTERN("defalias"), 2, ((emacs_value []){INTERN(fun->name), Sfun}));
 }
 
@@ -104,6 +117,10 @@ ezmq_provide(const char *feature)
     args[1] = STRING(#err, sizeof(#err) - 1);   \
     FUNCALL(Qdefine_error, 3, args)             \
 
+/**
+   Make error symbols for common C errors used by ZMQ. Each error symbol is the
+   C error with a zmq- prefix. So EAGAIN becomes zmq-EAGAIN in Emacs.
+*/
 static void
 ezmq_make_error_symbols()
 {
@@ -115,7 +132,9 @@ ezmq_make_error_symbols()
     args[0] = Qzmq_error;
     args[1] = STRING(msg, strlen(msg));
     args[2] = INTERN("error");
-    env->funcall(env, Qdefine_error, 3, args);
+    FUNCALL(Qdefine_error, 3, args);
+
+    // Set zmq-ERROR as the root error for all errors defined below
     args[2] = Qzmq_error;
     // Define common errors as symbols
     // Also see zmq_signal_error
