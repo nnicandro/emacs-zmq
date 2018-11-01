@@ -97,15 +97,21 @@ void
 ezmq_wrong_type_argument(emacs_value val, int nvalid, ...)
 {
     va_list args;
-    emacs_value options[nvalid + 1];
-    options[0] = INTERN("or");
     va_start(args, nvalid);
-    int i;
-    for(i = 0; i < nvalid; i++) {
-        options[i] = va_arg(args, emacs_value);
+    if(nvalid == 1) {
+        SIGNAL(Qwrong_type_argument, LIST(2, val, va_arg(args, emacs_value)));
+    } else if(nvalid > 1) {
+        emacs_value options[nvalid + 1];
+        options[0] = INTERN("or");
+        int i;
+        for(i = 0; i < nvalid; i++) {
+            options[i] = va_arg(args, emacs_value);
+        }
+        emacs_value options_list = FUNCALL(Qlist, nvalid + 1, options);
+        SIGNAL(Qwrong_type_argument, LIST(2, val, options_list));
+    } else {
+        SIGNAL(Qwrong_type_argument, LIST(1, val));
     }
-    emacs_value options_list = FUNCALL(Qlist, nvalid + 1, options);
-    SIGNAL(Qwrong_type_argument, LIST(2, val, options_list));
 }
 
 int
