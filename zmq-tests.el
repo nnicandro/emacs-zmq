@@ -75,12 +75,12 @@
          :type 'zmq-EPROTONOSUPPORT)))))
 
 (ert-deftest zmq-encryption ()
+  (unless (zmq-has "curve") (ert-skip "ZMQ built without CURVE"))
   (ert-info ("CURVE mechanism")
-    (when (zmq-has "curve")
-      (cl-destructuring-bind (public-key . secret-key)
-          (zmq-curve-keypair)
-        (should (string= (zmq-z85-encode (zmq-z85-decode public-key)) public-key))
-        (should (string= public-key (zmq-curve-public secret-key)))))))
+    (let ((s "=VZyEuJroM}6y60r&<w!BpcbD>pX{r]826juy0Ml")
+          (s-encoded "jYU:imrIjyz+UTrC@vu%coMF}lu3Bzl{tM(DVAyKgb-(&C}.%e"))
+      (should (equal (zmq-z85-encode s) s-encoded))
+      (should (equal (zmq-z85-decode s-encoded) s)))))
 
 (ert-deftest zmq-contexts ()
   (let (ctx)
