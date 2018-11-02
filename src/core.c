@@ -2,10 +2,12 @@
 #include <pthread.h>
 #include <assert.h>
 
-#define EZMQ_GLOBREF_STACK_MAX 5
+typedef struct ezmq_globref_list_t {
+    struct ezmq_globref_list_t *next;
+    emacs_value val;
+} ezmq_globref_list_t;
 
-static intmax_t globref_stack_idx = -1;
-static emacs_value globref_stack[EZMQ_GLOBREF_STACK_MAX];
+static ezmq_globref_list_t *globref_list = NULL;
 
 #define ERR_CASE(err)                                              \
     case err: {                                                    \
@@ -255,18 +257,22 @@ void
 ezmq_obj_push_val_for_release(ezmq_obj_t *obj)
 {
     if(obj->val) {
-        globref_stack_idx += 1;
-        assert(globref_stack_idx < EZMQ_GLOBREF_STACK_MAX);
-        globref_stack[globref_stack_idx] = obj->val;
+        ezmq_globref_list_t *el = malloc(sizeof(*el));
+        assert(el != NULL);
+        el->next = globref_list;
+        el->val = obj->val;
+        globref_list = el;
     }
 }
 
 emacs_value
 ezmq_obj_pop_val_for_release()
 {
-    if(globref_stack_idx >= 0) {
-        emacs_value val = globref_stack[globref_stack_idx];
-        globref_stack_idx -= 1;
+    if(globref_list) {
+        ezmq_globref_list_t *el = globref_list;
+        emacs_value val = globref_list->val;
+        globref_list = globref_list->next;
+        free(el);
         return val;
     } else
         return NULL;
