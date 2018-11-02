@@ -417,6 +417,36 @@
       (when (process-live-p process)
         (kill-process process)))))
 
+(ert-deftest zmq-globrefs ()
+  ;; Inspired by https://nullprogram.com/blog/2014/01/27/
+  (let ((table (make-hash-table :size 1 :weakness 'value :test 'equal)))
+    (ert-info ("`zmq-poller' socket references don't outlive poller")
+      (let ((poller (zmq-poller)))
+        (let ((sock (zmq-socket (zmq-current-context) zmq-PUB)))
+          (puthash "socket" sock table)
+          (zmq-poller-add poller sock zmq-POLLIN))
+        (garbage-collect)
+        ;; The poller keeps a reference to the socket so that it doesn't get
+        ;; cleaned up while the poller may potentially be using it so it should
+        ;; still be alive.
+        (should (not (null (gethash "socket" table)))))
+      ;; Give enough chances for the socket to be cleaned up
+      (garbage-collect)
+      (garbage-collect)
+      (garbage-collect)
+      (should (null (gethash "socket" table))))
+    (ert-info ("`zmq-context' is not released when sockets still connected")
+      (let (sock)
+        (let ((ctx (zmq-context)))
+          (puthash "context" ctx table)
+          (setq sock (zmq-socket ctx zmq-PUB)))
+        (garbage-collect)
+        (should (not (null (gethash "context" table)))))
+      (garbage-collect)
+      (garbage-collect)
+      (garbage-collect)
+      (should (null (gethash "context" table))))))
+
 (provide 'zmq-tests)
 
 ;;; zmq-tests.el ends here
