@@ -26,8 +26,6 @@ emacs_value ezmq_z85_decode(emacs_value ekey)
 
     EZMQ_EXTRACT_STRING(key, klen, ekey);
 
-    // klen includes the terminating NULL byte, hence we use klen - 1 to get
-    // the length of the string
     if(klen % 5 == 0) {
         ptrdiff_t dlen = (ptrdiff_t)(0.8*klen);
         char *decoded = ezmq_malloc(dlen + 1);
