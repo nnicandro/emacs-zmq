@@ -22,7 +22,7 @@
   #define EZMQ_DEBUG 0
 #endif
 
-#define ezmq_debug(str, ...) if(EZMQ_DEBUG) printf(str, ##__VA_ARGS__)
+#define ezmq_debug(str, ...) if(EZMQ_DEBUG) fprintf(stderr, str, ##__VA_ARGS__)
 
 /**
    Helper macros to aid in interacting with the Emacs environment. They all
