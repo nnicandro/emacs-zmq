@@ -360,11 +360,9 @@ initially passed to `zmq-start-process'."
   (let ((sentinel (process-get process :sentinel)))
     (when (functionp sentinel)
       (funcall sentinel process event)))
-  (when (and (process-get process :owns-buffer)
-             (cl-loop
-              for type in '("exited" "failed" "finished" "killed" "deleted")
-              thereis (string-prefix-p type event)))
-    (kill-buffer (process-buffer process))))
+  (when (memq (process-status process) '(exit signal))
+    (when (process-get process :owns-buffer)
+      (kill-buffer (process-buffer process)))))
 
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
