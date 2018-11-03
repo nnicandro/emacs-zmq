@@ -240,6 +240,12 @@ STREAM can be one of `stdout', `stdin', or `stderr'."
   (prin1 sexp)
   (zmq-flush 'stdout))
 
+(defvar zmq--subprocess-debug nil
+  "If non-nil, capture backtraces in subprocesses.
+Send backtraces as subprocess errors to the parent Emacs process.
+In addition, log any stderr messages produced by the subprocess
+as messages in the parent Emacs process.")
+
 (defvar zmq-backtrace nil
   "The backtrace stored when debugging the subprocess.")
 
@@ -322,6 +328,21 @@ should be current for subsequent calls."
       (zmq--subprocess-skip-delete-to-sexp))
     (nreverse accum)))
 
+(defun zmq--subprocess-handle-stderr (process)
+  "Print PROCESS' stderr as messages.
+Do this only if the PROCESS has a non-nil :debug property."
+  (when (process-get process :debug)
+    (unless (zerop (buffer-size (process-get process :stderr)))
+      (with-current-buffer (process-get process :stderr)
+        (let ((prefix (concat "STDERR[" (process-name process) "]: ")))
+          (goto-char (point-min))
+          (while (/= (point) (point-max))
+            (message "%s%s" prefix (buffer-substring
+                                    (line-beginning-position)
+                                    (line-end-position)))
+            (forward-line))
+          (erase-buffer))))))
+
 (defun zmq--subprocess-filter (process output)
   "Create a stream of s-expressions based on PROCESS' OUTPUT.
 If PROCESS has a non-nil `:filter' property then it should be a
@@ -333,6 +354,7 @@ s-expression in OUTPUT.
 As a special case, if the `car' of an s-expression is the symbol
 error, a `zmq-subprocess-error' is signaled using the `cdr' of
 the list for the error data."
+  (zmq--subprocess-handle-stderr process)
   (with-current-buffer (process-buffer process)
     (goto-char (process-mark process))
     (let ((filter (process-get process :filter)))
@@ -361,6 +383,9 @@ initially passed to `zmq-start-process'."
     (when (functionp sentinel)
       (funcall sentinel process event)))
   (when (memq (process-status process) '(exit signal))
+    (when (process-live-p (get-buffer-process (process-get process :stderr)))
+      (delete-process (get-buffer-process (process-get process :stderr))))
+    (kill-buffer (process-get process :stderr))
     (when (process-get process :owns-buffer)
       (kill-buffer (process-buffer process)))))
 
@@ -405,7 +430,7 @@ EVENT-FILTER has the same meaning as in `zmq-start-process'."
 SENTINEL has the same meaning as in `zmq-start-process'."
   (process-put process :sentinel sentinel))
 
-(cl-defun zmq-start-process (sexp &key filter sentinel buffer backtrace)
+(cl-defun zmq-start-process (sexp &key filter sentinel buffer debug)
   "Start an Emacs subprocess initializing it with SEXP.
 Return the newly created process.
 
@@ -430,8 +455,10 @@ function creates a new buffer, that buffer will be killed on
 process exit, but it is the responsiblity of the caller to kill
 the buffer if a buffer is supplied to this function.
 
-If BACKTRACE is non-nil, then have the subprocess return a
-backtrace if it errors out. This is used for debugging purposes."
+If DEBUG is non-nil, then the subprocess returns a backtrace if
+it errors out and prints its stderr as messages in the parent
+Emacs process."
+  (or debug (setq debug zmq--subprocess-debug))
   (cond
    ((functionp sexp)
     (unless (listp sexp)
@@ -441,8 +468,11 @@ backtrace if it errors out. This is used for debugging purposes."
     (error "Invalid function to send to process, can only have 0 or 1 arguments"))
   (let* ((process-connection-type nil)
          (zmq-path (locate-library "zmq"))
-         (cmd (format "(zmq--init-subprocess %s)"
-                      (when backtrace t)))
+         (cmd (format "(zmq--init-subprocess %s)" (when debug t)))
+         ;; stderr is split from stdout since the former is used by Emacs to
+         ;; print messages that we don't want intermixed with what the
+         ;; subprocess returns.
+         (stderr (generate-new-buffer " *zmq*"))
          (process (make-process
                    :name "zmq"
                    :buffer (or buffer (generate-new-buffer " *zmq*"))
@@ -450,6 +480,7 @@ backtrace if it errors out. This is used for debugging purposes."
                    :coding-system 'no-conversion
                    :filter #'zmq--subprocess-filter
                    :sentinel #'zmq--subprocess-sentinel
+                   :stderr stderr
                    :command (list
                              (file-truename
                               (expand-file-name invocation-name
@@ -457,6 +488,9 @@ backtrace if it errors out. This is used for debugging purposes."
                              "-Q" "-batch"
                              "-L" (file-name-directory zmq-path)
                              "-l" zmq-path "--eval" cmd))))
+    (unless debug (stop-process (get-buffer-process stderr)))
+    (process-put process :debug debug)
+    (process-put process :stderr stderr)
     (process-put process :filter filter)
     (process-put process :sentinel sentinel)
     (process-put process :owns-buffer (null buffer))
