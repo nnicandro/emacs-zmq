@@ -1,7 +1,7 @@
 ROOT = .
 EMACS ?= emacs
 FILES = zmq.el
-CFLAGS = # -g
+# CFLAGS = -g
 CPPFLAGS = -DEZMQ_DEBUG=0
 ELCFILES = $(FILES:.el=.elc)
 
