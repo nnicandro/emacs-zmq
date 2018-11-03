@@ -64,21 +64,28 @@ ezmq_malloc(size_t nbytes)
     return buf;
 }
 
-static emacs_value
-ezmq_type_symbol(enum ezmq_obj_t type)
+static char const *
+ezmq_type_string(enum ezmq_obj_t type)
 {
     switch(type) {
     case EZMQ_CONTEXT:
-        return INTERN("zmq-context");
+        return "zmq-context";
     case EZMQ_SOCKET:
-        return INTERN("zmq-socket");
+        return "zmq-socket";
     case EZMQ_MESSAGE:
-        return INTERN("zmq-message");
+        return "zmq-message";
     case EZMQ_POLLER:
-        return INTERN("zmq-poller");
+        return "zmq-poller";
     default:
-        return Qnil;
+        return NULL;
     }
+}
+
+static emacs_value
+ezmq_type_symbol(enum ezmq_obj_t type)
+{
+    char const *str = ezmq_type_string(type);
+    return str ? INTERN(str) : Qnil;
 }
 
 void
@@ -232,6 +239,7 @@ void
 ezmq_free_obj(ezmq_obj_t *obj)
 {
     if(obj) {
+        ezmq_debug("ezmq_free_obj(%s)\n", ezmq_type_string(obj->type));
         if(obj->type == EZMQ_MESSAGE) {
             free(obj->obj);
         }
@@ -257,6 +265,7 @@ void
 ezmq_obj_push_val_for_release(ezmq_obj_t *obj)
 {
     if(obj->val) {
+        ezmq_debug("push globref\n");
         ezmq_globref_list_t *el = malloc(sizeof(*el));
         assert(el != NULL);
         el->next = globref_list;
@@ -269,6 +278,7 @@ emacs_value
 ezmq_obj_pop_val_for_release()
 {
     if(globref_list) {
+        ezmq_debug("pop globref\n");
         ezmq_globref_list_t *el = globref_list;
         emacs_value val = globref_list->val;
         globref_list = globref_list->next;

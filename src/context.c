@@ -6,6 +6,7 @@ ezmq_context(void)
 {
     void *ctx = zmq_ctx_new();
     EZMQ_CHECK_NULL_ERROR(ctx);
+    ezmq_debug("ezmq_context()\n");
     return ezmq_new_obj_ptr(ezmq_new_obj(EZMQ_CONTEXT, ctx));
 }
 

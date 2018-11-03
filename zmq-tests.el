@@ -350,8 +350,11 @@
        process (zmq-start-process
                 `(lambda (ctx) ,@body)
                 :filter (lambda (event)
-                          (setq filter-called t)
-                          (should (equal (cdr event) "context")))))
+                          ;; FIXME: Don't catch empty () from output generated
+                          ;; by debugging messages in the C API.
+                          (when event
+                            (setq filter-called t)
+                            (should (equal (cdr event) "context"))))))
       (with-timeout (0.4 nil)
         (while (not filter-called)
           (sleep-for 0.01)))

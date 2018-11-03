@@ -16,6 +16,7 @@ ezmq_socket(emacs_value econtext, emacs_value etype)
     // Ensure the context does not get garbage collected while the socket is in
     // use
     ezmq_obj_set_val(obj, econtext);
+    ezmq_debug("ezmq_socket()\n");
     return ezmq_new_obj_ptr(obj);
 }
 

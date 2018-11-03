@@ -18,6 +18,12 @@
    pointer itself) and return an unspecified value.
 */
 
+#ifndef EZMQ_DEBUG
+  #define EZMQ_DEBUG 0
+#endif
+
+#define ezmq_debug(str, ...) if(EZMQ_DEBUG) printf(str, ##__VA_ARGS__)
+
 /**
    Helper macros to aid in interacting with the Emacs environment. They all
    expect an implicit emacs_env variable named env to be defined in the calling

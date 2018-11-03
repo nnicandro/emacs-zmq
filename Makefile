@@ -1,7 +1,8 @@
 ROOT = .
 EMACS ?= emacs
 FILES = zmq.el
-# CFLAGS = -g
+CFLAGS = # -g
+CPPFLAGS = -DEZMQ_DEBUG=0
 ELCFILES = $(FILES:.el=.elc)
 
 .PHONY: all compile lib clean
@@ -19,7 +20,7 @@ clean:
 compile: $(ELCFILES)
 
 lib: src/Makefile
-	$(MAKE) -C src install
+	$(MAKE) CPPFLAGS=$(CPPFLAGS) -C src install
 	ln -fs src/emacs-zmq.so ./emacs-zmq.so
 
 src/Makefile: src/configure

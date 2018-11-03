@@ -81,6 +81,7 @@ ezmq_message(emacs_value edata)
         if(NONLOCAL_EXIT()) ezmq_free_obj(msg);
     }
 
+    ezmq_debug("ezmq_message()\n");
     return ezmq_new_obj_ptr(msg);
 }
 

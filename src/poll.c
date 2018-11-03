@@ -205,6 +205,7 @@ ezmq_poller_new(void)
 {
     void *poller = zmq_poller_new();
     EZMQ_CHECK_NULL_ERROR(poller);
+    ezmq_debug("ezmq_poller_new()\n");
     return ezmq_new_obj_ptr(ezmq_new_obj(EZMQ_POLLER, poller));
 }
 
