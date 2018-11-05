@@ -439,10 +439,10 @@ the function can either take 0 or 1 arguments. If SEXP takes 1
 argument, then a new context object will be passed as the
 argument of the function.
 
-FILTER has a similar meaning to process filters except raw text
-sent from the process is ignored and the FILTER function will
-only receive complete s-expressions read from the process'
-stdout.
+FILTER is a function that takes a single argument, a complete
+s-expression read from the process' stdout. This means that care
+should be taken when writing SEXP to ensure that it only prints
+out lists. Anything other value that SEXP prints will be ignored.
 
 SENTINEL has the same meaning as in `make-process'.
 
@@ -466,8 +466,7 @@ Emacs process."
    (t (error "Can only send functions to processes")))
   (unless (member (length (cadr sexp)) '(0 1))
     (error "Invalid function to send to process, can only have 0 or 1 arguments"))
-  (let* ((process-connection-type nil)
-         (zmq-path (locate-library "zmq"))
+  (let* ((zmq-path (locate-library "zmq"))
          (cmd (format "(zmq--init-subprocess %s)" (when debug t)))
          ;; stderr is split from stdout since the former is used by Emacs to
          ;; print messages that we don't want intermixed with what the
