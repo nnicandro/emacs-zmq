@@ -48,10 +48,11 @@
   "The context set by the function `zmq-current-context'.")
 
 (defun zmq-current-context ()
-  "Return the `zmq-current-context'.
-Return the symbol value of `zmq-current-context' if non-nil.
-Otherwise, create a new `zmq-context', bind it to
-`zmq-current-context', and return the newly created context."
+  "Return the value of the variable `zmq-current-context'.
+Return the value of the variable `zmq-current-context' if
+non-nil. Otherwise, create a new `zmq-context', bind it to the
+variable `zmq-current-context', and return the newly created
+context."
   (or zmq-current-context
       (setq zmq-current-context (zmq-context))))
 
@@ -253,7 +254,8 @@ as messages in the parent Emacs process.")
   "Initialize the ZMQ subprocess.
 Call `zmq-subprocess-read' and assuming the read s-expression is
 a function, call the function. If the function accepts a single
-argument pass in the `zmq-current-context' as the argument.
+argument pass the `zmq-context' created by a call to the function
+`zmq-current-context' as the argument.
 
 If BACKTRACE is non-nil and an error occurs when evaluating, send
 the backtrace to the parent process. This should only be used for
