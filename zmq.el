@@ -504,7 +504,9 @@ Emacs process."
   "Load the ZMQ dynamic module."
   (if zmq-module-file
       (if (file-exists-p zmq-module-file)
-          (load-file zmq-module-file)
+          (progn
+            (load-file zmq-module-file)
+            (add-hook 'post-gc-hook #'zmq--cleanup-globrefs))
         (when (y-or-n-p "ZMQ module not found. Build it? ")
           (let ((default-directory (file-name-directory (locate-library "zmq"))))
             (cl-labels
@@ -516,8 +518,7 @@ Emacs process."
                   (remove-hook 'compilation-finish-functions #'load-zmq)))
               (add-hook 'compilation-finish-functions #'load-zmq)
               (compile "make")))))
-    (user-error "Modules are not supported"))
-  (add-hook 'post-gc-hook #'zmq--cleanup-globrefs))
+    (user-error "Modules are not supported")))
 
 (zmq-load)
 
