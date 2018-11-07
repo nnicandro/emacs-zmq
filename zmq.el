@@ -367,7 +367,8 @@ the list for the error data."
            if (and (listp event) (eq (car event) 'error)) do
            ;; TODO: Better way to handle this
            (signal 'zmq-subprocess-error (cdr event))
-           else do (funcall filter event)))))
+           else do (with-demoted-errors "Error in ZMQ subprocess filter: %S"
+                     (funcall filter event))))))
     (set-marker (process-mark process) (point-max))))
 
 (defun zmq--subprocess-sentinel (process event)
@@ -381,14 +382,15 @@ subprocess has exited, kill the process buffer only when the
 process buffer is left alive and assumed to be a buffer that was
 initially passed to `zmq-start-process'."
   (let ((sentinel (process-get process :sentinel)))
-    (when (functionp sentinel)
-      (funcall sentinel process event)))
-  (when (memq (process-status process) '(exit signal))
-    (when (process-live-p (get-buffer-process (process-get process :stderr)))
-      (delete-process (get-buffer-process (process-get process :stderr))))
-    (kill-buffer (process-get process :stderr))
-    (when (process-get process :owns-buffer)
-      (kill-buffer (process-buffer process)))))
+    (unwind-protect
+        (when (functionp sentinel)
+          (funcall sentinel process event))
+      (when (memq (process-status process) '(exit signal))
+        (when (process-live-p (get-buffer-process (process-get process :stderr)))
+          (delete-process (get-buffer-process (process-get process :stderr))))
+        (kill-buffer (process-get process :stderr))
+        (when (process-get process :owns-buffer)
+          (kill-buffer (process-buffer process)))))))
 
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
