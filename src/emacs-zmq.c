@@ -184,7 +184,8 @@ ezmq_make_error_symbols()
         _info.minarity = argmin;                  \
         _info.maxarity = argmax;                  \
         _info.doc = __zmq_doc_##cfun;             \
-        info = malloc(sizeof(ezmq_fun_t));        \
+        info = ezmq_malloc(sizeof(ezmq_fun_t));   \
+        if(NONLOCAL_EXIT()) return;               \
         memcpy(info, &_info, sizeof(ezmq_fun_t)); \
         ezmq_bind_function(info);                 \
     } while (0)
@@ -192,8 +193,9 @@ ezmq_make_error_symbols()
 static void
 ezmq_define_functions()
 {
-    ezmq_fun_t *info = malloc(sizeof(ezmq_fun_t));
     ezmq_fun_t _info;
+    ezmq_fun_t *info = ezmq_malloc(sizeof(ezmq_fun_t));
+    if(NONLOCAL_EXIT()) return;
 
     // Define garbage collection functions for freeing global references
     EZMQ_DEFUN("zmq--cleanup-globrefs", ezmq_cleanup_globrefs, 0, 0);
