@@ -177,7 +177,7 @@ ezmq_make_error_symbols()
     EZMQ_DEFERR(EMFILE);
 }
 
-#define EZMQ_DEFFUN(ename, cfun, argmin, argmax)  \
+#define EZMQ_DEFUN(ename, cfun, argmin, argmax)  \
     do {                                          \
         _info.name = ename;                       \
         _info.fun = cfun;                         \
@@ -196,58 +196,58 @@ ezmq_define_functions()
     ezmq_fun_t _info;
 
     // Define garbage collection functions for freeing global references
-    EZMQ_DEFFUN("zmq--cleanup-globrefs", ezmq_cleanup_globrefs, 0, 0);
-    EZMQ_DEFFUN("zmq-socket", ezmq_socket, 2, 2);
-    EZMQ_DEFFUN("zmq-send", ezmq_send, 2, 3);
-    EZMQ_DEFFUN("zmq-recv", ezmq_recv, 1, 3);
-    EZMQ_DEFFUN("zmq-bind", ezmq_bind, 2, 2);
-    EZMQ_DEFFUN("zmq-connect", ezmq_connect, 2, 2);
-    EZMQ_DEFFUN("zmq-unbind", ezmq_unbind, 2, 2);
-    EZMQ_DEFFUN("zmq-disconnect", ezmq_disconnect, 2, 2);
-    EZMQ_DEFFUN("zmq-close", ezmq_close, 1, 1);
-    EZMQ_DEFFUN("zmq-proxy", ezmq_proxy, 2, 3);
-    EZMQ_DEFFUN("zmq-proxy-steerable", ezmq_proxy_steerable, 2, 4);
-    EZMQ_DEFFUN("zmq-socket-monitor", ezmq_socket_monitor, 3, 3);
-    EZMQ_DEFFUN("zmq-socket-set", ezmq_setsockopt, 3, 3);
-    EZMQ_DEFFUN("zmq-socket-get", ezmq_getsockopt, 2, 2);
-    EZMQ_DEFFUN("zmq-context", ezmq_context, 0, 0);
-    EZMQ_DEFFUN("zmq-context-terminate", ezmq_ctx_term, 1, 1);
-    EZMQ_DEFFUN("zmq-context-shutdown", ezmq_ctx_shutdown, 1, 1);
-    EZMQ_DEFFUN("zmq-context-get", ezmq_ctx_get, 2, 2);
-    EZMQ_DEFFUN("zmq-context-set", ezmq_ctx_set, 3, 3);
-    EZMQ_DEFFUN("zmq-message", ezmq_message, 0, 1);
-    EZMQ_DEFFUN("zmq-message-size", ezmq_message_size, 1, 1);
-    EZMQ_DEFFUN("zmq-message-data", ezmq_message_data, 1, 1);
-    EZMQ_DEFFUN("zmq-message-more-p", ezmq_message_more, 1, 1);
-    EZMQ_DEFFUN("zmq-message-copy", ezmq_message_copy, 1, 1);
-    EZMQ_DEFFUN("zmq-message-move", ezmq_message_move, 2, 2);
-    EZMQ_DEFFUN("zmq-message-close", ezmq_message_close, 1, 1);
-    EZMQ_DEFFUN("zmq-message-set", ezmq_message_set, 3, 3);
-    EZMQ_DEFFUN("zmq-message-get", ezmq_message_get, 2, 2);
-    EZMQ_DEFFUN("zmq-message-recv", ezmq_message_recv, 2, 3);
-    EZMQ_DEFFUN("zmq-message-send", ezmq_message_send, 2, 3);
-    EZMQ_DEFFUN("zmq-message-gets", ezmq_message_gets, 2, 2);
-    EZMQ_DEFFUN("zmq-message-routing-id", ezmq_message_routing_id, 1, 1);
-    EZMQ_DEFFUN("zmq-message-set-routing-id", ezmq_message_set_routing_id, 2, 2);
-    EZMQ_DEFFUN("zmq-poll", ezmq_poll, 2, 2);
-    EZMQ_DEFFUN("zmq-poller", ezmq_poller_new, 0, 0);
-    EZMQ_DEFFUN("zmq-poller-add", ezmq_poller_add, 3, 3);
-    EZMQ_DEFFUN("zmq-poller-modify", ezmq_poller_modify, 3, 3);
-    EZMQ_DEFFUN("zmq-poller-remove", ezmq_poller_remove, 2, 2);
-    EZMQ_DEFFUN("zmq-poller-destroy", ezmq_poller_destroy, 1, 1);
-    EZMQ_DEFFUN("zmq-poller-wait", ezmq_poller_wait, 2, 2);
-    EZMQ_DEFFUN("zmq-poller-wait-all", ezmq_poller_wait_all, 3, 3);
-    EZMQ_DEFFUN("zmq-version", ezmq_version, 0, 0);
-    EZMQ_DEFFUN("zmq-has", ezmq_has, 1, 1);
-    EZMQ_DEFFUN("zmq-z85-decode", ezmq_z85_decode, 1, 1);
-    EZMQ_DEFFUN("zmq-z85-encode", ezmq_z85_encode, 1, 1);
-    EZMQ_DEFFUN("zmq-curve-keypair", ezmq_curve_keypair, 0, 0);
-    EZMQ_DEFFUN("zmq-curve-public", ezmq_curve_public, 1, 1);
-    EZMQ_DEFFUN("zmq-equal", ezmq_equal, 2, 2);
-    EZMQ_DEFFUN("zmq-message-p", ezmq_message_p, 1, 1);
-    EZMQ_DEFFUN("zmq-socket-p", ezmq_socket_p, 1, 1);
-    EZMQ_DEFFUN("zmq-context-p", ezmq_context_p, 1, 1);
-    EZMQ_DEFFUN("zmq-poller-p", ezmq_poller_p, 1, 1);
+    EZMQ_DEFUN("zmq--cleanup-globrefs", ezmq_cleanup_globrefs, 0, 0);
+    EZMQ_DEFUN("zmq-socket", ezmq_socket, 2, 2);
+    EZMQ_DEFUN("zmq-send", ezmq_send, 2, 3);
+    EZMQ_DEFUN("zmq-recv", ezmq_recv, 1, 3);
+    EZMQ_DEFUN("zmq-bind", ezmq_bind, 2, 2);
+    EZMQ_DEFUN("zmq-connect", ezmq_connect, 2, 2);
+    EZMQ_DEFUN("zmq-unbind", ezmq_unbind, 2, 2);
+    EZMQ_DEFUN("zmq-disconnect", ezmq_disconnect, 2, 2);
+    EZMQ_DEFUN("zmq-close", ezmq_close, 1, 1);
+    EZMQ_DEFUN("zmq-proxy", ezmq_proxy, 2, 3);
+    EZMQ_DEFUN("zmq-proxy-steerable", ezmq_proxy_steerable, 2, 4);
+    EZMQ_DEFUN("zmq-socket-monitor", ezmq_socket_monitor, 3, 3);
+    EZMQ_DEFUN("zmq-socket-set", ezmq_setsockopt, 3, 3);
+    EZMQ_DEFUN("zmq-socket-get", ezmq_getsockopt, 2, 2);
+    EZMQ_DEFUN("zmq-context", ezmq_context, 0, 0);
+    EZMQ_DEFUN("zmq-context-terminate", ezmq_ctx_term, 1, 1);
+    EZMQ_DEFUN("zmq-context-shutdown", ezmq_ctx_shutdown, 1, 1);
+    EZMQ_DEFUN("zmq-context-get", ezmq_ctx_get, 2, 2);
+    EZMQ_DEFUN("zmq-context-set", ezmq_ctx_set, 3, 3);
+    EZMQ_DEFUN("zmq-message", ezmq_message, 0, 1);
+    EZMQ_DEFUN("zmq-message-size", ezmq_message_size, 1, 1);
+    EZMQ_DEFUN("zmq-message-data", ezmq_message_data, 1, 1);
+    EZMQ_DEFUN("zmq-message-more-p", ezmq_message_more, 1, 1);
+    EZMQ_DEFUN("zmq-message-copy", ezmq_message_copy, 1, 1);
+    EZMQ_DEFUN("zmq-message-move", ezmq_message_move, 2, 2);
+    EZMQ_DEFUN("zmq-message-close", ezmq_message_close, 1, 1);
+    EZMQ_DEFUN("zmq-message-set", ezmq_message_set, 3, 3);
+    EZMQ_DEFUN("zmq-message-get", ezmq_message_get, 2, 2);
+    EZMQ_DEFUN("zmq-message-recv", ezmq_message_recv, 2, 3);
+    EZMQ_DEFUN("zmq-message-send", ezmq_message_send, 2, 3);
+    EZMQ_DEFUN("zmq-message-gets", ezmq_message_gets, 2, 2);
+    EZMQ_DEFUN("zmq-message-routing-id", ezmq_message_routing_id, 1, 1);
+    EZMQ_DEFUN("zmq-message-set-routing-id", ezmq_message_set_routing_id, 2, 2);
+    EZMQ_DEFUN("zmq-poll", ezmq_poll, 2, 2);
+    EZMQ_DEFUN("zmq-poller", ezmq_poller_new, 0, 0);
+    EZMQ_DEFUN("zmq-poller-add", ezmq_poller_add, 3, 3);
+    EZMQ_DEFUN("zmq-poller-modify", ezmq_poller_modify, 3, 3);
+    EZMQ_DEFUN("zmq-poller-remove", ezmq_poller_remove, 2, 2);
+    EZMQ_DEFUN("zmq-poller-destroy", ezmq_poller_destroy, 1, 1);
+    EZMQ_DEFUN("zmq-poller-wait", ezmq_poller_wait, 2, 2);
+    EZMQ_DEFUN("zmq-poller-wait-all", ezmq_poller_wait_all, 3, 3);
+    EZMQ_DEFUN("zmq-version", ezmq_version, 0, 0);
+    EZMQ_DEFUN("zmq-has", ezmq_has, 1, 1);
+    EZMQ_DEFUN("zmq-z85-decode", ezmq_z85_decode, 1, 1);
+    EZMQ_DEFUN("zmq-z85-encode", ezmq_z85_encode, 1, 1);
+    EZMQ_DEFUN("zmq-curve-keypair", ezmq_curve_keypair, 0, 0);
+    EZMQ_DEFUN("zmq-curve-public", ezmq_curve_public, 1, 1);
+    EZMQ_DEFUN("zmq-equal", ezmq_equal, 2, 2);
+    EZMQ_DEFUN("zmq-message-p", ezmq_message_p, 1, 1);
+    EZMQ_DEFUN("zmq-socket-p", ezmq_socket_p, 1, 1);
+    EZMQ_DEFUN("zmq-context-p", ezmq_context_p, 1, 1);
+    EZMQ_DEFUN("zmq-poller-p", ezmq_poller_p, 1, 1);
 }
 
 static bool initialized = false;
