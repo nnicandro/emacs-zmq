@@ -217,7 +217,7 @@ ezmq_free_obj(ezmq_obj_t *obj);
 /**
    Set the VAL field of OBJ.
    Un-reference any current value stored in OBJ, make a global reference to VAL
-   and store in OBJ.val.
+   and store in OBJ->val.
 */
 extern void
 ezmq_obj_set_val(ezmq_obj_t *obj, emacs_value val);
@@ -230,16 +230,18 @@ emacs_value
 ezmq_obj_get_val(ezmq_obj_t *obj);
 
 /**
-   Add OBJ's val field to stack of values to call FREE_GLOBREF() on next dispatch.
+   Add OBJ->val to a stack of values to call FREE_GLOBREF() on next dispatch.
+   Do this only if OBJ->val is not NULL. The global references are also cleaned
+   up after every garbage collection in Emacs.
 */
 extern void
-ezmq_obj_push_val_for_release(ezmq_obj_t *obj);
+ezmq_push_globref(ezmq_obj_t *obj);
 
 /**
-   Remove a value from stack of values pushed to by ezmq_obj_push_val_for_release()
+   Remove a value from the stack of values pushed to by ezmq_push_globref()
 */
 extern emacs_value
-ezmq_obj_pop_val_for_release();
+ezmq_pop_globref();
 
 /**
    Return 1 if Emacs VAL is a ZMQ object with TYPE, 0 otherwise.

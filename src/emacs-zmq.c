@@ -20,14 +20,14 @@ emacs_value Qzmq_error, Qt, Qnil, Qnth, Qlist,
 EZMQ_DOC(ezmq_cleanup_globrefs, "",
          "Free global references flagged for release.\n"
          "Internally, ZMQ keeps references to Emacs objects that are still in use.\n"
-         "Most notably, a `zmq-poller' objects keeps track of all the sockets added to it\n"
+         "Most notably, a `zmq-poller' object keeps track of all the sockets added to it\n"
          "so that they do not get cleaned up by garbage collection if they go out of scope\n"
-         "while a the poller is still using them.");
+         "while a poller is still using them.");
 static void
 ezmq_cleanup_globrefs()
 {
     emacs_value val;
-    while((val = ezmq_obj_pop_val_for_release())) {
+    while((val = ezmq_pop_globref())) {
         FREE_GLOBREF(val);
     }
 }

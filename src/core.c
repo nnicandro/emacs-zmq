@@ -2,12 +2,15 @@
 #include <pthread.h>
 #include <assert.h>
 
-typedef struct ezmq_globref_list_t {
-    struct ezmq_globref_list_t *next;
+/**
+   Linked list of global references to be freed eventually.
+*/
+typedef struct ezmq_globref_t {
+    struct ezmq_globref_t *next;
     emacs_value val;
-} ezmq_globref_list_t;
+} ezmq_globref_t;
 
-static ezmq_globref_list_t *globref_list = NULL;
+static ezmq_globref_t *globrefs = NULL;
 
 #define ERR_CASE(err)                                              \
     case err: {                                                    \
@@ -243,7 +246,7 @@ ezmq_free_obj(ezmq_obj_t *obj)
         if(obj->type == EZMQ_MESSAGE) {
             free(obj->obj);
         }
-        ezmq_obj_push_val_for_release(obj);
+        ezmq_push_globref(obj);
         free(obj);
     }
 }
@@ -251,7 +254,7 @@ ezmq_free_obj(ezmq_obj_t *obj)
 void
 ezmq_obj_set_val(ezmq_obj_t *obj, emacs_value val)
 {
-    ezmq_obj_push_val_for_release(obj);
+    ezmq_push_globref(obj);
     obj->val = val ? GLOBREF(val) : NULL;
 }
 
@@ -262,26 +265,26 @@ ezmq_obj_get_val(ezmq_obj_t *obj)
 }
 
 void
-ezmq_obj_push_val_for_release(ezmq_obj_t *obj)
+ezmq_push_globref(ezmq_obj_t *obj)
 {
     if(obj->val) {
         ezmq_debug("push globref\n");
-        ezmq_globref_list_t *el = malloc(sizeof(*el));
+        ezmq_globref_t *el = malloc(sizeof(*el));
         assert(el != NULL);
-        el->next = globref_list;
+        el->next = globrefs;
         el->val = obj->val;
-        globref_list = el;
+        globrefs = el;
     }
 }
 
 emacs_value
-ezmq_obj_pop_val_for_release()
+ezmq_pop_globref()
 {
-    if(globref_list) {
+    if(globrefs) {
         ezmq_debug("pop globref\n");
-        ezmq_globref_list_t *el = globref_list;
-        emacs_value val = globref_list->val;
-        globref_list = globref_list->next;
+        ezmq_globref_t *el = globrefs;
+        emacs_value val = globrefs->val;
+        globrefs = globrefs->next;
         free(el);
         return val;
     } else
