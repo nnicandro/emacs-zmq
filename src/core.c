@@ -119,7 +119,7 @@ ezmq_wrong_type_argument(emacs_value val, int nvalid, ...)
         emacs_value options[nvalid + 1];
         options[0] = INTERN("or");
         int i;
-        for(i = 0; i < nvalid; i++) {
+        for(i = 1; i < nvalid + 1; i++) {
             options[i] = va_arg(args, emacs_value);
         }
         emacs_value options_list = FUNCALL(Qlist, nvalid + 1, options);
