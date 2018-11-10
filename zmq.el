@@ -433,6 +433,22 @@ EVENT-FILTER has the same meaning as in `zmq-start-process'."
 SENTINEL has the same meaning as in `zmq-start-process'."
   (process-put process :sentinel sentinel))
 
+(defun zmq-set-subprocess-buffer (process buffer)
+  "Set PROCESS' buffer to BUFFER.
+Delete PROCESS' current buffer if it was automatically created
+when `zmq-start-process' was called. It is the responsibility of
+the caller to cleanup BUFFER when PROCESS exits after a call to
+this function."
+  (let ((marker (process-mark process)))
+    ;; Copy over any pending results
+    (with-current-buffer (process-buffer process)
+      (copy-to-buffer buffer (point-min) (point-max)))
+    (set-process-buffer process buffer)
+    (set-marker marker (marker-position marker) buffer)
+    (when (process-get process :owns-buffer)
+      (kill-buffer (process-buffer process))
+      (setf (process-get process :owns-buffer) nil))))
+
 (cl-defun zmq-start-process (sexp &key filter sentinel buffer debug)
   "Start an Emacs subprocess initializing it with SEXP.
 Return the newly created process.
