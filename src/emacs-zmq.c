@@ -295,6 +295,6 @@ emacs_module_init(struct emacs_runtime *ert)
 
     ezmq_provide("zmq-core");
 
-    initialized = true;
+    if(!NONLOCAL_EXIT()) initialized = true;
     return 0;
 }
