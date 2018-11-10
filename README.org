@@ -1,5 +1,7 @@
 Bindings to =zmq= in Emacs.
 
+[[https://melpa.org/#/zmq][file:https://melpa.org/packages/zmq-badge.svg]]
+
 * Installation
 ** Dependencies
 
