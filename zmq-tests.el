@@ -1,12 +1,10 @@
-;;; zmq-tests.el --- Tests for emacs-zmq-*- lexical-binding: t -*-
+;;; zmq-tests.el --- Tests for emacs-zmq -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2018 Nathaniel Nicandro
 
 ;; Author: Nathaniel Nicandro <nathanielnicandro@gmail.com>
 ;; Created: 27 Sep 2018
-;; Version: 0.0.1
-;; Keywords:
-;; X-URL: https://github.com/nathan/zmq-tests
+;; Version: 0.9.0
 
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
