@@ -118,11 +118,13 @@
    The EZMQ_CHECK_* macros check that that expression passed as their argument
    evaluates to something other than -1 (EZMQ_CHECK_ERROR) or NULL
    (EZMQ_CHECK_NULL_ERROR). If they do evaluate to -1 or NULL, they signal an
-   error.
+   error. Note, the expressions passed as arguments will not be evaluated if a
+   non-local exit is pending already.
 */
 
 #define EZMQ_CHECK_ERROR(expr)                  \
     do {                                        \
+        if(NONLOCAL_EXIT()) break;              \
         int __retcode = (expr);                 \
         if(__retcode == -1) {                   \
             ezmq_signal_error();                \
@@ -131,6 +133,7 @@
 
 #define EZMQ_CHECK_NULL_ERROR(expr)             \
     do {                                        \
+        if(NONLOCAL_EXIT()) break;              \
         if((void *)(expr) == NULL) {            \
             ezmq_signal_error();                \
         }                                       \
