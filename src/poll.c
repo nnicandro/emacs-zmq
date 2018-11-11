@@ -3,12 +3,12 @@
 static void
 ezmq_invalid_poll_event(intmax_t event)
 {
-    ezmq_signal(INTERN("args-out-of-range"), 2,
-                INT(event), LIST(4,
-                                 INTERN("or"),
-                                 INTERN("zmq-POLLIN"),
-                                 INTERN("zmq-POLLOUT"),
-                                 INTERN("zmq-POLLERR")));
+    ezmq_args_out_of_range(INT(event),
+                           LIST(4,
+                                INTERN("or"),
+                                INTERN("zmq-POLLIN"),
+                                INTERN("zmq-POLLOUT"),
+                                INTERN("zmq-POLLERR")));
 }
 
 /**

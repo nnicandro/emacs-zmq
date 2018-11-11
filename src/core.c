@@ -132,6 +132,12 @@ ezmq_wrong_type_argument(emacs_value val, int nvalid, ...)
     }
 }
 
+void
+ezmq_args_out_of_range(emacs_value val, emacs_value range)
+{
+    SIGNAL(Qargs_out_of_range, LIST(2, val, range));
+}
+
 int
 ezmq_obj_of_type(emacs_value val, enum ezmq_obj_t type)
 {

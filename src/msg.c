@@ -31,13 +31,13 @@ ezmq_extract_message_data(emacs_value val, ptrdiff_t *size)
         for(i = 0; i < clen; i++) {
             EZMQ_EXTRACT_INT(byte, AREF(val, i));
 
-            if(!(0 <= byte && byte <= 255)) {
-                ezmq_signal(INTERN("args-out-of-range"),
-                            2, byte, CONS(INT(0), INT(255)));
+            if(0 <= byte && byte <= 255) {
+                content[i] = (char)byte;
+            } else {
+                ezmq_args_out_of_range(INT(byte), CONS(INT(0), INT(255)));
                 free(content);
                 return NULL;
             }
-            content[i] = (char)byte;
         }
         *size = clen;
         return content;

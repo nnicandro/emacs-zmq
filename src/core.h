@@ -187,6 +187,14 @@ extern void
 ezmq_wrong_type_argument(emacs_value val, int nvalid, ...);
 
 /**
+   Signal an Emacs `args-out-of-range` error.
+   VAL is the object whose range is out of bounds. RANGE is an object
+   describing the bounds that are valid.
+ */
+extern void
+ezmq_args_out_of_range(emacs_value val, emacs_value range);
+
+/**
    Signal an error created from the current value of zmq_errno().
 */
 extern void
