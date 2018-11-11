@@ -128,6 +128,28 @@ ezmq_disconnect(emacs_value esock, emacs_value eendpoint)
     return Qnil;
 }
 
+EZMQ_DOC(ezmq_join, "SOCK GROUP", "On SOCK, join GROUP.");
+emacs_value
+ezmq_join(emacs_value esock, emacs_value egroup)
+{
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+    EZMQ_EXTRACT_STRING(group, elen, egroup);
+    EZMQ_CHECK_ERROR(zmq_join(sock->obj, group));
+    free(group);
+    return Qnil;
+}
+
+EZMQ_DOC(ezmq_leave, "SOCK GROUP", "On SOCK, leave GROUP.");
+emacs_value
+ezmq_leave(emacs_value esock, emacs_value egroup)
+{
+    EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+    EZMQ_EXTRACT_STRING(group, elen, egroup);
+    EZMQ_CHECK_ERROR(zmq_leave(sock->obj, group));
+    free(group);
+    return Qnil;
+}
+
 EZMQ_DOC(ezmq_close, "SOCK", "Close SOCK.");
 emacs_value
 ezmq_close(emacs_value esock)

@@ -227,3 +227,23 @@ ezmq_message_set_routing_id(emacs_value emessage, emacs_value eid)
     EZMQ_CHECK_ERROR(zmq_msg_set_routing_id(msg->obj, id));
     return Qnil;
 }
+
+EZMQ_DOC(ezmq_message_group, "MESSAGE", "Get MESSAGE's GROUP.");
+emacs_value
+ezmq_message_group(emacs_value emessage)
+{
+    EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, emessage);
+    const char *group = zmq_msg_group(msg->obj);
+    EZMQ_CHECK_NULL_ERROR(group);
+    return NONLOCAL_EXIT() ? Qnil : STRING(group, strlen(group));
+}
+
+EZMQ_DOC(ezmq_message_set_group, "MESSAGE GROUP", "Set MESSAGE's GROUP.");
+emacs_value
+ezmq_message_set_group(emacs_value emessage, emacs_value egroup)
+{
+    EZMQ_EXTRACT_OBJ(msg, EZMQ_MESSAGE, emessage);
+    EZMQ_EXTRACT_STRING(group, elen, egroup);
+    EZMQ_CHECK_ERROR(zmq_msg_set_group(msg->obj, group));
+    return Qnil;
+}

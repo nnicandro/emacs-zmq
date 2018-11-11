@@ -68,18 +68,20 @@ To receive a message without blocking:
 
 Below is a table mapping the C API functions to their Emacs equivalent.
 
-| C                    | emacs-lisp           |
-|----------------------+----------------------|
-| =zmq_socket=         | =zmq-socket=         |
-| =zmq_send=           | =zmq-send=           |
-| =zmq_recv=           | =zmq-recv=           |
-| =zmq_bind=           | =zmq-bind=           |
-| =zmq_unbind=         | =zmq-unbind=         |
-| =zmq_connect=        | =zmq-connect=        |
-| =zmq_disconnect=     | =zmq-disconnect=     |
-| =zmq_close=          | =zmq-close=          |
-| =zmq_setsockopt=     | =zmq-socket-set=     |
-| =zmq_getsockopt=     | =zmq-socket-get=     |
+| C                | emacs-lisp       |
+|------------------+------------------|
+| =zmq_socket=     | =zmq-socket=     |
+| =zmq_send=       | =zmq-send=       |
+| =zmq_recv=       | =zmq-recv=       |
+| =zmq_bind=       | =zmq-bind=       |
+| =zmq_unbind=     | =zmq-unbind=     |
+| =zmq_connect=    | =zmq-connect=    |
+| =zmq_disconnect= | =zmq-disconnect= |
+| =zmq_join=       | =zmq-join=       |
+| =zmq_leave=      | =zmq-leave=      |
+| =zmq_close=      | =zmq-close=      |
+| =zmq_setsockopt= | =zmq-socket-set= |
+| =zmq_getsockopt= | =zmq-socket-get= |
 
 In addition to the above, there are also some convenience functions for working
 with sockets. Currently this is only the function =zmq-bind-to-random-port=
@@ -125,6 +127,8 @@ Below is a table mapping the C API functions to their Emacs equivalent.
 | =zmq_msg_gets=           | =zmq-message-property=       |
 | =zmq_msg_routing_id=     | =zmq-message-routing-id=     |
 | =zmq_msg_set_routing_id= | =zmq-message-set-routing-id= |
+| =zmq_msg_group=          | =zmq-message-group=          |
+| =zmq_msg_set_group=      | =zmq-message-set-group=      |
 ** Multi-part messages
 
 To send a multi-part message:

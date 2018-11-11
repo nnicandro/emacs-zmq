@@ -204,8 +204,10 @@ ezmq_define_functions()
     EZMQ_DEFUN("zmq-recv", ezmq_recv, 1, 3);
     EZMQ_DEFUN("zmq-bind", ezmq_bind, 2, 2);
     EZMQ_DEFUN("zmq-connect", ezmq_connect, 2, 2);
+    EZMQ_DEFUN("zmq-join", ezmq_join, 2, 2);
     EZMQ_DEFUN("zmq-unbind", ezmq_unbind, 2, 2);
     EZMQ_DEFUN("zmq-disconnect", ezmq_disconnect, 2, 2);
+    EZMQ_DEFUN("zmq-leave", ezmq_leave, 2, 2);
     EZMQ_DEFUN("zmq-close", ezmq_close, 1, 1);
     EZMQ_DEFUN("zmq-proxy", ezmq_proxy, 2, 3);
     EZMQ_DEFUN("zmq-proxy-steerable", ezmq_proxy_steerable, 2, 4);
@@ -231,6 +233,8 @@ ezmq_define_functions()
     EZMQ_DEFUN("zmq-message-gets", ezmq_message_gets, 2, 2);
     EZMQ_DEFUN("zmq-message-routing-id", ezmq_message_routing_id, 1, 1);
     EZMQ_DEFUN("zmq-message-set-routing-id", ezmq_message_set_routing_id, 2, 2);
+    EZMQ_DEFUN("zmq-message-group", ezmq_message_group, 1, 1);
+    EZMQ_DEFUN("zmq-message-set-group", ezmq_message_set_group, 2, 2);
     EZMQ_DEFUN("zmq-poll", ezmq_poll, 2, 2);
     EZMQ_DEFUN("zmq-poller", ezmq_poller_new, 0, 0);
     EZMQ_DEFUN("zmq-poller-add", ezmq_poller_add, 3, 3);
