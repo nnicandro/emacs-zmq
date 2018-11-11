@@ -63,19 +63,17 @@ static emacs_value
 ezmq_split_poll_events(int events)
 {
     emacs_value args[3];
-    int i = 0;
+    int i = -1;
 
     if(events & ZMQ_POLLIN)
-        args[i++] = Izmq_POLLIN;
+        args[++i] = Izmq_POLLIN;
     if(events & ZMQ_POLLOUT)
-        args[i++] = Izmq_POLLOUT;
+        args[++i] = Izmq_POLLOUT;
     if(events & ZMQ_POLLERR)
-        args[i] = Izmq_POLLERR;
+        args[++i] = Izmq_POLLERR;
 
-    if(i == 0)
-        ezmq_invalid_poll_event(events);
-
-    return FUNCALL(Qlist, i, args);
+    if(i == -1) ezmq_invalid_poll_event(events);
+    return FUNCALL(Qlist, i + 1, args);
 }
 
 /**
