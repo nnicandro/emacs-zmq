@@ -58,30 +58,28 @@ ezmq_recv(emacs_value esock, emacs_value eflags, emacs_value enocopy)
 
     zmq_msg_t *msg = ezmq_malloc(sizeof(*msg));
     EZMQ_CHECK_ERROR(zmq_msg_init(msg));
-    if(NONLOCAL_EXIT()) {
-        free(msg);
-        return NULL;
-    }
-
     EZMQ_CHECK_ERROR(zmq_msg_recv(msg, sock->obj, flags));
-    if(NONLOCAL_EXIT()) {
-        free(msg);
-        return NULL;
-    }
 
     emacs_value retval = Qnil;
-    if(NILP(enocopy)) {
-        // After examining emacs/src/alloc.c it looks like the null
-        // termination of STRING, i.e. env->make_string, is already taken
-        // care of when allocating in allocate_string_data so we can avoid
-        // this double copy and it looks like that has been the case since
-        // Emacs 25 when modules were introduced.
-        retval = STRING(zmq_msg_data(msg), zmq_msg_size(msg));
-        zmq_msg_close(msg);
-        free(msg);
+    if(!NONLOCAL_EXIT()) {
+        if(NILP(enocopy)) {
+            // After examining emacs/src/alloc.c it looks like the null
+            // termination of STRING, i.e. env->make_string, is already taken
+            // care of when allocating in allocate_string_data so there is no
+            // need to do a double copy just to insert a null terminator. It
+            // looks like this has been the case since Emacs 25 when modules
+            // were introduced.
+            retval = STRING(zmq_msg_data(msg), zmq_msg_size(msg));
+            zmq_msg_close(msg);
+            free(msg);
+        } else {
+            retval = ezmq_new_obj_ptr(ezmq_new_obj(EZMQ_MESSAGE, msg));
+        }
     } else {
-        retval =  ezmq_new_obj_ptr(ezmq_new_obj(EZMQ_MESSAGE, msg));
+        free(msg);
     }
+
+
     return retval;
 }
 

@@ -125,20 +125,16 @@ ezmq_extract_pollitem_list(emacs_value list)
         emacs_value head = CAR(list);
         list = CDR(list);
 
-        if(NONLOCAL_EXIT()) {
-            free(items);
-            break;
-        }
+        if(NONLOCAL_EXIT()) break;
 
         if(EQ(TYPE(head), Qcons) && EQ(TYPE(CDR(head)), Qcons))
             ezmq_extract_pollitem(CAR(head), CDR(head), &items[i]);
-        else {
-            free(items);
+        else
             // TODO: The right error convention for wrong-type-argument
             ezmq_wrong_type_argument(head, 1, INTERN("consp"));
-            break;
-        }
     }
+
+    if(NONLOCAL_EXIT()) free(items);
     return items;
 }
 
@@ -226,18 +222,15 @@ ezmq_poller_add(emacs_value epoller, emacs_value esock, emacs_value eevents)
     else
         ezmq_wrong_type_argument(eevents, 1, INTERN("consp"));
 
-    if(!NONLOCAL_EXIT()) {
-        if(EQ(TYPE(esock), Qinteger)) {
-            EZMQ_EXTRACT_INT(fd, esock);
-            EZMQ_CHECK_ERROR(zmq_poller_add_fd(poller->obj, fd, NULL, events));
-        } else {
-            EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
-            EZMQ_CHECK_ERROR(zmq_poller_add(poller->obj, sock->obj, sock, events));
-            // Keep track of sockets added to ensure they do not get garbage
-            // collected
-            if(!NONLOCAL_EXIT())
-                ezmq_obj_set_val(poller, CONS(esock, ezmq_obj_get_val(poller)));
-        }
+    if(EQ(TYPE(esock), Qinteger)) {
+        EZMQ_EXTRACT_INT(fd, esock);
+        EZMQ_CHECK_ERROR(zmq_poller_add_fd(poller->obj, fd, NULL, events));
+    } else {
+        EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+        EZMQ_CHECK_ERROR(zmq_poller_add(poller->obj, sock->obj, sock, events));
+        // Keep track of sockets added to ensure they do not get garbage
+        // collected
+        ezmq_obj_set_val(poller, CONS(esock, ezmq_obj_get_val(poller)));
     }
 
     return Qnil;
@@ -259,14 +252,12 @@ ezmq_poller_modify(emacs_value epoller, emacs_value esock, emacs_value eevents)
     else
         ezmq_wrong_type_argument(eevents, 1, INTERN("consp"));
 
-    if(!NONLOCAL_EXIT()) {
-        if(EQ(TYPE(esock), Qinteger)) {
-            EZMQ_EXTRACT_INT(fd, esock);
-            EZMQ_CHECK_ERROR(zmq_poller_modify_fd(poller->obj, fd, events));
-        } else {
-            EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
-            EZMQ_CHECK_ERROR(zmq_poller_modify(poller->obj, sock->obj, events));
-        }
+    if(EQ(TYPE(esock), Qinteger)) {
+        EZMQ_EXTRACT_INT(fd, esock);
+        EZMQ_CHECK_ERROR(zmq_poller_modify_fd(poller->obj, fd, events));
+    } else {
+        EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
+        EZMQ_CHECK_ERROR(zmq_poller_modify(poller->obj, sock->obj, events));
     }
 
     return Qnil;
@@ -285,11 +276,9 @@ ezmq_poller_remove(emacs_value epoller, emacs_value esock)
     } else {
         EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
         EZMQ_CHECK_ERROR(zmq_poller_remove(poller->obj, sock->obj));
-        if(!NONLOCAL_EXIT()) {
-            emacs_value new_val = FUNCALL(INTERN("delq"), 2,
-                                          ((emacs_value []){esock, ezmq_obj_get_val(poller)}));
-            ezmq_obj_set_val(poller, new_val);
-        }
+        emacs_value new_val = FUNCALL(INTERN("delq"), 2,
+                                      ((emacs_value []){esock, ezmq_obj_get_val(poller)}));
+        ezmq_obj_set_val(poller, new_val);
     }
     return Qnil;
 }
@@ -302,8 +291,7 @@ ezmq_poller_destroy(emacs_value epoller)
 {
     EZMQ_EXTRACT_OBJ(poller, EZMQ_POLLER, epoller);
     EZMQ_CHECK_ERROR(zmq_poller_destroy(&poller->obj));
-    if(!NONLOCAL_EXIT())
-        ezmq_obj_set_val(poller, NULL);
+    ezmq_obj_set_val(poller, NULL);
     return Qnil;
 }
 
@@ -318,6 +306,9 @@ static emacs_value
 ezmq_get_poll_trigger(ezmq_obj_t *poller, zmq_poller_event_t event)
 {
     emacs_value trigger = Qnil;
+
+    if(NONLOCAL_EXIT()) return NULL;
+
     if(event.socket) {
         emacs_value socks = ezmq_obj_get_val(poller);
         while(!NILP(socks)) {
@@ -356,14 +347,10 @@ ezmq_poller_wait(emacs_value epoller, emacs_value etimeout)
 
     zmq_poller_event_t event;
     EZMQ_CHECK_ERROR(zmq_poller_wait(poller->obj, &event, timeout));
+    emacs_value sevents = ezmq_split_poll_events(event.events);
+    emacs_value trigger = ezmq_get_poll_trigger(poller, event);
 
-    if(!NONLOCAL_EXIT()) {
-        emacs_value sevents = ezmq_split_poll_events(event.events);
-        emacs_value trigger = ezmq_get_poll_trigger(poller, event);
-
-        return CONS(trigger, sevents);
-    }
-    return Qnil;
+    return CONS(trigger, sevents);
 }
 
 EZMQ_DOC(ezmq_poller_wait_all,
@@ -390,14 +377,13 @@ ezmq_poller_wait_all(emacs_value epoller, emacs_value enevents, emacs_value etim
     EZMQ_CHECK_ERROR(ntriggered);
 
     // TODO: Return nil on EAGAIN
-    if(!NONLOCAL_EXIT()) {
-        int i;
-        for(i = 0; i < ntriggered; i++) {
-            zmq_poller_event_t event = revents[i];
-            emacs_value sevents = ezmq_split_poll_events(event.events);
-            emacs_value trigger = ezmq_get_poll_trigger(poller, event);
-            retval = CONS(CONS(trigger, sevents), retval);
-        }
+    int i;
+    for(i = 0; !NONLOCAL_EXIT() && i < ntriggered; i++) {
+        zmq_poller_event_t event = revents[i];
+        emacs_value sevents = ezmq_split_poll_events(event.events);
+        emacs_value trigger = ezmq_get_poll_trigger(poller, event);
+        retval = CONS(CONS(trigger, sevents), retval);
     }
+
     return retval;
 }

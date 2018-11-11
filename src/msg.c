@@ -13,7 +13,7 @@ ezmq_free_message(void *data, void *hint)
    the integers are not within range of a byte.
 */
 static char *
-ezmq_extract_message_data(emacs_value val, ptrdiff_t *size)
+_ezmq_extract_message_data(emacs_value val, ptrdiff_t *size)
 {
     emacs_value type = TYPE(val);
     *size = 0;
@@ -25,20 +25,18 @@ ezmq_extract_message_data(emacs_value val, ptrdiff_t *size)
     } else if(EQ(type, Qvector)) {
         ptrdiff_t clen = VEC_LENGTH(val);
         char *content = ezmq_malloc(clen);
-        if(NONLOCAL_EXIT()) return NULL;
-
         ptrdiff_t i;
-        for(i = 0; i < clen; i++) {
+
+        for(i = 0; !NONLOCAL_EXIT() && i < clen; i++) {
             EZMQ_EXTRACT_INT(byte, AREF(val, i));
 
             if(0 <= byte && byte <= 255) {
                 content[i] = (char)byte;
             } else {
                 ezmq_args_out_of_range(INT(byte), CONS(INT(0), INT(255)));
-                free(content);
-                return NULL;
             }
         }
+
         *size = clen;
         return content;
     } else
@@ -57,31 +55,19 @@ emacs_value
 ezmq_message(emacs_value edata)
 {
     ezmq_obj_t *msg = ezmq_new_obj(EZMQ_MESSAGE, NULL);
-    if(NONLOCAL_EXIT()) return NULL;
-
     if(!NILP(edata)) {
         ptrdiff_t size = 0;
-        char *data = ezmq_extract_message_data(edata, &size);
-        if(NONLOCAL_EXIT()) {
-            ezmq_free_obj(msg);
-            return NULL;
-        }
+        char *data = _ezmq_extract_message_data(edata, &size);
         EZMQ_CHECK_ERROR(zmq_msg_init_data(msg->obj,
                                            data,
                                            size,
                                            &ezmq_free_message,
                                            NULL));
-        if(NONLOCAL_EXIT()) {
-            ezmq_free_obj(msg);
-            free(data);
-            return NULL;
-        }
+        if(NONLOCAL_EXIT()) free(data);
     } else {
         EZMQ_CHECK_ERROR(zmq_msg_init(msg->obj));
-        if(NONLOCAL_EXIT()) ezmq_free_obj(msg);
     }
-
-    ezmq_debug("ezmq_message()\n");
+    if(NONLOCAL_EXIT()) ezmq_free_obj(msg);
     return ezmq_new_obj_ptr(msg);
 }
 

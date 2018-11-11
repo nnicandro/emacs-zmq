@@ -273,8 +273,10 @@ ezmq_free_obj(ezmq_obj_t *obj)
 void
 ezmq_obj_set_val(ezmq_obj_t *obj, emacs_value val)
 {
-    ezmq_push_globref(obj);
-    obj->val = val ? GLOBREF(val) : NULL;
+    if(!NONLOCAL_EXIT()) {
+        ezmq_push_globref(obj);
+        obj->val = val ? GLOBREF(val) : NULL;
+    }
 }
 
 emacs_value
