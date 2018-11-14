@@ -333,16 +333,17 @@ should be current for subsequent calls."
   "Print PROCESS' stderr as messages.
 Do this only if the PROCESS has a non-nil :debug property."
   (when (process-get process :debug)
-    (unless (zerop (buffer-size (process-get process :stderr)))
-      (with-current-buffer (process-get process :stderr)
-        (let ((prefix (concat "STDERR[" (process-name process) "]: ")))
-          (goto-char (point-min))
-          (while (/= (point) (point-max))
-            (message "%s%s" prefix (buffer-substring
-                                    (line-beginning-position)
-                                    (line-end-position)))
-            (forward-line))
-          (erase-buffer))))))
+    (let ((stderr (process-get process :stderr)))
+      (unless (zerop (buffer-size (process-buffer stderr)))
+        (with-current-buffer (process-buffer stderr)
+          (let ((prefix (concat "STDERR[" (process-name process) "]: ")))
+            (goto-char (point-min))
+            (while (/= (point) (point-max))
+              (message "%s%s" prefix (buffer-substring
+                                      (line-beginning-position)
+                                      (line-end-position)))
+              (forward-line))
+            (erase-buffer)))))))
 
 (defun zmq--subprocess-filter (process output)
   "Create a stream of s-expressions based on PROCESS' OUTPUT.
@@ -386,11 +387,14 @@ initially passed to `zmq-start-process'."
         (when (functionp sentinel)
           (funcall sentinel process event))
       (when (memq (process-status process) '(exit signal))
-        (when (process-live-p (get-buffer-process (process-get process :stderr)))
-          (delete-process (get-buffer-process (process-get process :stderr))))
-        (kill-buffer (process-get process :stderr))
+        (delete-process process)
         (when (process-get process :owns-buffer)
-          (kill-buffer (process-buffer process)))))))
+          (kill-buffer (process-buffer process)))
+        (let ((stderr (process-get process :stderr)))
+          (when (process-live-p stderr)
+            (delete-process stderr))
+          (when (buffer-live-p (process-buffer stderr))
+            (kill-buffer (process-buffer stderr))))))))
 
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
@@ -487,13 +491,18 @@ Emacs process."
     (error "Invalid function to send to process, can only have 0 or 1 arguments"))
   (let* ((zmq-path (locate-library "zmq"))
          (cmd (format "(zmq--init-subprocess %s)" (when debug t)))
-         ;; stderr is split from stdout since the former is used by Emacs to
-         ;; print messages that we don't want intermixed with what the
-         ;; subprocess returns.
-         (stderr (generate-new-buffer " *zmq*"))
+         ;; stderr is split from stdout since the former is used by
+         ;; Emacs to print messages that we don't want intermixed
+         ;; with what the subprocess returns.
+         (stderr (make-pipe-process
+                  :name "zmq stderr"
+                  :buffer (generate-new-buffer " *zmq*")
+                  :noquery t
+                  :stop (not debug)))
          (process (make-process
                    :name "zmq"
                    :buffer (or buffer (generate-new-buffer " *zmq*"))
+                   :noquery t
                    :connection-type 'pipe
                    :coding-system 'no-conversion
                    :filter #'zmq--subprocess-filter
@@ -506,7 +515,6 @@ Emacs process."
                              "-Q" "-batch"
                              "-L" (file-name-directory zmq-path)
                              "-l" zmq-path "--eval" cmd))))
-    (unless debug (stop-process (get-buffer-process stderr)))
     (process-put process :debug debug)
     (process-put process :stderr stderr)
     (process-put process :filter filter)
