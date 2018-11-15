@@ -101,9 +101,9 @@
         }                                       \
     } while(0)
 
-#define EZMQ_EXTRACT_OBJ(name, type, val)                               \
-    ezmq_obj_t *name = (val) == Qnil ? NULL : ezmq_extract_obj(type, (val)); \
-    if(NONLOCAL_EXIT()) return NULL                                     \
+#define EZMQ_EXTRACT_OBJ(name, type, val)             \
+    ezmq_obj_t *name = ezmq_extract_obj(type, (val)); \
+    if(NONLOCAL_EXIT()) return NULL                   \
 
 #define EZMQ_EXTRACT_STRING(name, len, val)         \
     ptrdiff_t len = 0;                              \
@@ -144,15 +144,15 @@
     extern emacs_value name(__VA_ARGS__)
 
 enum ezmq_obj_t {
-    EZMQ_CONTEXT,
-    EZMQ_MESSAGE,
-    EZMQ_SOCKET,
-    EZMQ_POLLER
+    EZMQ_CONTEXT = 0xe178c286,
+    EZMQ_MESSAGE = 0xe178c286 + 2,
+    EZMQ_SOCKET = 0xe178c286 + 4,
+    EZMQ_POLLER = 0xe178c286 + 8
 };
 
 typedef struct {
-    void *obj;
     enum ezmq_obj_t type;
+    void *obj;
     // Extra object that can be stored, use ezmq_obj_get_val() and
     // ezmq_obj_set_val() to access it.
     emacs_value val;

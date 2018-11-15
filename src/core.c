@@ -149,9 +149,13 @@ ezmq_obj_of_type(emacs_value val, enum ezmq_obj_t type)
 ezmq_obj_t *
 ezmq_extract_obj(enum ezmq_obj_t type, emacs_value val)
 {
-    ezmq_obj_t *obj = NILP(val) ? NULL : USER_PTR(val);
-    if(obj != NULL && !NONLOCAL_EXIT() && obj->type != type)
-        ezmq_wrong_object_type(obj, type);
+    ezmq_obj_t *obj = USER_PTR(val);
+    if(!NONLOCAL_EXIT()) {
+        unsigned int typ = *((unsigned int *)obj);
+        if(typ != type) {
+            ezmq_wrong_type_argument(val, 1, ezmq_type_symbol(type));
+        }
+    }
     return obj;
 }
 
