@@ -154,6 +154,9 @@ ezmq_extract_obj(enum ezmq_obj_t type, emacs_value val)
         if(USER_FINALIZER(val) == &ezmq_obj_finalizer) {
             if(obj->type != type) {
                 ezmq_wrong_object_type(obj, type);
+            } else if(type == EZMQ_SOCKET && obj->obj == NULL) {
+                const char *msg = "Socket closed";
+                ezmq_signal(INTERN("zmq-ENOTSOCK"), 1, STRING(msg, strlen(msg)));
             }
         } else {
             ezmq_wrong_type_argument(val, 1, ezmq_type_symbol(type));
@@ -216,10 +219,13 @@ ezmq_obj_finalizer(void *ptr)
         zmq_msg_close(obj->obj);
         break;
     case EZMQ_SOCKET: {
-        // http://zguide.zeromq.org/page:all#Making-a-Clean-Exit
-        int opt = 0;
-        zmq_setsockopt(obj->obj, ZMQ_LINGER, &opt, sizeof(opt));
-        zmq_close(obj->obj);
+        // If obj == NULL, zmq_close has already been called. See ezmq_close.
+        if(obj->obj) {
+            // http://zguide.zeromq.org/page:all#Making-a-Clean-Exit
+            int opt = 0;
+            zmq_setsockopt(obj->obj, ZMQ_LINGER, &opt, sizeof(opt));
+            zmq_close(obj->obj);
+        }
         break;
     }
     case EZMQ_CONTEXT: {

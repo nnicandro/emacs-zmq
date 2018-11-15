@@ -136,6 +136,9 @@ ezmq_close(emacs_value esock)
 {
     EZMQ_EXTRACT_OBJ(sock, EZMQ_SOCKET, esock);
     EZMQ_CHECK_ERROR(zmq_close(sock->obj));
+    // From the zmq API a socket should only be closed once. This indicates to
+    // the finalizer function that the socket has already been closed.
+    if(!NONLOCAL_EXIT()) sock->obj = NULL;
     return Qnil;
 }
 

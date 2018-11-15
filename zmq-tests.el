@@ -60,6 +60,11 @@
   (should-error (zmq-send "bar" "foo"))
   (should-error (zmq-send (zmq-context) "foo")))
 
+(ert-deftest zmq-close-socket-once ()
+  (let ((sock (zmq-socket (zmq-current-context) zmq-PUB)))
+    (zmq-close sock)
+    (should-error (zmq-close sock))))
+
 (ert-deftest zmq-utility ()
   (ert-info ("`zmq-version'")
     (let ((version (zmq-version)))
