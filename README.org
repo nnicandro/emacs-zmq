@@ -148,7 +148,7 @@ always returns a list, even for a message containing a single part.
 * Polling
 
 Currently, polling requires that =libzmq= be built with the draft API to expose
-the =zmq_poller= interface.
+the =zmq_poller= interface. Below is an example of how you may poll a socket.
 
 #+BEGIN_SRC elisp
 (catch 'recvd
@@ -157,7 +157,7 @@ the =zmq_poller= interface.
     (zmq-poller-add poller sock (list zmq-POLLIN zmq-POLLOUT))
     (while t
       ;; `zmq-poller-wait-all' returns an alist of elements (sock . events)
-      (let* ((socks-events (zmq-poller-wait-all items timeout))
+      (let* ((socks-events (zmq-poller-wait-all poller 1 timeout))
              (events (cdr (zmq-assoc sock socks-events))))
         (when (and events (member zmq-POLLIN events))
           (throw 'recvd (zmq-recv sock)))))))
@@ -309,10 +309,10 @@ subprocess that can then be used for all your =zmq= processing needs. You pass
 
 #+BEGIN_SRC elisp
 (zmq-start-process
- (lambda ()
-   (let* ((ctx (zmq-current-context))
-          (sock (zmq-socket ctx zmq-SUB)))
-     BODY)))
+ `(lambda ()
+    (let* ((ctx (zmq-current-context))
+           (sock (zmq-socket ctx zmq-SUB)))
+      BODY)))
 #+END_SRC
 
 Or if you supply a function with a single argument to =zmq-start-process=, a
@@ -320,9 +320,9 @@ context will be created for you and passed as the argument to the function:
 
 #+BEGIN_SRC elisp
 (zmq-start-process
- (lambda (ctx)
-   (let ((sock (zmq-socket ctx zmq-SUB)))
-     BODY)))
+ `(lambda (ctx)
+    (let ((sock (zmq-socket ctx zmq-SUB)))
+      BODY)))
 #+END_SRC
 
 For one-way communication between the parent Emacs process and the subprocess
@@ -335,17 +335,17 @@ decoding and returns the s-expression sent from the parent process.
 
 #+BEGIN_SRC elisp
 (let ((proc (zmq-start-process
-             (lambda (ctx)
-               (let ((poller (zmq-poller)))
-                 ;; Poll for input on STDIN, i.e. input from the parent emacs
-                 ;; process
-                 (zmq-poller-add poller 0 zmq-POLLIN)
-                 (catch 'exit
-                   (while t
-                     (when (zmq-poller-wait poller 100)
-                       (let ((sexp (zmq-subprocess-read)))
-                         (zmq-prin1 sexp)
-                         (throw 'exit t)))))))
+             `(lambda (ctx)
+                (let ((poller (zmq-poller)))
+                  ;; Poll for input on STDIN, i.e. input from the parent emacs
+                  ;; process
+                  (zmq-poller-add poller 0 zmq-POLLIN)
+                  (catch 'exit
+                    (while t
+                      (when (zmq-poller-wait poller 100)
+                        (let ((sexp (zmq-subprocess-read)))
+                          (zmq-prin1 sexp)
+                          (throw 'exit t)))))))
              ;; A filter function which prints out messages sent by the
              ;; subprocess.
              :filter (lambda (sexp)
