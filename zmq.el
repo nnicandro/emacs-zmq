@@ -542,9 +542,11 @@ Emacs process."
                   (if (string= status "finished\n")
                       (zmq-load)
                     (message "Something went wrong when compiling the ZMQ module!"))
-                  (remove-hook 'compilation-finish-functions #'load-zmq)))
+                  (remove-hook 'compilation-finish-functions #'load-zmq)
+                  (exit-recursive-edit)))
               (add-hook 'compilation-finish-functions #'load-zmq)
-              (compile "make")))))
+              (compile "make")
+              (recursive-edit)))))
     (user-error "Modules are not supported")))
 
 (zmq-load)
