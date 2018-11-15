@@ -54,6 +54,12 @@
          (zmq-unbind ,s1 (zmq-socket-get ,s1 zmq-LAST-ENDPOINT))
          (zmq-disconnect ,s2 (zmq-socket-get ,s2 zmq-LAST-ENDPOINT))))))
 
+(ert-deftest zmq-wrong-object-type ()
+  "Error when wrong objects are passed to ZMQ functions."
+  (should-error (zmq-send nil "foo"))
+  (should-error (zmq-send "bar" "foo"))
+  (should-error (zmq-send (zmq-context) "foo")))
+
 (ert-deftest zmq-utility ()
   (ert-info ("`zmq-version'")
     (let ((version (zmq-version)))
