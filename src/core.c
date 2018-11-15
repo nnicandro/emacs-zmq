@@ -151,8 +151,11 @@ ezmq_extract_obj(enum ezmq_obj_t type, emacs_value val)
 {
     ezmq_obj_t *obj = USER_PTR(val);
     if(!NONLOCAL_EXIT()) {
-        unsigned int typ = *((unsigned int *)obj);
-        if(typ != type) {
+        if(USER_FINALIZER(val) == &ezmq_obj_finalizer) {
+            if(obj->type != type) {
+                ezmq_wrong_object_type(obj, type);
+            }
+        } else {
             ezmq_wrong_type_argument(val, 1, ezmq_type_symbol(type));
         }
     }
