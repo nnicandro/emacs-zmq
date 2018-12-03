@@ -1,4 +1,5 @@
 #include "socket.h"
+#include <assert.h>
 
 // TODO: Use the actual documentation of the ZMQ API for all functions.
 
@@ -281,7 +282,8 @@ ezmq_setsockopt(emacs_value esock, emacs_value eoption, emacs_value evalue)
     case ZMQ_VMCI_BUFFER_MAX_SIZE: case ZMQ_VMCI_BUFFER_MIN_SIZE:
         // INT64
     case ZMQ_MAXMSGSIZE: {
-        EZMQ_EXTRACT_INT(value, evalue);
+        EZMQ_EXTRACT_INT(_value, evalue);
+        int64_t value = (int64_t)_value;
         zmq_setsockopt(sock->obj, option, &value, sizeof(int64_t));
         break;
     }
@@ -342,6 +344,14 @@ ezmq_setsockopt(emacs_value esock, emacs_value eoption, emacs_value evalue)
     return Qnil;
 }
 
+// This assertion is required since Emacs does not support 64 bit wide
+// integers, but this will change with bignum support.
+void
+ezmq_assert_eint(uint64_t val)
+{
+    assert((int64_t)val >= INTMAX_MIN && val <= INTMAX_MAX);
+}
+
 EZMQ_DOC(ezmq_getsockopt,  "SOCK OPTION", "Get SOCK OPTION.");
 emacs_value
 ezmq_getsockopt(emacs_value esock, emacs_value eoption)
@@ -377,13 +387,13 @@ ezmq_getsockopt(emacs_value esock, emacs_value eoption)
     case ZMQ_VMCI_BUFFER_MAX_SIZE: case ZMQ_VMCI_BUFFER_MIN_SIZE:
         // INT64
     case ZMQ_MAXMSGSIZE: {
-        // NOTE: Possible truncation here
         uint64_t val;
         size = sizeof(uint64_t);
         EZMQ_CHECK_ERROR(zmq_getsockopt(sock->obj, option, buf, &size));
         if(!NONLOCAL_EXIT()) {
             memcpy(&val, buf, size);
-            return INT(val);
+            ezmq_assert_eint(val);
+            return INT((intmax_t)val);
         }
         break;
     }
