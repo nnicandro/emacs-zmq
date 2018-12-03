@@ -376,7 +376,6 @@ ezmq_poller_wait_all(emacs_value epoller, emacs_value enevents, emacs_value etim
     int ntriggered = zmq_poller_wait_all(poller->obj, revents, nevents, timeout);
     EZMQ_CHECK_ERROR(ntriggered);
 
-    // TODO: Return nil on EAGAIN
     int i;
     for(i = 0; !NONLOCAL_EXIT() && i < ntriggered; i++) {
         zmq_poller_event_t event = revents[i];

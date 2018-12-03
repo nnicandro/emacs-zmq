@@ -23,9 +23,6 @@ static ezmq_globref_t *globrefs = NULL;
 void
 ezmq_signal_error()
 {
-    // TODO: Define error symbols for common errors and use Qzmq_error as a
-    // catch all. Look at the zmq documentation for all of the errors that can
-    // occur.
     int en = zmq_errno();
     switch(en) {
     ERR_CASE(EINVAL);
