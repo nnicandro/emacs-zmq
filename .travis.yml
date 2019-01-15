@@ -4,29 +4,20 @@ dist: trusty
 sudo: required
 matrix:
   allow_failures:
-    - env: EMACS_VERSION=git-snapshot ZMQ_VERSION=4.2.3
+    - env: EMACS_VERSION=git-snapshot
 env:
-  - EMACS_VERSION=26-pretest ZMQ_VERSION=4.2.3
-  - EMACS_VERSION=git-snapshot ZMQ_VERSION=4.2.3
+  - EMACS_VERSION=26-pretest
+  - EMACS_VERSION=git-snapshot
 before_install:
   # Setup paths
   - export PATH=${TRAVIS_BUILD_DIR}/.evm/bin:${PATH}
-  - export LD_LIBRARY_PATH=${TRAVIS_BUILD_DIR}/lib:${LD_LIBRARY_PATH}
   # Install emacs
   - if [[ ${EMACS_VERSION} = git-snapshot ]]; then sudo apt-get install -y texinfo; fi
   # Use this fork of EVM for dynamic module support
   - git clone https://github.com/ubolonton/evm ${TRAVIS_BUILD_DIR}/.evm
   - evm config path /tmp
   - evm install emacs-${EMACS_VERSION} --use --skip
-  # Install zmq
-  - git clone git://github.com/zeromq/libzmq.git
-  - cd libzmq
-  - git checkout v${ZMQ_VERSION}
-  - mkdir cmake-build && cd cmake-build
-  - cmake -DCMAKE_INSTALL_PREFIX=${TRAVIS_BUILD_DIR} .. && make && make install
 script:
   - cd $TRAVIS_BUILD_DIR
-  - export CFLAGS=-I${TRAVIS_BUILD_DIR}/include
-  - export LDFLAGS=-L${TRAVIS_BUILD_DIR}/lib
   - make
   - make test

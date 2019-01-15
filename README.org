@@ -13,6 +13,25 @@ when running =(require 'zmq)= and the module is not built already, you will be
 asked to build it.
 
 Note, =automake= must be available on your system in order to build the module.
+
+By default a local copy of =libzmq= is built using the following configure
+flags
+
+#+BEGIN_SRC shell
+--enable-drafts=yes --enable-libunwind=no --without-docs
+#+END_SRC
+
+If you would like to link your own version of =libzmq= set the environment
+variables =ZMQ_CFLAGS= and =ZMQ_LIBS= to an appropriate value before running
+=make=. Currently the =--enable-drafts=yes= configure flag is required.
+
+The default version of =libzmq= built is 4.3.1 and can be changed by specifying
+the environment variable =ZMQ_VERSION=, e.g. to something like
+
+#+BEGIN_SRC shell
+ZMQ_VERSION=4.3.0
+#+END_SRC
+
 ** Testing
 
 Run =make test= in the top level directory.
