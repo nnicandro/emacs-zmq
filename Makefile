@@ -79,6 +79,7 @@ $(ZMQ_PKG_CONFIG_DIR)/libzmq.pc: libzmq/.git
 	$(info Building ZMQ locally)
 	$(info ZMQ_VERSION = $(ZMQ_VERSION))
 	cd libzmq && \
+	git checkout master && \
 	git pull --quiet origin && \
 	git checkout v$(ZMQ_VERSION) && \
 	./autogen.sh && \
