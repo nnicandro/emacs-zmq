@@ -23,7 +23,14 @@ flags
 
 If you would like to link your own version of =libzmq= set the environment
 variables =ZMQ_CFLAGS= and =ZMQ_LIBS= to an appropriate value before running
-=make=. Currently the =--enable-drafts=yes= configure flag is required.
+=make=. Currently the =--enable-drafts=yes= configure flag is required, and
+=-DZMQ_BUILD_DRAFT_API=1= must be included in =ZMQ_CFLAGS=. These variables
+might look something like
+
+#+BEGIN_SRC shell
+ZMQ_CFLAGS="-I/usr/local/include -DZMQ_BUILD_DRAFT_API=1"
+ZMQ_LIBS="-L/usr/local/lib"
+#+END_SRC
 
 The default version of =libzmq= built is 4.3.1 and can be changed by specifying
 the environment variable =ZMQ_VERSION=, e.g. to something like
