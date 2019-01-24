@@ -93,5 +93,5 @@ endif
 	git checkout v$(ZMQ_VERSION) && \
 	./autogen.sh && \
 	./configure --quiet --without-docs --prefix=$(ZMQ_BUILD_DIR) \
-		--enable-drafts=yes --enable-libunwind=no && \
+		--enable-drafts=yes --enable-libunwind=no --enable-static=no && \
 	$(MAKE) install
