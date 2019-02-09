@@ -26,7 +26,14 @@ AC_SEARCH_LIBS([zmq_poller_new], [zmq],
   [AC_MSG_ERROR([libzmq not built with DRAFT API or libzmq is not usable.])
 ])
 
-LT_INIT([shared disable-static])
+AC_CANONICAL_HOST
+if test "$host_os" = mingw32
+then
+    EXTRA_LDFLAGS="-no-undefined"
+fi
+AC_SUBST([EXTRA_LDFLAGS])
+
+LT_INIT([win32-dll disable-static])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
