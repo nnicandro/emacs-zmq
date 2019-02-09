@@ -29,11 +29,13 @@ AC_SEARCH_LIBS([zmq_poller_new], [zmq],
 AC_CANONICAL_HOST
 if test "$host_os" = mingw32
 then
-    EXTRA_LDFLAGS="-no-undefined"
+  EXTRA_LDFLAGS="-no-undefined"
+  LT_INIT([win32-dll disable-static])
+else
+  EXTRA_LDFLAGS=""
+  LT_INIT([shared disable-static])
 fi
 AC_SUBST([EXTRA_LDFLAGS])
-
-LT_INIT([win32-dll disable-static])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

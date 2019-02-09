@@ -17,16 +17,20 @@ ZMQ_BASE_BUILD_DIR = $(CURDIR)/libzmq/build
 ZMQ_BUILD_DIR = $(ZMQ_BASE_BUILD_DIR)/v$(ZMQ_VERSION)
 ZMQ_PKG_CONFIG_DIR = $(ZMQ_BUILD_DIR)/lib/pkgconfig
 ifeq ($(OS),Windows_NT)
-ZMQ_COMPILE_HOST ?= x86_64-w64-mingw32
-CXXFLAGS="-static-libgcc -static-libstdc++"
-SHARED_EXT := .dll
+ZMQ_BUILD_HOST ?= x86_64-w64-mingw32
 else
-ZMQ_COMPILE_HOST ?=
-CXXFLAGS=""
-SHARED_EXT := .so
+ZMQ_BUILD_HOST ?=
 endif
 $(shell touch version)
 endif
+endif
+
+ifneq (,$(findstring "mingw", $(ZMQ_BUILD_HOST)))
+CXXFLAGS="-static-libgcc -static-libstdc++"
+SHARED_EXT := .dll
+else
+CXXFLAGS=""
+SHARED_EXT := .so
 endif
 
 SHARED := emacs-zmq$(SHARED_EXT)
@@ -106,3 +110,6 @@ endif
 	./configure CXXFLAGS=$(CXXFLAGS) --quiet --without-docs --prefix=$(ZMQ_BUILD_DIR) \
 		--enable-drafts=yes --enable-libunwind=no --enable-static=no && \
 	$(MAKE) install
+ifeq ($(OS),Windows_NT)
+	cp $(ZMQ_BUILD_DIR)/bin/libzmq.dll $(CURDIR)
+endif
