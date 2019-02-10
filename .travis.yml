@@ -1,23 +1,44 @@
 language: emacs-lisp
-dist: trusty
-# https://github.com/travis-ci/travis-ci/issues/9061
-sudo: required
-matrix:
-  allow_failures:
-    - env: EMACS_VERSION=git-snapshot
-env:
-  - EMACS_VERSION=26-pretest
-  - EMACS_VERSION=git-snapshot
-before_install:
-  # Setup paths
-  - export PATH=${TRAVIS_BUILD_DIR}/.evm/bin:${PATH}
-  # Install emacs
-  - if [[ ${EMACS_VERSION} = git-snapshot ]]; then sudo apt-get install -y texinfo; fi
-  # Use this fork of EVM for dynamic module support
-  - git clone https://github.com/ubolonton/evm ${TRAVIS_BUILD_DIR}/.evm
-  - evm config path /tmp
-  - evm install emacs-${EMACS_VERSION} --use --skip
-script:
-  - cd $TRAVIS_BUILD_DIR
-  - make
-  - make test
+jobs:
+  include:
+    - stage: test
+      os: linux
+      sudo: required
+      env:
+        - EMACS_VERSION=26-pretest
+        - EMACS_VERSION=git-snapshot
+      allow_failures:
+        - env: EMACS_VERSION=git-snapshot
+      before_script:
+        - export PATH=${TRAVIS_BUILD_DIR}/.evm/bin:${PATH}
+        - if [[ ${EMACS_VERSION} = git-snapshot ]]; then sudo apt-get install texinfo; fi
+        - git clone https://github.com/ubolonton/evm ${TRAVIS_BUILD_DIR}/.evm
+        - evm config path /tmp
+        - evm install emacs-${EMACS_VERSION} --use --skip
+      script:
+        - cd $TRAVIS_BUILD_DIR
+        - make
+        - make test
+    - stage: deploy
+      if: tag IS present
+      os: osx
+      addons:
+        homebrew:
+          packages:
+            - mingw-w64
+          update: true
+      deploy:
+        provider: releases
+        api_key:
+          secure: fn9FUCzHKr6ZLj63Lgkgp4vepJrEEqwWLZX1nypfJRqEWFqfsfQOSU7AywIoxOaZmlsBBGehw9ae9weRXuv3X7Mq2v36oOYL5uits57cfXys6w1awxWtRQbsSEKcRDpqpq8k5Eyh4J586ogKltrxXCACunc0Ht3Jzz8lkL0iohi4/eFVs+SyW1/u9hGBrQT37IznJGfJPxhaPR+ftsDbGhQJEXjGLgK8rmS3BOGjxjea9ckyysPr7gsVVI+335ZWw2GNDjLrxfPzMgVpWlhos/M0EZseyOeto1xFFseII7+1h448MzhL5HszbBXdVhXCsqMFx+mAAWLSBmyULPglgI6Wl3y842AA4tlgZEs/XKbTiQdanV3cG/ylbubriCcX5+xNMS6E7VpPsVOOYgjuOL00SkwORqPIbRzFEIyNMNLJNYutGErzA/ZGXG7+N5zOFH4lVFKDa7CYN4dnvabVQzQzG3PWU3b9uA/FsK6Ht9vinpaLjnmdQAB5kiyUxGoQ4Joflop0dXQV1u6q3voH41UMl4yZmnZK1LQwnfelnIYmWAFqKGDuL1zf/H0lSTwh/tJUuwVt3HMlJDl7y0Iq455fjjLbd9eBmTpflmoRe06lLpeRitYZklQgAwgRGd8tpO5l+QFQKGqxIkNdolQ5jCVssqzx/rA4vnCGdf3nT2o=
+        file_glob: true
+        file: products/*
+        skip_cleanup: true
+        overwrite: true
+        on:
+          tags: true
+      env:
+        - ZMQ_BUILD_HOST=x86_64-w64-mingw32
+      script:
+        - cd $TRAVIS_BUILD_DIR
+        - make products

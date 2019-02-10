@@ -23,14 +23,14 @@ $(shell touch version)
 endif
 endif
 
-ifneq (,$(or $(findstring mingw, $(ZMQ_BUILD_HOST)) \
-			 $(findstring cygwin, $(ZMQ_BUILD_HOST)) \
-			 $(findstring msys, $(ZMQ_BUILD_HOST)) \
+ifneq (,$(or $(findstring mingw, $(ZMQ_BUILD_HOST)), \
+			 $(findstring cygwin, $(ZMQ_BUILD_HOST)), \
+			 $(findstring msys, $(ZMQ_BUILD_HOST)), \
 			 $(findstring Windows_NT, $(OS))))
 ZMQ_BUILD_FOR_WINDOWS = yes
 endif
 
-ifeq ($(ZMQ_BUILD_FOR_WINDOWS), yes)
+ifneq ($(ZMQ_BUILD_FOR_WINDOWS),)
 CXXFLAGS="-static-libgcc -static-libstdc++"
 SHARED_EXT := .dll
 else
@@ -65,10 +65,11 @@ test:
 .PHONY: clean
 clean:
 	$(MAKE) -C src clean
-	$(RM) libzmq.* emacs-zmq.* $(ELCFILES)
+	$(RM) emacs-zmq.* $(ELCFILES)
 
 .PHONY: clean-zmq-build
 clean-zmq-build:
+	$(RM) libzmq.*
 	$(RM) -r $(ZMQ_BASE_BUILD_DIR)
 
 .PHONY: compile
@@ -76,6 +77,20 @@ compile: $(ELCFILES)
 
 $(ELCFILES): %.elc: %.el
 	$(EMACS) --batch -Q -L . $(LIBS) -f batch-byte-compile $<
+
+### Make products (mainly for Travis)
+# But only if we are cross compiling. For testing purposes, be sure to call
+# make clean first.
+
+ifneq ($(ZMQ_BUILD_HOST),)
+.PHONY: products
+products:
+	make $(SHARED)
+	mkdir -p products
+	tar -czf products/emacs-zmq-$(ZMQ_BUILD_HOST).tar.gz *$(SHARED_EXT)
+	cd products && shasum -a 256 emacs-zmq-$(ZMQ_BUILD_HOST).tar.gz > \
+		emacs-zmq-$(ZMQ_BUILD_HOST).tar.gz.sha256
+endif
 
 ### Building ZMQ locally
 
@@ -85,9 +100,7 @@ ifneq ($(BUILD_ZMQ_LOCALLY),)
 # since the configure script to build emacs-zmq will use pkg-config anyways.
 libzmq: $(ZMQ_PKG_CONFIG_DIR)/libzmq.pc
 ifneq ($(shell cat version), $(ZMQ_VERSION))
-# Clean out object files so that we ensure that the right libzmq is linked in
-# the case that a version of ZMQ is being linked and we had
-# previously linked a different version.
+# Clean out object files so that we ensure the right libzmq is linked.
 	$(MAKE) -i clean
 	echo $(ZMQ_VERSION) > version
 endif
@@ -114,6 +127,7 @@ endif
 	./autogen.sh && \
 	./configure CXXFLAGS=$(CXXFLAGS) --quiet --without-docs --prefix=$(ZMQ_BUILD_DIR) \
 		--enable-drafts=yes --enable-libunwind=no --enable-static=no \
+		--disable-curve-keygen --disable-perf --disable-eventfd \
 		--host=$(ZMQ_BUILD_HOST) && \
 	$(MAKE) install
 ifneq ($(ZMQ_BUILD_FOR_WINDOWS),)
