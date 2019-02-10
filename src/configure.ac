@@ -30,11 +30,10 @@ AC_CANONICAL_HOST
 if test "$host_os" = mingw32
 then
   EXTRA_LDFLAGS="-no-undefined"
-  LT_INIT([win32-dll disable-static])
 else
   EXTRA_LDFLAGS=""
-  LT_INIT([shared disable-static])
 fi
+LT_INIT([win32-dll shared disable-static])
 AC_SUBST([EXTRA_LDFLAGS])
 
 AC_CONFIG_FILES([Makefile])
