@@ -32,6 +32,34 @@ the environment variable =ZMQ_VERSION=, e.g. to something like
 ZMQ_VERSION=4.3.0
 #+END_SRC
 
+*** Windows
+
+It is possible to use the included build chain on Windows using the [[https://www.msys2.org/][MSYS2]] MinGW
+tools.
+
+Install the 64-bit toolchain inside the MSYS2 shell via
+#+BEGIN_SRC shell
+pacman -S base-devel
+pacman -S git
+pacman -S mingw-w64-x86_64-gcc
+#+END_SRC
+
+Note: If you are using the official Git for Windows instead of MSYS2 Git, make
+sure to set
+
+#+BEGIN_SRC shell
+git config --global core.autocrlf false
+#+END_SRC
+
+during the build to avoid EOL issues and set it back to =true= (the default on
+Windows) when you are done building.
+
+Start the build from an MSYS2 MinGW 64-bit shell via =make=.
+
+Note that you need to have Emacs compiled =--with-modules= to be able to load
+shared modules. See instructions [[https://sourceforge.net/p/emacsbinw64/wiki/Build%20guideline%20for%20MSYS2-MinGW-w64%20system/][here]] for a way to do this using the mentioned
+tools.
+
 ** Testing
 
 Run =make test= in the top level directory.

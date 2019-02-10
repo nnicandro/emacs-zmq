@@ -16,14 +16,29 @@ ZMQ_VERSION ?= 4.3.1
 ZMQ_BASE_BUILD_DIR = $(CURDIR)/libzmq/build
 ZMQ_BUILD_DIR = $(ZMQ_BASE_BUILD_DIR)/v$(ZMQ_VERSION)
 ZMQ_PKG_CONFIG_DIR = $(ZMQ_BUILD_DIR)/lib/pkgconfig
+ifeq ($(OS),Windows_NT)
+ZMQ_BUILD_HOST ?= x86_64-w64-mingw32
+else
+ZMQ_BUILD_HOST ?=
+endif
 $(shell touch version)
 endif
 endif
 
-.PHONY: all
-all: emacs-zmq.so compile
+ifneq (,$(findstring "mingw", $(ZMQ_BUILD_HOST)))
+CXXFLAGS="-static-libgcc -static-libstdc++"
+SHARED_EXT := .dll
+else
+CXXFLAGS=""
+SHARED_EXT := .so
+endif
 
-emacs-zmq.so: src/Makefile
+SHARED := emacs-zmq$(SHARED_EXT)
+
+.PHONY: all
+all: $(SHARED) compile
+
+$(SHARED): src/Makefile
 	$(MAKE) CPPFLAGS=$(CPPFLAGS) -C src install
 
 ifeq ($(BUILD_ZMQ_LOCALLY),yes)
@@ -45,7 +60,7 @@ test:
 .PHONY: clean
 clean:
 	$(MAKE) -C src clean
-	rm -f emacs-zmq.so emacs-zmq.la $(ELCFILES)
+	rm -f $(SHARED) emacs-zmq.la $(ELCFILES)
 
 .PHONY: clean-zmq-build
 clean-zmq-build:
@@ -92,6 +107,9 @@ endif
 	git pull --quiet origin && \
 	git checkout v$(ZMQ_VERSION) && \
 	./autogen.sh && \
-	./configure --quiet --without-docs --prefix=$(ZMQ_BUILD_DIR) \
+	./configure CXXFLAGS=$(CXXFLAGS) --quiet --without-docs --prefix=$(ZMQ_BUILD_DIR) \
 		--enable-drafts=yes --enable-libunwind=no --enable-static=no && \
 	$(MAKE) install
+ifeq ($(OS),Windows_NT)
+	cp $(ZMQ_BUILD_DIR)/bin/libzmq.dll $(CURDIR)
+endif
