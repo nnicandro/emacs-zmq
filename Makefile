@@ -103,6 +103,9 @@ ifneq ($(shell cat version), $(ZMQ_VERSION))
 # Clean out object files so that we ensure the right libzmq is linked.
 	$(MAKE) -i clean
 	echo $(ZMQ_VERSION) > version
+ifneq ($(ZMQ_BUILD_FOR_WINDOWS),)
+	cp $(ZMQ_BUILD_DIR)/bin/libzmq.dll $(CURDIR)
+endif
 endif
 else
 libzmq: ;
@@ -131,6 +134,3 @@ endif
 		--with-pkgconfigdir=$(ZMQ_PKG_CONFIG_DIR) \
 		--host=$(ZMQ_BUILD_HOST) && \
 	$(MAKE) install
-ifneq ($(ZMQ_BUILD_FOR_WINDOWS),)
-	cp $(ZMQ_BUILD_DIR)/bin/libzmq.dll $(CURDIR)
-endif

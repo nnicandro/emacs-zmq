@@ -1,0 +1,39 @@
+environment:
+  PATH:  C:\msys64\usr\bin;C:\msys64\mingw64\bin;%PATH%
+  ZMQ_BUILD_HOST: x86_64-w64-mingw32
+  ZMQ_VERSION: 4.3.1
+  EZMQ_TZG: emacs-zmq-x86_64-w64-mingw32.tar.gz
+artifacts:
+  - path: products\emacs-zmq-x86_64-w64-mingw32.tar.gz
+deploy:
+  provider: GitHub
+  auth_token:
+    secure: wIcRCyjAXLJs2OjhKgliY0PGC3WxTRXdkwmEYR1gzaCTji8BR7pL5jbP0rFxuC/P
+  artifact: products\emacs-zmq-x86_64-w64-mingw32.tar.gz
+  draft: false
+  prerelease: false
+  on:
+    branch: master
+    APPVEYOR_REPO_TAG: true
+cache:
+  - C:\msys64\var\cache\pacman\pkg
+  - C:\projects\emacs-zmq\libzmq
+install:
+  - cd %APPVEYOR_BUILD_FOLDER%
+  - pacman --needed --noconfirm -Syu
+  - pacman --needed --noconfirm -Sy
+  - pacman --needed --noconfirm -S mingw-w64-x86_64-emacs
+build_script:
+  - make libzmq
+  # FIXME: Issue with the pkg-config file on Windows, something to do with
+  # paths.
+  - set ZMQ_BUILD_DIR=/c/projects/emacs-zmq/libzmq/build/%ZMQ_BUILD_HOST%/v%ZMQ_VERSION%
+  - set ZMQ_LIBS=-L%ZMQ_BUILD_DIR%/lib -lzmq
+  - set ZMQ_CFLAGS=-DZMQ_BUILD_DRAFT_API=1 -I%ZMQ_BUILD_DIR%/include
+  - make
+  # - appveyor DownloadFile https://github.com/dzop/emacs-zmq/releases/download/v0.10.1/%EZMQ_TZG%
+  # - tar -xzf %EZMQ_TZG%
+test_script:
+  - make test
+before_deploy:
+  - make products
