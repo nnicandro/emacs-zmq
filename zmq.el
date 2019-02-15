@@ -535,7 +535,11 @@ Emacs process."
             (load-file zmq-module-file)
             (add-hook 'post-gc-hook #'zmq--cleanup-globrefs))
         (when (y-or-n-p "ZMQ module not found. Build it? ")
-          (let ((default-directory (file-name-directory (locate-library "zmq"))))
+          (let ((default-directory (file-name-directory (locate-library "zmq")))
+                (emacs (when (and invocation-directory invocation-name)
+                         (file-truename
+                          (expand-file-name invocation-name
+                                            invocation-directory)))))
             (cl-labels
                 ((load-zmq
                   (_buf status)
@@ -545,7 +549,7 @@ Emacs process."
                   (remove-hook 'compilation-finish-functions #'load-zmq)
                   (exit-recursive-edit)))
               (add-hook 'compilation-finish-functions #'load-zmq)
-              (compile "make")
+              (compile (concat "make" (when emacs (concat " EMACS=" emacs))))
               (recursive-edit)))))
     (user-error "Modules are not supported")))
 
