@@ -6,7 +6,7 @@
 ;; Created: 05 Jan 2018
 ;; URL: https://github.com/dzop/emacs-zmq
 ;; Keywords: comm
-;; Version: 0.9.0
+;; Version: 0.9.1
 ;; Package-Requires: ((cl-lib "0.5") (emacs "26"))
 
 ;; This program is free software; you can redistribute it and/or
