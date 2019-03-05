@@ -18,7 +18,7 @@ BUILD_ZMQ_LOCALLY = yes
 ZMQ_VERSION ?= 4.3.1
 ZMQ_BASE_BUILD_DIR = $(CURDIR)/libzmq/build/$(ZMQ_BUILD_HOST)
 ZMQ_BUILD_DIR = $(ZMQ_BASE_BUILD_DIR)/v$(ZMQ_VERSION)
-ZMQ_PKG_CONFIG_DIR = $(ZMQ_BUILD_DIR)/lib/pkgconfig
+ZMQ_PKG_CONFIG_DIR = $(ZMQ_BUILD_DIR)/pkgconfig
 $(shell touch version)
 endif
 endif
@@ -128,6 +128,7 @@ endif
 	./configure CXXFLAGS=$(CXXFLAGS) --quiet --without-docs --prefix=$(ZMQ_BUILD_DIR) \
 		--enable-drafts=yes --enable-libunwind=no --enable-static=no \
 		--disable-curve-keygen --disable-perf --disable-eventfd \
+		--with-pkgconfigdir=$(ZMQ_PKG_CONFIG_DIR) \
 		--host=$(ZMQ_BUILD_HOST) && \
 	$(MAKE) install
 ifneq ($(ZMQ_BUILD_FOR_WINDOWS),)
