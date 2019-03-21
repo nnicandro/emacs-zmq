@@ -442,16 +442,6 @@
           (puthash "context" ctx table)
           (setq sock (zmq-socket ctx zmq-PUB)))
         (garbage-collect)
-        ;; The socket keeps a reference to the context that was used to create
-        ;; it so that it doesn't get cleaned up while sockets are still open.
-        ;; This case is actually not much of an issue because according to the
-        ;; ZMQ API, a context will block until all sockets are closed.
-        ;; Internally we use a thread to kill the context object whenever it
-        ;; gets cleaned up so that we don't end up blocking Emacs.
-        ;;
-        ;; TODO: So really this reference isn't needed. Either it can be
-        ;; removed or we can remove the thread stuff to kill the context. I'd
-        ;; rather remove the threads. One less complication.
         (should (not (null (gethash "context" table)))))
       (garbage-collect)
       ;; Make enough garbage so that everything get cleaned up

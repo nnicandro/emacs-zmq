@@ -1,5 +1,4 @@
 #include "core.h"
-#include <pthread.h>
 #include <assert.h>
 
 /**
@@ -168,24 +167,6 @@ ezmq_extract_obj(enum ezmq_obj_t type, emacs_value val)
     return obj;
 }
 
-static void *
-ezmq_wait_for_context_destruction(void *obj)
-{
-    ezmq_obj_t *ctx = (ezmq_obj_t *)obj;
-    if((zmq_ctx_term(ctx->obj) == -1) && (zmq_errno() == EINTR)) {
-        pthread_t thread;
-        // If we are in here, the context is no longer
-        // accessible from Emacs so we can't really do much
-        // except to try to destroy it again.
-        pthread_create(&thread,
-                       NULL,
-                       &ezmq_wait_for_context_destruction,
-                       obj);
-    } else
-        ezmq_free_obj(ctx);
-    return NULL;
-}
-
 ezmq_obj_t *
 ezmq_new_obj(enum ezmq_obj_t type, void *obj)
 {
@@ -232,14 +213,16 @@ ezmq_obj_finalizer(void *ptr)
         break;
     }
     case EZMQ_CONTEXT: {
-        pthread_t thread;
-        // Avoid blocking Emacs when waiting for all sockets to close.
-        pthread_create(&thread,
-                       NULL,
-                       &ezmq_wait_for_context_destruction,
-                       obj);
-        // Don't free obj
-        return;
+        int max_tries = 3;
+        int i = 0;
+        // Since a socket holds a reference to the context that was used to
+        // create it (see ezmq_socket), by the time a context is finalized, all
+        // sockets of the context have already been closed and their LINGER
+        // periods set to 0 so this context termination call should not fail
+        // due to open sockets. The loop is here as a sanity check.
+        while((zmq_ctx_term(obj->obj) == -1) && (zmq_errno() == EINTR) && i < max_tries)
+            i += 1;
+        break;
     }
     case EZMQ_POLLER:
         zmq_poller_destroy(&(obj->obj));
