@@ -1,4 +1,6 @@
 #include "emacs-zmq.h"
+#include <assert.h>
+#include <signal.h>
 
 int plugin_is_GPL_compatible;
 
@@ -265,8 +267,21 @@ emacs_module_init(struct emacs_runtime *ert)
     if(initialized)
         return 0;
 
+    // From https://phst.eu/emacs-modules
+    /* Fail if Emacs is too old. */
+    assert (ert->size > 0);
+    if ((size_t) ert->size < sizeof *ert)
+        return 1;
+
     // Retrieve the current emacs environment
     env = ert->get_environment(ert);
+
+    // From https://phst.eu/emacs-modules
+    if ((size_t) env->size < sizeof *env)
+        return 2;
+    /* Prevent Emacs’s dangerous stack overflow recovery. */
+    if (signal (SIGSEGV, SIG_DFL) == SIG_ERR)
+        return 3;
 
     Qt = GLOBREF(INTERN("t"));
     Qnil = GLOBREF(INTERN("nil"));
