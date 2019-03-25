@@ -23,13 +23,14 @@ EZMQ_DOC(ezmq_cleanup_globrefs, "",
          "Most notably, a `zmq-poller' object keeps track of all the sockets added to it\n"
          "so that they do not get cleaned up by garbage collection if they go out of scope\n"
          "while a poller is still using them.");
-static void
+static emacs_value
 ezmq_cleanup_globrefs()
 {
     emacs_value val;
     while((val = ezmq_pop_globref())) {
         FREE_GLOBREF(val);
     }
+    return Qnil;
 }
 
 #define EZMQ_MAXARGS 5
@@ -267,20 +268,20 @@ emacs_module_init(struct emacs_runtime *ert)
     // Retrieve the current emacs environment
     env = ert->get_environment(ert);
 
-    Qt = INTERN("t");
-    Qnil = INTERN("nil");
-    Qnth = INTERN("nth");
-    Qwrong_type_argument = INTERN("wrong-type-argument");
-    Qargs_out_of_range = INTERN("args-out-of-range");
-    Qlist = INTERN("list");
-    Qstring = INTERN("string");
-    Qvector = INTERN("vector");
-    Qcons = INTERN("cons");
-    Qcar = INTERN("car");
-    Qcdr = INTERN("cdr");
-    Qequal = INTERN("equal");
-    Qinteger = INTERN("integer");
-    Qlength = INTERN("length");
+    Qt = GLOBREF(INTERN("t"));
+    Qnil = GLOBREF(INTERN("nil"));
+    Qnth = GLOBREF(INTERN("nth"));
+    Qwrong_type_argument = GLOBREF(INTERN("wrong-type-argument"));
+    Qargs_out_of_range = GLOBREF(INTERN("args-out-of-range"));
+    Qlist = GLOBREF(INTERN("list"));
+    Qstring = GLOBREF(INTERN("string"));
+    Qvector = GLOBREF(INTERN("vector"));
+    Qcons = GLOBREF(INTERN("cons"));
+    Qcar = GLOBREF(INTERN("car"));
+    Qcdr = GLOBREF(INTERN("cdr"));
+    Qequal = GLOBREF(INTERN("equal"));
+    Qinteger = GLOBREF(INTERN("integer"));
+    Qlength = GLOBREF(INTERN("length"));
     Qzmq_error = GLOBREF(INTERN("zmq-ERROR"));
 
     ezmq_make_error_symbols();
@@ -291,9 +292,9 @@ emacs_module_init(struct emacs_runtime *ert)
     Qzmq_POLLERR = GLOBREF(INTERN("zmq-POLLERR"));
 
     emacs_value Qsval = INTERN("symbol-value");
-    Izmq_POLLIN = FUNCALL(Qsval, 1, &Qzmq_POLLIN);
-    Izmq_POLLOUT = FUNCALL(Qsval, 1, &Qzmq_POLLOUT);
-    Izmq_POLLERR = FUNCALL(Qsval, 1, &Qzmq_POLLERR);
+    Izmq_POLLIN = GLOBREF(FUNCALL(Qsval, 1, &Qzmq_POLLIN));
+    Izmq_POLLOUT = GLOBREF(FUNCALL(Qsval, 1, &Qzmq_POLLOUT));
+    Izmq_POLLERR = GLOBREF(FUNCALL(Qsval, 1, &Qzmq_POLLERR));
 
     ezmq_define_functions();
 
