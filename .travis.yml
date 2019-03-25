@@ -1,12 +1,12 @@
 language: emacs-lisp
 jobs:
   include:
-    - stage: test
+    - &test
+      stage: test
       os: linux
       sudo: required
       env:
-        - EMACS_VERSION=26-pretest
-        - EMACS_VERSION=git-snapshot
+        - EMACS_VERSION=26.1
       allow_failures:
         - env: EMACS_VERSION=git-snapshot
       before_script:
@@ -19,6 +19,9 @@ jobs:
         - cd $TRAVIS_BUILD_DIR
         - make
         - make test
+    - <<: *test
+      env:
+        - EMACS_VERSION=git-snapshot
     - stage: deploy
       if: tag IS present
       os: osx
