@@ -16,8 +16,8 @@ jobs:
         file: products/*
         skip_cleanup: true
         overwrite: true
-        all_branches: true
-        # on:
+        on:
+          all_branches: true
         #   branch: travis
       env:
         - ZMQ_BUILD_HOST=x86_64-w64-mingw32
