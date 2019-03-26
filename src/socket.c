@@ -300,12 +300,23 @@ ezmq_setsockopt(emacs_value esock, emacs_value eoption, emacs_value evalue)
         break;
     }
         // STRING
-        // TODO: Error when multibyte characters are found
     case ZMQ_GSSAPI_PRINCIPAL: case ZMQ_GSSAPI_SERVICE_PRINCIPAL:
     case ZMQ_PLAIN_PASSWORD: case ZMQ_PLAIN_USERNAME:
     case ZMQ_SOCKS_PROXY: case ZMQ_ZAP_DOMAIN: {
         EZMQ_EXTRACT_STRING(str, len, evalue);
-        zmq_setsockopt(sock->obj, option, str, len);
+        // From http://api.zeromq.org/master:zmq-setsockopt
+        //
+        // For options taking a value of type "character string", the provided
+        // byte data should either contain no zero bytes, or end in a single
+        // zero byte
+        int i;
+        for(i = 0; i < len; i++)
+            if(!str[i]) break;
+        if(i != len) {
+            char const *msg = "Value cannot contain NUL characters";
+            ezmq_signal(Qzmq_error, 1, STRING(msg, strlen(msg)));
+        } else
+            zmq_setsockopt(sock->obj, option, str, len);
         free(str);
         break;
     }

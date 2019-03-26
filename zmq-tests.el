@@ -248,7 +248,8 @@
           ;; encoding/decoding functions explicitly.
           (zmq-set-option sock zmq-PLAIN-PASSWORD "paßword")
           (should (equal (zmq-get-option sock zmq-PLAIN-PASSWORD)
-                         "paßword")))
+                         "paßword"))
+          (should-error (zmq-set-option zmq-PLAIN-PASSWORD "pass\0word")))
         (ert-info ("Binary options")
           (let ((identity "identity\0\0"))
             (zmq-set-option sock zmq-ROUTING-ID identity)
