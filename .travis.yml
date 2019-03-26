@@ -1,29 +1,7 @@
 language: emacs-lisp
 jobs:
   include:
-    - &test
-      stage: test
-      os: linux
-      sudo: required
-      env:
-        - EMACS_VERSION=26.1
-      allow_failures:
-        - env: EMACS_VERSION=git-snapshot
-      before_script:
-        - export PATH=${TRAVIS_BUILD_DIR}/.evm/bin:${PATH}
-        - if [[ ${EMACS_VERSION} = git-snapshot ]]; then sudo apt-get install texinfo; fi
-        - git clone https://github.com/ubolonton/evm ${TRAVIS_BUILD_DIR}/.evm
-        - evm config path /tmp
-        - evm install emacs-${EMACS_VERSION} --use --skip
-      script:
-        - cd $TRAVIS_BUILD_DIR
-        - make
-        - make test
-    - <<: *test
-      env:
-        - EMACS_VERSION=git-snapshot
     - stage: deploy
-      if: tag IS present
       os: osx
       addons:
         homebrew:
@@ -33,13 +11,11 @@ jobs:
       deploy:
         provider: releases
         api_key:
-          secure: fn9FUCzHKr6ZLj63Lgkgp4vepJrEEqwWLZX1nypfJRqEWFqfsfQOSU7AywIoxOaZmlsBBGehw9ae9weRXuv3X7Mq2v36oOYL5uits57cfXys6w1awxWtRQbsSEKcRDpqpq8k5Eyh4J586ogKltrxXCACunc0Ht3Jzz8lkL0iohi4/eFVs+SyW1/u9hGBrQT37IznJGfJPxhaPR+ftsDbGhQJEXjGLgK8rmS3BOGjxjea9ckyysPr7gsVVI+335ZWw2GNDjLrxfPzMgVpWlhos/M0EZseyOeto1xFFseII7+1h448MzhL5HszbBXdVhXCsqMFx+mAAWLSBmyULPglgI6Wl3y842AA4tlgZEs/XKbTiQdanV3cG/ylbubriCcX5+xNMS6E7VpPsVOOYgjuOL00SkwORqPIbRzFEIyNMNLJNYutGErzA/ZGXG7+N5zOFH4lVFKDa7CYN4dnvabVQzQzG3PWU3b9uA/FsK6Ht9vinpaLjnmdQAB5kiyUxGoQ4Joflop0dXQV1u6q3voH41UMl4yZmnZK1LQwnfelnIYmWAFqKGDuL1zf/H0lSTwh/tJUuwVt3HMlJDl7y0Iq455fjjLbd9eBmTpflmoRe06lLpeRitYZklQgAwgRGd8tpO5l+QFQKGqxIkNdolQ5jCVssqzx/rA4vnCGdf3nT2o=
+          secure: UHzyKX94UhXQFF+7/ZZIoacQmf3iDmoAGm0bFQ1nunxj5cBTmuN36HrQY+2yxEM5R7xrwLEeK0fmQ5XJyGyuVjb1c0js09mIS1VTVe8U/baF6V4csk/m0ZmQfjSEzxEMmbB7PnfCgsy3aoie7q1OHIqK91v88BNSOCkEHUJzBeOvHCMFLSKKRs2kookdURsGqO6qj8crtYpFBz4Y9D+UELcyeGpQlKPsED35BJ8bqjzh5PnbyuFfXZz958FkD/olvW/27p3TGRp0NwX6kFY9rXTlp8x3pVe10QEHyhfKRhl9PsfvMINB8sc6UdLJYIztfZ47NhjYSB9Z8PF9hpxHrygXbY7+t0iyAIMmXQtr+IeV8bZegITYfLOJrx1noABqVbF2pMjL1uA+lZ6GXGaIbuWS4Du9ex+FCHAq0nM4iOY2g4p8ZAr1Pw81vukGYtmgb4Unyf0tAvgiuQ3INxaqTT3lrmdLrd9eSYnhD6241E5pVMocYfzjZoHUzu0mB8wXKHstPi6jT0L7r1CwyTQRp8iMX3pKSmMTMfDTIn71E4A7hczq6DL+cHUyenmVWSXemSvnKUE2No3IXLCxt7th9Ur8MYfpdKnl9whyOD3TVbz1qmondDwHvfemp/NsAT/80D+wlKAYYKWdxLoN5jWGLa9i+2i26nczwvgolTQystw=
         file_glob: true
         file: products/*
         skip_cleanup: true
         overwrite: true
-        on:
-          tags: true
       env:
         - ZMQ_BUILD_HOST=x86_64-w64-mingw32
       script:
