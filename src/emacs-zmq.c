@@ -117,11 +117,16 @@ ezmq_dispatch(emacs_env *current_env, ptrdiff_t nargs, emacs_value args[], void 
 static void
 ezmq_bind_function(ezmq_fun_t *fun)
 {
+    // Make a copy of the function information. Used by ezmq_dispatch.
+    ezmq_fun_t *info = ezmq_malloc(sizeof(ezmq_fun_t));
+    if(NONLOCAL_EXIT()) return;
+
+    memcpy(info, fun, sizeof(ezmq_fun_t));
     emacs_value Sfun = env->make_function(env,
                                           fun->minarity, fun->maxarity,
                                           &ezmq_dispatch,
                                           fun->doc,
-                                          fun);
+                                          info);
     // Use defalias here so that at least we get a link to zmq.el when examining
     // the documentation for a zmq function.
     FUNCALL(INTERN("defalias"), 2, ((emacs_value []){INTERN(fun->name), Sfun}));
@@ -187,18 +192,13 @@ ezmq_make_error_symbols()
         _info.minarity = argmin;                  \
         _info.maxarity = argmax;                  \
         _info.doc = __zmq_doc_##cfun;             \
-        info = ezmq_malloc(sizeof(ezmq_fun_t));   \
-        if(NONLOCAL_EXIT()) return;               \
-        memcpy(info, &_info, sizeof(ezmq_fun_t)); \
-        ezmq_bind_function(info);                 \
+        ezmq_bind_function(&_info);               \
     } while (0)
 
 static void
 ezmq_define_functions()
 {
     ezmq_fun_t _info;
-    ezmq_fun_t *info = ezmq_malloc(sizeof(ezmq_fun_t));
-    if(NONLOCAL_EXIT()) return;
 
     // Define garbage collection functions for freeing global references
     EZMQ_DEFUN("zmq--cleanup-globrefs", ezmq_cleanup_globrefs, 0, 0);
