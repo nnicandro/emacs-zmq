@@ -272,7 +272,6 @@ debugging purposes."
                         (buffer-string))))))
            (sexp (eval (zmq-subprocess-read)))
            (wrap-context (= (length (cadr sexp)) 1)))
-      (setq sexp (byte-compile sexp))
       (condition-case err
           (if wrap-context
               (funcall sexp (zmq-current-context))
