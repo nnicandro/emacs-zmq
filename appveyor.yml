@@ -30,9 +30,8 @@ build_script:
   - set ZMQ_LIBS=-L%ZMQ_BUILD_DIR%/lib -lzmq
   - set ZMQ_CFLAGS=-DZMQ_BUILD_DRAFT_API=1 -I%ZMQ_BUILD_DIR%/include
   - make
+  - if %APPVEYOR_BUILD_TAG% == true make products
   # - appveyor DownloadFile https://github.com/dzop/emacs-zmq/releases/download/v0.10.1/%EZMQ_TZG%
   # - tar -xzf %EZMQ_TZG%
 test_script:
   - make test
-before_deploy:
-  - make products
