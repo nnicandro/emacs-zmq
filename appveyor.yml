@@ -13,7 +13,8 @@ deploy:
   draft: false
   prerelease: false
   on:
-    APPVEYOR_REPO_TAG: true
+    branch: master
+    APPVEYOR_BUILD_TAG: true
 cache:
   - C:\msys64\var\cache\pacman\pkg
   - C:\projects\emacs-zmq\libzmq
@@ -30,8 +31,6 @@ build_script:
   - set ZMQ_LIBS=-L%ZMQ_BUILD_DIR%/lib -lzmq
   - set ZMQ_CFLAGS=-DZMQ_BUILD_DRAFT_API=1 -I%ZMQ_BUILD_DIR%/include
   - make
-  - if %APPVEYOR_BUILD_TAG% == true make products
-  # - appveyor DownloadFile https://github.com/dzop/emacs-zmq/releases/download/v0.10.1/%EZMQ_TZG%
-  # - tar -xzf %EZMQ_TZG%
+  - if %APPVEYOR_BUILD_TAG% == true ( make products )
 test_script:
   - make test

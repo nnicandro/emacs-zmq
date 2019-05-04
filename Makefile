@@ -1,4 +1,5 @@
 ROOT = .
+SHELL = bash
 EMACS ?= emacs
 FILES = zmq.el
 # CFLAGS = -g
@@ -83,12 +84,20 @@ $(ELCFILES): %.elc: %.el
 # make clean first.
 
 ifneq ($(ZMQ_BUILD_HOST),)
+ifneq ($(shell command -v shasum),)
+# OS X
+SHA256SUM := shasum -a 256
+else
+# GNU Coreutils
+SHA256SUM := sha256sum
+endif
+
 .PHONY: products
 products:
 	make $(SHARED)
 	mkdir -p products
 	tar -czf products/emacs-zmq-$(ZMQ_BUILD_HOST).tar.gz *$(SHARED_EXT)
-	cd products && shasum -a 256 emacs-zmq-$(ZMQ_BUILD_HOST).tar.gz > \
+	cd products && $(SHA256SUM) emacs-zmq-$(ZMQ_BUILD_HOST).tar.gz > \
 		emacs-zmq-$(ZMQ_BUILD_HOST).tar.gz.sha256
 endif
 
