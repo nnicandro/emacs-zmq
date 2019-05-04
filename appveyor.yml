@@ -13,8 +13,7 @@ deploy:
   draft: false
   prerelease: false
   on:
-    branch: master
-    APPVEYOR_BUILD_TAG: true
+    APPVEYOR_REPO_TAG: true
 cache:
   - C:\msys64\var\cache\pacman\pkg
   - C:\projects\emacs-zmq\libzmq
@@ -31,6 +30,6 @@ build_script:
   - set ZMQ_LIBS=-L%ZMQ_BUILD_DIR%/lib -lzmq
   - set ZMQ_CFLAGS=-DZMQ_BUILD_DRAFT_API=1 -I%ZMQ_BUILD_DIR%/include
   - make
-  - if %APPVEYOR_BUILD_TAG% == true ( make products )
+  - if %APPVEYOR_REPO_TAG% == true ( make products )
 test_script:
   - make test
