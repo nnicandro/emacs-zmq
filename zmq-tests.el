@@ -4,7 +4,7 @@
 
 ;; Author: Nathaniel Nicandro <nathanielnicandro@gmail.com>
 ;; Created: 27 Sep 2018
-;; Version: 0.10.0
+;; Version: 0.10.8
 
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -28,6 +28,8 @@
 (require 'cl-lib)
 (require 'ert)
 (require 'zmq)
+
+(message "ZMQ Version: %s" (zmq-version))
 
 (defun zmq-create-bound-pair (ctx type1 type2 &optional interface)
   (setq interface (or interface "tcp://127.0.0.1"))
