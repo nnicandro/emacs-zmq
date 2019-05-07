@@ -15,10 +15,11 @@ EZMQ_LIBDIR ?= $(CURDIR)/$(ZMQ_BUILD_HOST)
 
 # Get the module extension for this build
 ifeq ($(ZMQ_BUILD_HOST),)
-ifeq ($(findstring Windows_NT, $(OS)),)
-SHARED_EXT := .so
-else
+ifneq (,$(or $(findstring MSYS, $(MSYSTEM)), \
+			 $(findstring MINGW, $(MSYSTEM))))
 SHARED_EXT := .dll
+else
+SHARED_EXT := .so
 endif
 else
 ifneq (,$(or $(findstring mingw, $(ZMQ_BUILD_HOST)), \
