@@ -6,7 +6,7 @@
 ;; Created: 05 Jan 2018
 ;; URL: https://github.com/dzop/emacs-zmq
 ;; Keywords: comm
-;; Version: 0.10.8
+;; Version: 0.10.9
 ;; Package-Requires: ((cl-lib "0.5") (emacs "26"))
 
 ;; This program is free software; you can redistribute it and/or
@@ -36,6 +36,8 @@
 (defgroup zmq nil
   "ZMQ bindings for Emacs"
   :group 'communication)
+
+(defconst zmq-emacs-version "v0.10.9")
 
 (defconst zmq-module-file
   (when module-file-suffix
@@ -526,31 +528,127 @@ Emacs process."
     (zmq-subprocess-send process (macroexpand-all sexp))
     process))
 
+;;; Download releases
+
+(defun zmq--system-configuration-list (string)
+  (save-match-data
+    (string-match "\\([^-]+\\)-\\([^-]+\\)-\\([^-]+\\)\\(-.+\\)?" string)
+    (let ((arch (match-string 1 system-configuration))
+          (vendor (match-string 2 system-configuration))
+          (sys (match-string 3 system-configuration))
+          (abi (match-string 4 system-configuration)))
+      (list arch vendor sys abi))))
+
+(defun zmq--system-configuration ()
+  (let ((host (zmq--system-configuration-list system-configuration)))
+    (if (string-prefix-p "darwin" (nth 2 host))
+        ;; On OSX the sys part of the host is like
+        ;; darwin17.1.0, but the binaries are compatible across
+        ;; multiple versions. TODO: Figure out the actual ABI
+        ;; compatibility.
+        (concat (nth 0 host) "-" (nth 1 host) "-darwin")
+      system-configuration)))
+
+(defvar json-object-type)
+
+(defmacro zmq--download-url (url &rest body)
+  (declare (indent 1))
+  `(with-temp-buffer
+     (url-insert (url-retrieve-synchronously ,url))
+     (goto-char (point-min))
+     ,@body))
+
+(defun zmq--download-and-extract-file (url tgz-file)
+  (let ((sig (zmq--download-url (concat url "/" tgz-file ".sha256")
+               (forward-sexp)
+               (let ((end (point)))
+                 (buffer-substring
+                  (progn (backward-sexp) (point))
+                  end)))))
+    (zmq--download-url (concat url "/" tgz-file)
+      (if (not (equal sig (secure-hash 'sha256 (buffer-string))))
+          (error "Signature did not match content")
+        ;; We write the tar.gz file so that Emacs properly uncompresses
+        ;; it through `jka-compr' otherwise `tar-untar-buffer' will
+        ;; fail with a weird error.
+        (set-buffer-multibyte nil)
+        (write-region nil nil tgz-file)))
+    (let ((buffer (find-file-noselect tgz-file)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (tar-untar-buffer))
+        (kill-buffer buffer)
+        (delete-file tgz-file)))))
+
+(defun zmq--download-module (tag)
+  (when (y-or-n-p "Check for compatible module binary to download? ")
+    (catch 'not-found
+      (let* ((api-url "https://api.github.com/repos/dzop/emacs-zmq/")
+             (repo-url "https://github.com/dzop/emacs-zmq/")
+             (release-url (concat api-url "releases/"))
+             (info (zmq--download-url (concat release-url tag)
+                     (let ((json-object-type 'plist))
+                       (json-read))))
+             (tag-name (if (equal (plist-get info :message) "Not Found")
+                           (throw 'not-found nil)
+                         (plist-get info :tag_name)))
+             (ezmq-sys (concat "emacs-zmq-" (zmq--system-configuration)))
+             (assets (cl-remove-if-not
+                      (lambda (x) (string-prefix-p ezmq-sys x))
+                      (mapcar (lambda (x) (plist-get x :name))
+                         (append (plist-get info :assets) nil)))))
+        (when assets
+          (let ((default-directory (file-name-directory (locate-library "zmq"))))
+            ;; We have a signature file and a tar.gz file for each binary so the
+            ;; minimum number of files is two.
+            (if (> (length assets) 2)
+                (error "TODO More than one file found")
+              (let* ((tgz-file (cl-find-if (lambda (x) (string-suffix-p "tar.gz" x))
+                                           assets))
+                     (lib (expand-file-name
+                           (concat "emacs-zmq" module-file-suffix)
+                           (expand-file-name
+                            (file-name-sans-extension
+                             (file-name-sans-extension tgz-file))))))
+                (zmq--download-and-extract-file
+                 (concat repo-url "releases/download/" tag-name) tgz-file)
+                (copy-file lib zmq-module-file)
+                t))))))))
+
+;;; Load emacs-zmq
+
 (defun zmq-load ()
   "Load the ZMQ dynamic module."
-  (if zmq-module-file
-      (if (file-exists-p zmq-module-file)
-          (progn
-            (load-file zmq-module-file)
-            (add-hook 'post-gc-hook #'zmq--cleanup-globrefs))
-        (when (y-or-n-p "ZMQ module not found. Build it? ")
-          (let ((default-directory (file-name-directory (locate-library "zmq")))
-                (emacs (when (and invocation-directory invocation-name)
-                         (file-truename
-                          (expand-file-name invocation-name
-                                            invocation-directory)))))
-            (cl-labels
-                ((load-zmq
-                  (_buf status)
-                  (if (string= status "finished\n")
-                      (zmq-load)
-                    (message "Something went wrong when compiling the ZMQ module!"))
-                  (remove-hook 'compilation-finish-functions #'load-zmq)
-                  (exit-recursive-edit)))
-              (add-hook 'compilation-finish-functions #'load-zmq)
-              (compile (concat "make" (when emacs (concat " EMACS=" emacs))))
-              (recursive-edit)))))
-    (user-error "Modules are not supported")))
+  ;; Assume the module is already loaded when one of its functions is defined.
+  (unless (functionp #'zmq--cleanup-globrefs)
+    (if zmq-module-file
+        (if (file-exists-p zmq-module-file)
+            (progn
+              (load-file zmq-module-file)
+              (add-hook 'post-gc-hook #'zmq--cleanup-globrefs))
+          ;; Can also be "latest"
+          (if (zmq--download-module (concat "tags/" zmq-emacs-version))
+              (zmq-load)
+            (when (y-or-n-p "ZMQ module not found. Build it? ")
+              (let ((default-directory
+                      (file-name-directory (locate-library "zmq")))
+                    (emacs
+                     (when (and invocation-directory invocation-name)
+                       (file-truename
+                        (expand-file-name invocation-name
+                                          invocation-directory)))))
+                (cl-labels
+                    ((load-zmq
+                      (_buf status)
+                      (if (string= status "finished\n")
+                          (zmq-load)
+                        (message "Something went wrong when compiling the ZMQ module!"))
+                      (remove-hook 'compilation-finish-functions #'load-zmq)
+                      (exit-recursive-edit)))
+                  (add-hook 'compilation-finish-functions #'load-zmq)
+                  (compile (concat "make" (when emacs (concat " EMACS=" emacs))))
+                  (recursive-edit))))))
+      (user-error "Modules are not supported"))))
 
 (zmq-load)
 
