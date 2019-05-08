@@ -554,6 +554,7 @@ Emacs process."
 (defmacro zmq--download-url (url &rest body)
   (declare (indent 1))
   `(with-temp-buffer
+     (require 'url-handlers)
      (url-insert (url-retrieve-synchronously ,url))
      (goto-char (point-min))
      ,@body))
