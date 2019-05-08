@@ -3,6 +3,32 @@ Bindings to =zmq= in Emacs.
 [[https://melpa.org/#/zmq][file:https://melpa.org/packages/zmq-badge.svg]] [[https://travis-ci.com/dzop/emacs-zmq][file:https://travis-ci.com/dzop/emacs-zmq.svg?branch=master]]
 
 * Installation
+
+*NOTE:* Your Emacs needs to have been built with module support!
+
+The recommended way to install this package is through the built-in package
+manager in Emacs.
+
+Ensure MELPA is in your =package-archives=
+
+#+BEGIN_SRC elisp
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
+#+END_SRC
+
+Ensure the latest versions of MELPA packages are available
+
+=M-x package-refresh-contents RET=
+
+Install ZMQ
+
+=M-x package-install RET zmq RET=
+
+Once installed, on the first call to =(require 'zmq)= you will be presented
+with the option to either download one of the module binaries available on the
+[[https://github.com/dzop/emacs-zmq/releases][releases]] page that is compatible with your system (and based on the variable
+=system-configuration=) or, if there isn't a binary available for download, to
+build the C module.
+
 ** Dependencies
 
 - libzmq :: https://github.com/zeromq/libzmq
@@ -12,12 +38,8 @@ Run =make= in the top level directory to build the =zmq= module. Alternatively
 when running =(require 'zmq)= and the module is not built already, you will be
 asked to build it.
 
-Note, =automake= must be available on your system in order to build the module.
-
-By default a local copy of =libzmq= is built, if you would like to link your
-own version of =libzmq= set the environment variables =ZMQ_CFLAGS= and
-=ZMQ_LIBS= to an appropriate value before running =make=. Currently the
-=--enable-drafts=yes= configure flag is required.
+Note, the =autotools= collection must be available on your system in order to
+build the module.
 
 The default version of =libzmq= built is 4.3.1 and can be changed by specifying
 the environment variable =ZMQ_VERSION=, e.g. to something like
@@ -28,22 +50,35 @@ ZMQ_VERSION=4.3.0
 
 *** Windows
 
-To be able to use this package on Windows, your Emacs needs to be compiled with
-module support. Currently, the official versions of Emacs appear not to have
-this option enabled by default so you will have to build an Emacs with module
-support by following the instructions [[https://sourceforge.net/p/emacsbinw64/wiki/Build%20guideline%20for%20MSYS2-MinGW-w64%20system/][here]], which show a way to do this using
-the MinGW tools. You will need to pass the =--with-modules= option to the
-=configure= script when building. See the instructions below on how to install
-the MinGW tools.
+Only the MinGW version of Emacs is supported at the moment, i.e. the one you
+would get with the command
+
+#+BEGIN_SRC bash
+pacman -S mingw-w64-x86_64-emacs
+#+END_SRC
+
+in a MinGW shell.
+
+Alternatively you can build an Emacs with module support by following the
+instructions [[https://sourceforge.net/p/emacsbinw64/wiki/Build%20guideline%20for%20MSYS2-MinGW-w64%20system/][here]]. You will need to pass the =--with-modules= option to the
+=configure= script when building.
+
+See the instructions below on how to install the MinGW tools.
 **** Download the pre-built libraries
 
 You can download a tar archive containing the pre-built Windows dll files
-necessary to use this package. Both an =emacs-zmq.dll= library and a v4.3.1
-=libzmq.dll= are provided.
+necessary to use this package. Inside the archive is an =emacs-zmq.dll= file
+containing v4.3.1 of =libzmq=. See the [[https://github.com/dzop/emacs-zmq/releases][releases]] page.
 
-The archive can be downloaded from the [[https://github.com/dzop/emacs-zmq/releases][releases]] page on the Github project.
 After downloading, extract the archive contents into the same directory as this
-project then start Emacs normally and =(require 'zmq)= should work as expected.
+project.
+
+#+BEGIN_SRC bash
+cd ~/.emacs.d/elpa/<zmq directory>
+wget https://github.com/dzop/emacs-zmq/releases/download/v0.10.9/emacs-zmq-x86_64-w64-mingw32.tar.gz
+tar -xzf emacs-zmq-x86_64-w64-mingw32.tar.gz
+#+END_SRC
+
 **** Build using MinGW
 
 It is possible to use the included build chain on Windows using the [[https://www.msys2.org/][MSYS2]] MinGW
