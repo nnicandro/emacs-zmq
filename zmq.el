@@ -532,22 +532,29 @@ Emacs process."
 
 (defun zmq--system-configuration-list (string)
   (save-match-data
-    (string-match "\\([^-]+\\)-\\([^-]+\\)-\\([^-]+\\)\\(-.+\\)?" string)
-    (let ((arch (match-string 1 system-configuration))
-          (vendor (match-string 2 system-configuration))
-          (sys (match-string 3 system-configuration))
-          (abi (match-string 4 system-configuration)))
+    (string-match "\\([^-]+\\)-\\([^-]+\\)-\\([^-]+\\)\\(?:-\\(.+\\)\\)?" string)
+    (let ((arch (match-string 1 string))
+          (vendor (match-string 2 string))
+          (sys (match-string 3 string))
+          (abi (match-string 4 string)))
       (list arch vendor sys abi))))
 
 (defun zmq--system-configuration ()
-  (let ((host (zmq--system-configuration-list system-configuration)))
-    (if (string-prefix-p "darwin" (nth 2 host))
-        ;; On OSX the sys part of the host is like
-        ;; darwin17.1.0, but the binaries are compatible across
-        ;; multiple versions. TODO: Figure out the actual ABI
-        ;; compatibility.
-        (concat (nth 0 host) "-" (nth 1 host) "-darwin")
-      system-configuration)))
+  (cl-destructuring-bind (arch vendor sys abi)
+      (zmq--system-configuration-list system-configuration)
+    ;; Attempt to handle common systems
+    (cond
+     ((string-prefix-p "darwin" sys)
+      ;; On OSX the sys part of the host is like
+      ;; darwin17.1.0, but the binaries are compatible across
+      ;; multiple versions. TODO: Figure out the actual ABI
+      ;; compatibility.
+      (concat arch "-" vendor "-darwin"))
+     ((and (member vendor '("pc" "unknown" "none"))
+           (equal sys "linux"))
+      (concat arch "-" sys "-" abi))
+     (t
+      system-configuration))))
 
 (defmacro zmq--download-url (url &rest body)
   (declare (indent 1))
