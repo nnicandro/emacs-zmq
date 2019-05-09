@@ -549,8 +549,6 @@ Emacs process."
         (concat (nth 0 host) "-" (nth 1 host) "-darwin")
       system-configuration)))
 
-(defvar json-object-type)
-
 (defmacro zmq--download-url (url &rest body)
   (declare (indent 1))
   `(with-temp-buffer
@@ -581,6 +579,8 @@ Emacs process."
         (kill-buffer buffer)
         (delete-file tgz-file)))))
 
+(defvar json-object-type)
+
 (defun zmq--download-module (tag)
   (when (y-or-n-p "Check for compatible module binary to download? ")
     (catch 'not-found
@@ -588,6 +588,7 @@ Emacs process."
              (repo-url "https://github.com/dzop/emacs-zmq/")
              (release-url (concat api-url "releases/"))
              (info (zmq--download-url (concat release-url tag)
+                     (require 'json)
                      (let ((json-object-type 'plist))
                        (json-read))))
              (tag-name (if (equal (plist-get info :message) "Not Found")
