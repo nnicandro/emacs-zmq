@@ -29,6 +29,14 @@ with the option to either download one of the module binaries available on the
 =system-configuration=) or, if there isn't a binary available for download, to
 build the C module.
 
+*NOTE:* In order to download the module binaries it is best to have [[https://curl.haxx.se/][curl]]
+installed on your system since the built-in Emacs method for downloading files,
+=url-retrieve=, has issues with HTTPS connections on some systems. On Windows,
+if your Emacs was not built with the proper =GnuTLS= support (which appears to
+be the default), =curl= is necessary. If you run into issues you can always
+manually download the module and ensure the =emacs-zmq.(dll|so)= file is placed
+in the same directory as the =zmq.el= file.
+
 ** Dependencies
 
 - libzmq :: https://github.com/zeromq/libzmq

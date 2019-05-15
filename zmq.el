@@ -559,8 +559,20 @@ Emacs process."
 (defmacro zmq--download-url (url &rest body)
   (declare (indent 1))
   `(with-temp-buffer
-     (require 'url-handlers)
-     (url-insert (url-retrieve-synchronously ,url))
+     ;; Attempt to download URL using various methods
+     (cond
+      ((and (executable-find "curl")
+            ;; -s = silent, -L = follow redirects
+            (zerop (call-process "curl" nil (current-buffer) nil
+                                 "-s" "-L" ,url))))
+      ((and (executable-find "wget")
+            ;; -q = quiet, -O - = output to stdout
+            (zerop (call-process "wget" nil (current-buffer) nil
+                                 "-q" "-O" "-" ,url))))
+      (t
+       (require 'url-handlers)
+       (let ((buf (url-retrieve-synchronously ,url)))
+         (url-insert buf))))
      (goto-char (point-min))
      ,@body))
 
@@ -595,17 +607,16 @@ Emacs process."
     (when (or noninteractive (y-or-n-p (format msg "" "? ")))
       (when noninteractive
         (message msg "ing" ""))
-      (catch 'not-found
+      (catch 'failure
         (let* ((api-url "https://api.github.com/repos/dzop/emacs-zmq/")
                (repo-url "https://github.com/dzop/emacs-zmq/")
                (release-url (concat api-url "releases/"))
                (info (zmq--download-url (concat release-url tag)
                        (require 'json)
                        (let ((json-object-type 'plist))
-                         (json-read))))
-               (tag-name (if (equal (plist-get info :message) "Not Found")
-                             (throw 'not-found nil)
-                           (plist-get info :tag_name)))
+                         (ignore-errors (json-read)))))
+               (tag-name (or (plist-get info :tag_name)
+                             (throw 'failure nil)))
                (ezmq-sys (concat "emacs-zmq-" (zmq--system-configuration)))
                (assets (cl-remove-if-not
                         (lambda (x) (string-prefix-p ezmq-sys x))
