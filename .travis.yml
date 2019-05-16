@@ -6,6 +6,9 @@ sudo: required
 env:
   - EMACS_VERSION=26.1
   - EMACS_VERSION=git-snapshot
+# Emacs with modules does not compile correctly on Xenial due to a compiler bug
+# in gcc
+dist: trusty
 script:
   # Install an Emacs with module support
   - |

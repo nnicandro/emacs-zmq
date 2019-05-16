@@ -12,6 +12,8 @@ export ZMQ_VERSION ?= 4.3.1
 export ZMQ_BUILD_HOST ?=
 # Directory in which the emacs-zmq module will be written
 EZMQ_LIBDIR ?= $(CURDIR)/$(ZMQ_BUILD_HOST)
+# NOTE: The ZMQ_LIBS and ZMQ_CFLAGS can be set before configuring the project
+# to point to the ZMQ to build with.
 
 # Get the module extension for this build
 ifeq ($(ZMQ_BUILD_HOST),)
@@ -36,27 +38,28 @@ SHARED := emacs-zmq$(SHARED_EXT)
 .PHONY: all
 all: $(EZMQ_LIBDIR)/$(SHARED) compile
 
-$(EZMQ_LIBDIR)/$(SHARED): src/Makefile
-	$(MAKE) -C src
-	mkdir -p $(EZMQ_LIBDIR)
-	cp src/.libs/$(SHARED) $(EZMQ_LIBDIR)/$(SHARED)
-
-# Needed for static Windows builds of libzmq, see libzmq/INSTALL
-ifeq ($(SHARED_EXT),.dll)
-CPPFLAGS += -DZMQ_STATIC
-endif
-
-src/Makefile: src/Makefile.am src/configure
+.PHONY: configure
+configure: src/configure
 	cd src && ./configure CPPFLAGS="$(CPPFLAGS)" \
 		--host=$(ZMQ_BUILD_HOST) --prefix=$(CURDIR) \
 		--enable-shared=emacs-zmq --enable-static=zeromq \
 		--without-docs --enable-drafts=yes --enable-libunwind=no \
 		--disable-curve-keygen --disable-perf --disable-eventfd
 
-src/libzmq/.git:
-	@if test ! -d src/libzmq/.git; then git clone $(ZMQ_GIT_REPO) src/libzmq; fi
+$(EZMQ_LIBDIR)/$(SHARED): src/Makefile
+	$(MAKE) -C src
+	mkdir -p $(EZMQ_LIBDIR)
+	cp src/.libs/$(SHARED) $(EZMQ_LIBDIR)/$(SHARED)
 
-src/configure: src/configure.ac src/libzmq/.git
+src/Makefile: src/configure
+	$(MAKE) configure
+
+# Needed for static Windows builds of libzmq, see libzmq/INSTALL
+ifeq ($(SHARED_EXT),.dll)
+CPPFLAGS += -DZMQ_STATIC
+endif
+
+src/configure: src/configure.ac src/Makefile.am
 	cd src && autoreconf -i
 
 .PHONY: test
