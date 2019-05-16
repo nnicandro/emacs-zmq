@@ -47,10 +47,23 @@ when running =(require 'zmq)= and the module is not built already, you will be
 asked to build it.
 
 Note, the =autotools= collection must be available on your system in order to
-build the module.
+build the module as well as the =pkg-config= tool.
 
-The default version of =libzmq= built is 4.3.1 and can be changed by specifying
-the environment variable =ZMQ_VERSION=, e.g. to something like
+By default =pkg-config= is used to search for a usable =libzmq= to use, falling
+back to downloading and building a local copy if necessary.
+
+You can tell =pkg-config= to use a specific =libzmq= by setting the environment
+variables =ZMQ_LIBS= and =ZMQ_CFLAGS= before building the module. The module
+will link to the =libzmq= that those variables point to if it can. Note, when
+linking =libzmq= in this way, the =zmq_poller= interface is required. This
+means that the linked =libzmq= needs to have been configured using the option
+=--enable-drafts=yes= if =libzmq= < 4.3.1.
+
+If =ZMQ_LIBS= and =ZMQ_CFLAGS= are not set or they point to a =libzmq= that
+isn't usable, a local copy of =libzmq= is downloaded, built, and statically
+linked into the resulting module. The default version of =libzmq= built in this
+case is 4.3.1 and can be changed by specifying the environment variable
+=ZMQ_VERSION=, e.g. to something like
 
 #+BEGIN_SRC shell
 ZMQ_VERSION=4.3.0
