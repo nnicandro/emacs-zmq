@@ -6,13 +6,9 @@ sudo: required
 env:
   - EMACS_VERSION=26.1
   - EMACS_VERSION=git-snapshot
-addons:
-  apt:
-    packages:
-      # For some reason Emacs is failing without these now
-      - libgtk-3-dev
-      - libxpm-dev
-      - libgnutls-dev
+# Emacs with modules does not compile correctly on Xenial due to a compiler bug
+# in gcc
+dist: trusty
 script:
   # Install an Emacs with module support
   - |
