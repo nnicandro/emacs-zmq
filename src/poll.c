@@ -4,15 +4,16 @@ static void
 ezmq_invalid_poll_event(intmax_t event)
 {
     ezmq_args_out_of_range(INT(event),
-                           LIST(4,
+                           LIST(5,
                                 INTERN("or"),
                                 INTERN("zmq-POLLIN"),
+                                INTERN("zmq-POLLPRI"),
                                 INTERN("zmq-POLLOUT"),
                                 INTERN("zmq-POLLERR")));
 }
 
 /**
-   Extract a single poll event (ZMQ_POLLIN, ZMQ_POLLOUT, ZMQ_POLLERR) from a
+   Extract a single poll event (ZMQ_POLLIN, ZMQ_POLLPRI, ZMQ_POLLOUT, ZMQ_POLLERR) from a
    Lisp integer.
 
 
@@ -23,7 +24,8 @@ ezmq_extract_poll_event(emacs_value val)
 {
     intmax_t event = EXTRACT_INT(val);
     if(NONLOCAL_EXIT()) return -1;
-    if(event != ZMQ_POLLIN && event != ZMQ_POLLOUT && event != ZMQ_POLLERR) {
+    if(event != ZMQ_POLLIN && event != ZMQ_POLLPRI &&
+       event != ZMQ_POLLOUT && event != ZMQ_POLLERR) {
         ezmq_invalid_poll_event(event);
         return -1;
     }
@@ -62,11 +64,13 @@ ezmq_merge_poll_events(emacs_value list)
 static emacs_value
 ezmq_split_poll_events(int events)
 {
-    emacs_value args[3];
+    emacs_value args[4];
     int i = -1;
 
     if(events & ZMQ_POLLIN)
         args[++i] = Izmq_POLLIN;
+    if(events & ZMQ_POLLPRI)
+        args[++i] = Izmq_POLLPRI;
     if(events & ZMQ_POLLOUT)
         args[++i] = Izmq_POLLOUT;
     if(events & ZMQ_POLLERR)

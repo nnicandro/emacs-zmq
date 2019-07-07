@@ -16,8 +16,8 @@ emacs_env *env = NULL;
 emacs_value Qzmq_error, Qt, Qnil, Qnth, Qlist,
     Qwrong_type_argument, Qargs_out_of_range,
     Qcons, Qstring, Qvector, Qcar, Qcdr, Qlength, Qinteger, Qequal,
-    Qzmq_POLLIN, Qzmq_POLLERR, Qzmq_POLLOUT,
-    Izmq_POLLIN, Izmq_POLLERR, Izmq_POLLOUT;
+    Qzmq_POLLIN, Qzmq_POLLPRI, Qzmq_POLLERR, Qzmq_POLLOUT,
+    Izmq_POLLIN, Izmq_POLLPRI, Izmq_POLLERR, Izmq_POLLOUT;
 
 EZMQ_DOC(ezmq_cleanup_globrefs, "",
          "Free global references flagged for release.\n"
@@ -303,11 +303,13 @@ emacs_module_init(struct emacs_runtime *ert)
 
     ezmq_expose_constants();
     Qzmq_POLLIN = GLOBREF(INTERN("zmq-POLLIN"));
+    Qzmq_POLLPRI = GLOBREF(INTERN("zmq-POLLPRI"));
     Qzmq_POLLOUT = GLOBREF(INTERN("zmq-POLLOUT"));
     Qzmq_POLLERR = GLOBREF(INTERN("zmq-POLLERR"));
 
     emacs_value Qsval = INTERN("symbol-value");
     Izmq_POLLIN = GLOBREF(FUNCALL(Qsval, 1, &Qzmq_POLLIN));
+    Izmq_POLLPRI = GLOBREF(FUNCALL(Qsval, 1, &Qzmq_POLLPRI));
     Izmq_POLLOUT = GLOBREF(FUNCALL(Qsval, 1, &Qzmq_POLLOUT));
     Izmq_POLLERR = GLOBREF(FUNCALL(Qsval, 1, &Qzmq_POLLERR));
 

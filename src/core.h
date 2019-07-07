@@ -167,8 +167,8 @@ extern emacs_env *env;
 extern emacs_value Qzmq_error, Qt, Qnil, Qnth, Qlist,
     Qwrong_type_argument, Qargs_out_of_range,
     Qcons, Qstring, Qvector, Qcar, Qcdr, Qlength, Qinteger, Qequal,
-    Qzmq_POLLIN, Qzmq_POLLERR, Qzmq_POLLOUT,
-    Izmq_POLLIN, Izmq_POLLERR, Izmq_POLLOUT;
+    Qzmq_POLLIN, Qzmq_POLLPRI, Qzmq_POLLERR, Qzmq_POLLOUT,
+    Izmq_POLLIN, Izmq_POLLPRI, Izmq_POLLERR, Izmq_POLLOUT;
 
 /**
    Signal an Emacs error.
