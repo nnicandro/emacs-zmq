@@ -28,8 +28,11 @@
 (require 'cl-lib)
 (require 'ert)
 (require 'zmq)
+(require 'elp)
 
+(elp-instrument-package "zmq")
 (message "ZMQ Version: %s" (zmq-version))
+(add-hook 'kill-emacs-hook (lambda () (elp-results)))
 
 (defun zmq-create-bound-pair (ctx type1 type2 &optional interface)
   (setq interface (or interface "tcp://127.0.0.1"))
