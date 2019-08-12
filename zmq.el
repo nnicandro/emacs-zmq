@@ -397,6 +397,8 @@ initially passed to `zmq-start-process'."
           (when (buffer-live-p (process-buffer stderr))
             (kill-buffer (process-buffer stderr))))))))
 
+(defvar zmq--subprocess-send-buffer nil)
+
 ;; Adapted from `async--insert-sexp' in the `async' package :)
 (defun zmq-subprocess-send (process sexp)
   "Send an s-expression to PROCESS' STDIN.
@@ -410,7 +412,12 @@ subprocess."
   (let ((print-circle t)
         (print-escape-nonascii t)
         print-level print-length)
-    (with-temp-buffer
+    (with-current-buffer
+        (if (buffer-live-p zmq--subprocess-send-buffer)
+            zmq--subprocess-send-buffer
+          (setq zmq--subprocess-send-buffer
+                (get-buffer-create " *zmq-subprocess-send*")))
+      (erase-buffer)
       (prin1 sexp (current-buffer))
       (encode-coding-region (point-min) (point-max) 'utf-8-auto)
       (base64-encode-region (point-min) (point-max) t)
