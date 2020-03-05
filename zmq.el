@@ -606,6 +606,7 @@ Emacs process."
     (let ((buffer (find-file-noselect tgz-file)))
       (unwind-protect
           (with-current-buffer buffer
+            (require 'tar-mode)
             (tar-untar-buffer))
         (kill-buffer buffer)
         (delete-file tgz-file)))))
