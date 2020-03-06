@@ -114,6 +114,9 @@ MAX-PORT defaults to 65536, and MAX-TRIES defaults to 100."
 
 ;;; Encoding/decoding messages and socket options
 
+;; TODO: Deprecate these since the Emacs module functions take care of the
+;; proper encoding/decoding of strings.
+
 (defun zmq-send-encoded (sock message &optional coding-system flags)
   "Send a message on SOCK, encoded it before sending.
 MESSAGE is the message string to encoded using CODING-SYSTEM.
