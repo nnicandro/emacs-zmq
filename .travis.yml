@@ -8,7 +8,13 @@ env:
   - EMACS_VERSION=git-snapshot
 # Emacs with modules does not compile correctly on Xenial due to a compiler bug
 # in gcc
-dist: trusty
+dist: bionic
+addons:
+  apt:
+    packages:
+      - libgtk-3-dev
+      - libxpm-dev
+      - libgnutls28-dev
 script:
   # Install an Emacs with module support
   - |
