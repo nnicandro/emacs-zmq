@@ -28,11 +28,8 @@
 (require 'cl-lib)
 (require 'ert)
 (require 'zmq)
-(require 'elp)
 
-(elp-instrument-package "zmq")
 (message "ZMQ Version: %s" (zmq-version))
-(add-hook 'kill-emacs-hook (lambda () (elp-results)))
 
 (defun zmq-create-bound-pair (ctx type1 type2 &optional interface)
   (setq interface (or interface "tcp://127.0.0.1"))
@@ -206,6 +203,28 @@
            (zmq-send-encoded s1 u 'utf-16)
            (setq s (zmq-recv-decoded s2 'utf-16))
            (should (equal s u))))))))
+
+(ert-deftest zmq-unicode-handling ()
+  (ert-info ("Sending unicode messages")
+    (let* ((ctx (zmq-context)))
+      (zmq-test-with-bound-pair
+       ctx ((s1 zmq-PAIR) (s2 zmq-PAIR))
+       (let ((u "çπ§")
+             (s nil))
+         (zmq-send s1 u)
+         (setq s (zmq-recv s2))
+         (should (equal s u))
+         (zmq-send-encoded s1 u 'utf-16)
+         (setq s (zmq-recv-decoded s2 'utf-16))
+         (should (equal s u))))))
+  (ert-info ("Unicode options")
+    (let* ((ctx (zmq-context))
+           (sock (zmq-socket ctx zmq-SUB)))
+      (let ((topic "tést"))
+        (zmq-socket-set-encoded sock zmq-ROUTING-ID topic 'utf-16)
+        (should (equal (zmq-socket-get-decoded sock zmq-ROUTING-ID 'utf-16)
+                       topic))
+        (zmq-socket-set-encoded sock zmq-SUBSCRIBE topic 'utf-16)))))
 
 (ert-deftest zmq-sockets ()
   (let* ((ctx (zmq-context))
@@ -454,6 +473,26 @@
       (make-list (* gc-cons-threshold 4) ?0)
       (garbage-collect)
       (should (null (gethash "context" table))))))
+
+(ert-deftest zmq-module-download-signature ()
+  (skip-unless (memq system-type '(ms-dos windows-nt)))
+  (let* ((tgz-url "https://github.com/dzop/emacs-zmq/releases/download/v0.10.10/emacs-zmq-x86_64-w64-mingw32.tar.gz")
+         (tgz (with-temp-buffer
+                (zmq--insert-url-contents tgz-url)
+                (goto-char (point-min))
+                (buffer-string)))
+         (tgz-sig (with-temp-buffer
+                    (zmq--insert-url-contents (concat tgz-url ".sha256"))
+                    (pop-to-buffer (current-buffer))
+                    (goto-char (point-min))
+                    (forward-sexp)
+                    (let ((end (point)))
+                      (backward-sexp)
+                      (buffer-substring (point) end)))))
+    (message "Signature doesn't match last coding system %s" last-coding-system-used)
+    (if (equal tgz-sig (secure-hash 'sha256 tgz))
+        (should (equal tgz-sig (secure-hash 'sha256 tgz)))
+      (should (equal tgz-sig (secure-hash 'sha256 (encode-coding-string tgz 'utf-8-unix)))))))
 
 (provide 'zmq-tests)
 
