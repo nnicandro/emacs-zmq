@@ -461,7 +461,7 @@ Emacs process."
   (cl-destructuring-bind (min . max) (func-arity sexp)
     (unless (and (<= min 1) (or (not (numberp max)) (<= max 1)))
       (error "Invalid function to send to process, can only have 0 or 1 arguments")))
-  (let* ((zmq-path (locate-library "zmq"))
+  (let* ((zmq-path (locate-library "zmq.el"))
          (cmd (format "(zmq--init-subprocess %s)" (when debug t)))
          ;; stderr is split from stdout since the former is used by
          ;; Emacs to print messages that we don't want intermixed
@@ -625,7 +625,7 @@ Emacs process."
   ;; Assume the module is already loaded when one of its functions is defined.
   (unless (functionp #'zmq--cleanup-globrefs)
     (if module-file-suffix
-        (let ((default-directory (file-name-directory (locate-library "zmq"))))
+        (let ((default-directory (file-name-directory (locate-library "zmq.el"))))
           (if (load (expand-file-name "emacs-zmq") t)
               (add-hook 'post-gc-hook #'zmq--cleanup-globrefs)
             ;; Can also be "latest"
