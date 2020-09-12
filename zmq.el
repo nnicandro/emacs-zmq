@@ -4,7 +4,7 @@
 
 ;; Author: Nathaniel Nicandro <nathanielnicandro@gmail.com>
 ;; Created: 05 Jan 2018
-;; URL: https://github.com/dzop/emacs-zmq
+;; URL: https://github.com/nnicandro/emacs-zmq
 ;; Keywords: comm
 ;; Version: 0.10.10
 ;; Package-Requires: ((cl-lib "0.5") (emacs "26"))
@@ -619,8 +619,8 @@ Emacs process."
       (when noninteractive
         (message msg "ing" ""))
       (catch 'failure
-        (let* ((api-url "https://api.github.com/repos/dzop/emacs-zmq/")
-               (repo-url "https://github.com/dzop/emacs-zmq/")
+        (let* ((api-url "https://api.github.com/repos/nnicandro/emacs-zmq/")
+               (repo-url "https://github.com/nnicandro/emacs-zmq/")
                (release-url (concat api-url "releases/"))
                (info (zmq--download-url (concat release-url tag)
                        (require 'json)
