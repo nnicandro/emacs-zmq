@@ -16,6 +16,11 @@ EZMQ_LIBDIR ?= $(CURDIR)/$(ZMQ_BUILD_HOST)
 # to point to the ZMQ to build with.
 
 # Get the module extension for this build
+EMACS_EXT := $(shell $(EMACS) --batch --eval "(princ (and (boundp 'module-file-suffix) module-file-suffix))")
+ifeq ($(EMACS_EXT), nil)
+$(error No module support in $(EMACS))
+endif
+
 ifeq ($(ZMQ_BUILD_HOST),)
 ifneq (,$(or $(findstring MSYS, $(MSYSTEM)), \
 			 $(findstring MINGW, $(MSYSTEM))))
@@ -34,9 +39,10 @@ endif
 endif
 
 SHARED := emacs-zmq$(SHARED_EXT)
+SHARED_EMACS := emacs-zmq$(EMACS_EXT)
 
 .PHONY: all
-all: $(EZMQ_LIBDIR)/$(SHARED) compile
+all: $(EZMQ_LIBDIR)/$(SHARED_EMACS) compile
 
 .PHONY: configure
 configure: src/configure
@@ -46,10 +52,10 @@ configure: src/configure
 		--without-docs --enable-drafts=yes --enable-libunwind=no \
 		--disable-curve-keygen --disable-perf --disable-eventfd
 
-$(EZMQ_LIBDIR)/$(SHARED): src/Makefile
+$(EZMQ_LIBDIR)/$(SHARED_EMACS): src/Makefile
 	$(MAKE) -C src
 	mkdir -p $(EZMQ_LIBDIR)
-	cp src/.libs/$(SHARED) $(EZMQ_LIBDIR)/$(SHARED)
+	cp src/.libs/$(SHARED) $(EZMQ_LIBDIR)/$(SHARED_EMACS)
 
 src/Makefile: src/configure
 	$(MAKE) configure
