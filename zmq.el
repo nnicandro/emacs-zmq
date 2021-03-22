@@ -42,7 +42,7 @@
 (defconst zmq-module-file
   (when module-file-suffix
     (expand-file-name
-     (concat "emacs-zmq" module-file-suffix)
+     (concat "libemacs-zmq" module-file-suffix)
      (file-name-directory (locate-library "zmq"))))
   "The module file for ZMQ or nil if modules are not supported.")
 

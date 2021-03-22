@@ -33,7 +33,7 @@ SHARED_EXT := .so
 endif
 endif
 
-SHARED := emacs-zmq$(SHARED_EXT)
+SHARED := libemacs-zmq$(SHARED_EXT)
 
 .PHONY: all
 all: $(EZMQ_LIBDIR)/$(SHARED) compile
