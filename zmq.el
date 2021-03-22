@@ -42,7 +42,11 @@
 (defconst zmq-module-file
   (when module-file-suffix
     (expand-file-name
-     (concat "emacs-zmq" module-file-suffix)
+     ;; module-file-suffix may be ".dylib" starting Emacs 28, but
+     ;; libtool module is still built as ".so"
+     (concat
+      "emacs-zmq"
+      (if (string= module-file-suffix ".dylib") ".so" module-file-suffix))
      (file-name-directory (locate-library "zmq"))))
   "The module file for ZMQ or nil if modules are not supported.")
 
