@@ -20,6 +20,9 @@ ifeq ($(ZMQ_BUILD_HOST),)
 ifneq (,$(or $(findstring MSYS, $(MSYSTEM)), \
 			 $(findstring MINGW, $(MSYSTEM))))
 SHARED_EXT := .dll
+else ifeq ($(shell uname),Darwin)
+# Is .dylib starting Emacs 28
+SHARED_EXT := $(shell $(EMACS) -nw -batch --eval '(princ module-file-suffix)')
 else
 SHARED_EXT := .so
 endif
@@ -28,6 +31,9 @@ ifneq (,$(or $(findstring mingw, $(ZMQ_BUILD_HOST)), \
 			 $(findstring cygwin, $(ZMQ_BUILD_HOST)), \
 			 $(findstring msys, $(ZMQ_BUILD_HOST))))
 SHARED_EXT := .dll
+else ifneq (,$(findstring darwin, $(ZMQ_BUILD_HOST)))
+# Is .dylib starting Emacs 28
+SHARED_EXT := $(shell $(EMACS) -nw -batch --eval '(princ module-file-suffix)')
 else
 SHARED_EXT := .so
 endif
