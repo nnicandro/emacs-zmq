@@ -568,12 +568,14 @@ Emacs process."
   (cond
    ((and (executable-find "curl")
          ;; -s = silent, -L = follow redirects
-         (zerop (call-process "curl" nil (current-buffer) nil
-                              "-s" "-L" url))))
+         (let ((default-process-coding-system '(binary . binary)))
+           (zerop (call-process "curl" nil (current-buffer) nil
+                                "-s" "-L" url)))))
    ((and (executable-find "wget")
          ;; -q = quiet, -O - = output to stdout
-         (zerop (call-process "wget" nil (current-buffer) nil
-                              "-q" "-O" "-" url))))
+         (let ((default-process-coding-system '(binary . binary)))
+           (zerop (call-process "wget" nil (current-buffer) nil
+                                "-q" "-O" "-" url)))))
    (t
     (require 'url-handlers)
     (let ((buf (url-retrieve-synchronously url)))
@@ -582,6 +584,7 @@ Emacs process."
 (defmacro zmq--download-url (url &rest body)
   (declare (indent 1))
   `(with-temp-buffer
+     (set-buffer-multibyte nil)
      (zmq--insert-url-contents ,url)
      (goto-char (point-min))
      ,@body))
