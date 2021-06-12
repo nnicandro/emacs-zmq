@@ -151,6 +151,9 @@ ezmq_obj_of_type(emacs_value val, enum ezmq_obj_t type)
 ezmq_obj_t *
 ezmq_extract_obj(enum ezmq_obj_t type, emacs_value val)
 {
+    if (!env->is_not_nil(env, val)) {
+      return NULL;
+    }
     ezmq_obj_t *obj = USER_PTR(val);
     if(!NONLOCAL_EXIT()) {
         if(USER_FINALIZER(val) == &ezmq_obj_finalizer) {
