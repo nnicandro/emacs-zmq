@@ -105,6 +105,11 @@
     ezmq_obj_t *name = ezmq_extract_obj(type, (val)); \
     if(NONLOCAL_EXIT()) return NULL                   \
 
+#define EZMQ_EXTRACT_OPTIONAL_OBJ(name, type, val)    \
+    ezmq_obj_t *name = EQ((val), Qnil) ? NULL :       \
+        ezmq_extract_obj(type, (val));                \
+    if(NONLOCAL_EXIT()) return NULL                   \
+
 #define EZMQ_EXTRACT_STRING(name, len, val)         \
     ptrdiff_t len = 0;                              \
     char *name = ezmq_copy_string((val), &len);     \

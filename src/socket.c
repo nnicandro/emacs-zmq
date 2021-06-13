@@ -179,7 +179,7 @@ ezmq_proxy(emacs_value efrontend, emacs_value ebackend, emacs_value ecapture)
 {
     EZMQ_EXTRACT_OBJ(frontend, EZMQ_SOCKET, efrontend);
     EZMQ_EXTRACT_OBJ(backend, EZMQ_SOCKET, ebackend);
-    EZMQ_EXTRACT_OBJ(capture, EZMQ_SOCKET, ecapture);
+    EZMQ_EXTRACT_OPTIONAL_OBJ(capture, EZMQ_SOCKET, ecapture);
     EZMQ_CHECK_ERROR(zmq_proxy(frontend->obj,
                                backend->obj,
                                capture ? capture->obj : NULL));
@@ -200,8 +200,8 @@ ezmq_proxy_steerable(emacs_value efrontend, emacs_value ebackend, emacs_value ec
 {
     EZMQ_EXTRACT_OBJ(frontend, EZMQ_SOCKET, efrontend);
     EZMQ_EXTRACT_OBJ(backend, EZMQ_SOCKET, ebackend);
-    EZMQ_EXTRACT_OBJ(capture, EZMQ_SOCKET, ecapture);
-    EZMQ_EXTRACT_OBJ(control, EZMQ_SOCKET, econtrol);
+    EZMQ_EXTRACT_OPTIONAL_OBJ(capture, EZMQ_SOCKET, ecapture);
+    EZMQ_EXTRACT_OPTIONAL_OBJ(control, EZMQ_SOCKET, econtrol);
     EZMQ_CHECK_ERROR(zmq_proxy_steerable(frontend->obj,
                                          backend->obj,
                                          capture ? capture->obj : NULL,
