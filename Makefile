@@ -22,20 +22,20 @@ ifeq ($(EMACS_EXT), nil)
 endif
 
 ifeq ($(ZMQ_BUILD_HOST),)
-ifneq (,$(or $(findstring MSYS, $(MSYSTEM)), \
-			 $(findstring MINGW, $(MSYSTEM))))
-SHARED_EXT := .dll
+  ifneq (,$(or $(findstring MSYS, $(MSYSTEM)), \
+               $(findstring MINGW, $(MSYSTEM))))
+    SHARED_EXT := .dll
+  else
+    SHARED_EXT := .so
+  endif
 else
-SHARED_EXT := .so
-endif
-else
-ifneq (,$(or $(findstring mingw, $(ZMQ_BUILD_HOST)), \
-			 $(findstring cygwin, $(ZMQ_BUILD_HOST)), \
-			 $(findstring msys, $(ZMQ_BUILD_HOST))))
-SHARED_EXT := .dll
-else
-SHARED_EXT := .so
-endif
+  ifneq (,$(or $(findstring mingw, $(ZMQ_BUILD_HOST)), \
+               $(findstring cygwin, $(ZMQ_BUILD_HOST)), \
+               $(findstring msys, $(ZMQ_BUILD_HOST))))
+    SHARED_EXT := .dll
+  else
+    SHARED_EXT := .so
+  endif
 endif
 
 SHARED := emacs-zmq$(SHARED_EXT)

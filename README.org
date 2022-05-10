@@ -1,6 +1,6 @@
 Bindings to =zmq= in Emacs.
 
-[[https://melpa.org/#/zmq][file:https://melpa.org/packages/zmq-badge.svg]] [[https://travis-ci.com/dzop/emacs-zmq][file:https://travis-ci.com/dzop/emacs-zmq.svg?branch=master]]
+[[https://melpa.org/#/zmq][file:https://melpa.org/packages/zmq-badge.svg]] file:https://github.com/nnicandro/emacs-zmq/actions/workflows/test.yml/badge.svg
 
 * Installation
 

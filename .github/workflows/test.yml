@@ -1,0 +1,49 @@
+on: push
+jobs:
+  test-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      ZMQ_BUILD_HOST: x86_64-w64-mingw32
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: mingw64
+          install: mingw-w64-x86_64-emacs base-devel autotools git
+      - name: Compile
+        run: |
+          make
+      - name: Run tests
+        run: |
+          # Ensure a clean testing environment
+          mkdir tmp
+          cp zmq.el zmq-tests.el $ZMQ_BUILD_HOST/emacs-zmq.dll Makefile tmp
+          cd tmp
+          make test
+  test-unix-like:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        emacs-version: [26.3, 27.2, 28.2, snapshot]
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    env:
+      CC: ${{ matrix.os == 'macos-latest' && 'clang' || 'gcc' }}
+    steps:
+      - uses: actions/checkout@v3
+      - run: brew install automake
+        if: matrix.os == 'macos-latest'
+      - name: Install Emacs
+        uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs-version }}
+      - name: Compile
+        run: |
+          make
+      - name: Run tests
+        run: |
+          make test
