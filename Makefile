@@ -100,7 +100,7 @@ products: products/$(PRODUCT).tar.gz.sha256
 
 products/$(PRODUCT).tar.gz: $(EZMQ_LIBDIR)/$(SHARED)
 	mkdir -p products/$(PRODUCT)
-	cp $(EZMQ_LIBDIR)/*$(SHARED_EXT) products/$(PRODUCT)
+	cp $(EZMQ_LIBDIR)/*$(SHARED_EMACS) products/$(PRODUCT)
 	cd products && \
 		tar -czf $(CURDIR)/products/$(PRODUCT).tar.gz $(PRODUCT)
 
