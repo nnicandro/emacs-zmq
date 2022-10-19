@@ -635,7 +635,7 @@ Emacs process."
                (assets (cl-remove-if-not
                         (lambda (x) (string-prefix-p ezmq-sys x))
                         (mapcar (lambda (x) (plist-get x :name))
-                           (append (plist-get info :assets) nil)))))
+                                (append (plist-get info :assets) nil)))))
           (when assets
             (let ((default-directory (file-name-directory (locate-library "zmq"))))
               ;; We have a signature file and a tar.gz file for each binary so the
@@ -644,8 +644,9 @@ Emacs process."
                   (error "TODO More than one file found")
                 (let* ((tgz-file (cl-find-if (lambda (x) (string-suffix-p "tar.gz" x))
                                              assets))
+                       (lib-suffix (if (eq system-type 'darwin) ".so" module-file-suffix))
                        (lib (expand-file-name
-                             (concat "emacs-zmq" module-file-suffix)
+                             (concat "emacs-zmq" lib-suffix)
                              (expand-file-name
                               (file-name-sans-extension
                                (file-name-sans-extension tgz-file))))))
