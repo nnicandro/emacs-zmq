@@ -49,6 +49,8 @@
 (defvar zmq-current-context nil
   "The context set by the function `zmq-current-context'.")
 
+(cl-deftype zmq-socket () '(satisfies zmq-socket-p))
+
 (defun zmq-current-context ()
   "Return the value of the variable `zmq-current-context' if non-nil.
 Otherwise, create a new `zmq-context', bind it to the
