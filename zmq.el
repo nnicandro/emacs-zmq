@@ -435,7 +435,7 @@ meant to be called from an Emacs subprocess."
   (if (not noninteractive) (error "Not in a subprocess")
     (read (decode-coding-string
            (base64-decode-string (read-minibuffer ""))
-           'utf-8-unix))))
+           'utf-8-auto))))
 
 (defun zmq-set-subprocess-filter (process event-filter)
   "Set the event filter function for PROCESS.
