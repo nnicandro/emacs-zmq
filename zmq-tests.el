@@ -191,19 +191,7 @@
       (should (= (zmq-message-size msg) (string-bytes contents)))
       ;; but on conversion to an Emacs string, if the data represents a unicode
       ;; strings its converted to one.
-      (should (equal (zmq-message-data msg) contents)))
-    (ert-info ("Sending unicode messages")
-      (let* ((ctx (zmq-context)))
-        (zmq-test-with-bound-pair
-         ctx ((s1 zmq-PAIR) (s2 zmq-PAIR))
-         (let ((u "çπ§")
-               (s nil))
-           (zmq-send s1 u)
-           (setq s (zmq-recv s2))
-           (should (equal s u))
-           (zmq-send-encoded s1 u 'utf-16)
-           (setq s (zmq-recv-decoded s2 'utf-16))
-           (should (equal s u))))))))
+      (should (equal (zmq-message-data msg) contents)))))
 
 (ert-deftest zmq-sockets ()
   (let* ((ctx (zmq-context))
@@ -267,14 +255,7 @@
               (should (equal (zmq-get-option sock zmq-CURVE-PUBLICKEY)
                              pub))
               (should (equal (zmq-get-option sock zmq-CURVE-SERVERKEY)
-                             priv)))))
-        (let ((sock (zmq-socket ctx zmq-SUB)))
-          (ert-info ("Unicode options")
-            (let ((topic "tést"))
-              (zmq-socket-set-encoded sock zmq-ROUTING-ID topic 'utf-16)
-              (should (equal (zmq-socket-get-decoded sock zmq-ROUTING-ID 'utf-16)
-                             topic))
-              (zmq-socket-set-encoded sock zmq-SUBSCRIBE topic 'utf-16))))))))
+                             priv)))))))))
 
 (ert-deftest zmq-polling ()
   (let ((ctx (zmq-current-context)))

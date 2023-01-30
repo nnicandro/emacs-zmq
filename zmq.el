@@ -114,38 +114,6 @@ MAX-PORT defaults to 65536, and MAX-TRIES defaults to 100."
               (throw 'bound port))
           ((zmq-EACCES zmq-EADDRINUSE) nil))))))
 
-;;; Encoding/decoding messages and socket options
-
-(defun zmq-send-encoded (sock message &optional coding-system flags)
-  "Send a message on SOCK, encoded it before sending.
-MESSAGE is the message string to encoded using CODING-SYSTEM.
-CODING-SYSTEM defaults to utf-8. FLAGS has the same meaning as in
-`zmq-send'."
-  (setq coding-system (or coding-system 'utf-8))
-  (zmq-send sock (encode-coding-string message coding-system) flags))
-
-(defun zmq-recv-decoded (sock &optional coding-system flags)
-  "Receive a message on SOCK, return the decoded message.
-Use CODING-SYSTEM to decode the message received on SOCK.
-CODING-SYSTEM defaults to utf-8. FLAGS has the same meaning as in
-`zmq-recv'."
-  (setq coding-system (or coding-system 'utf-8))
-  (decode-coding-string (zmq-recv sock flags) coding-system))
-
-(defun zmq-socket-set-encoded (sock option value &optional coding-system)
-  "Set a SOCK OPTION, encoding its value before setting.
-Use CODING-SYSTEM to encode VALUE. CODING-SYSTEM defaults to
-utf-8."
-  (setq coding-system (or coding-system 'utf-8))
-  (zmq-set-option sock option (encode-coding-string value coding-system)))
-
-(defun zmq-socket-get-decoded (sock option &optional coding-system)
-  "Get a SOCK OPTION, return its decoded value.
-Use CODING-SYSTEM to decode OPTION's value. CODING-SYSTEM
-defaults to utf-8."
-  (setq coding-system (or coding-system 'utf-8))
-  (decode-coding-string (zmq-get-option sock option) coding-system))
-
 ;;; Sending/receiving multipart messages
 
 (defun zmq-send-multipart (sock parts &optional flags)
