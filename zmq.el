@@ -645,7 +645,7 @@ Emacs process."
                           (_buf status)
                           (if (string= status "finished\n")
                               (zmq-load)
-                            (message "Something went wrong when compiling the ZMQ module!"))
+                            (warn "Something went wrong when compiling the ZMQ module!"))
                           (remove-hook 'compilation-finish-functions #'load-zmq)
                           (exit-recursive-edit)))
                       (add-hook 'compilation-finish-functions #'load-zmq)
