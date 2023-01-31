@@ -89,10 +89,22 @@ compile: $(ELCFILES)
 $(ELCFILES): %.elc: %.el
 	$(EMACS) --batch -Q -L . -f batch-byte-compile $<
 
-ifeq ($(ZMQ_BUILD_HOST),)
-PRODUCT := emacs-zmq-$(shell $(CC) -dumpmachine)
-else
-PRODUCT := emacs-zmq-$(ZMQ_BUILD_HOST)
+ifneq (,$(filter products,$(MAKECMDGOALS)))
+  ifeq ($(ZMQ_BUILD_HOST),)
+    ifeq (,$(shell which $(CC)))
+      $(error "Compiler $(CC) not found.")
+    endif
+    PRODUCT := emacs-zmq-$(shell $(CC) -dumpmachine)
+  else
+    PRODUCT := emacs-zmq-$(ZMQ_BUILD_HOST)
+  endif
+  ifneq ($(shell command -v shasum),)
+    # OS X
+    SHA256SUM := shasum -a 256
+  else
+    # GNU Coreutils
+    SHA256SUM := sha256sum
+  endif
 endif
 
 .PHONY: products
@@ -103,14 +115,6 @@ products/$(PRODUCT).tar.gz: $(EZMQ_LIBDIR)/$(SHARED)
 	cp $(EZMQ_LIBDIR)/*$(SHARED_EMACS) products/$(PRODUCT)
 	cd products && \
 		tar -czf $(CURDIR)/products/$(PRODUCT).tar.gz $(PRODUCT)
-
-ifneq ($(shell command -v shasum),)
-# OS X
-SHA256SUM := shasum -a 256
-else
-# GNU Coreutils
-SHA256SUM := sha256sum
-endif
 
 products/$(PRODUCT).tar.gz.sha256: products/$(PRODUCT).tar.gz
 	cd products && \
