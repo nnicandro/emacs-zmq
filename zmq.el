@@ -465,8 +465,9 @@ Emacs process."
     (unless (listp sexp)
       (setq sexp (symbol-function sexp))))
    (t (error "Can only send functions to processes")))
-  (unless (member (length (cadr sexp)) '(0 1))
-    (error "Invalid function to send to process, can only have 0 or 1 arguments"))
+  (cl-destructuring-bind (min . max) (func-arity sexp)
+    (unless (and (<= min 1) (or (not (numberp max)) (<= max 1)))
+      (error "Invalid function to send to process, can only have 0 or 1 arguments")))
   (let* ((zmq-path (locate-library "zmq"))
          (cmd (format "(zmq--init-subprocess %s)" (when debug t)))
          ;; stderr is split from stdout since the former is used by
