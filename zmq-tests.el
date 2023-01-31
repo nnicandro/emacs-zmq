@@ -434,6 +434,32 @@
       (garbage-collect)
       (should (null (gethash "context" table))))))
 
+(ert-deftest zmq--download-module ()
+  (skip-unless
+   (and
+    (ignore-errors
+      (delete-process
+       (make-network-process
+        :name "has-network-connection"
+        :buffer nil
+        :service 80
+        :host "gnu.org"))
+      t)
+    ;; Skip on Github workflows for now because of rate limit errors
+    ;; when downloading the module.
+    (not (getenv "CI"))))
+  (let ((tempdir (make-temp-file "zmq--download-module" t)))
+    (unwind-protect
+        (let ((zmq-emacs-version "v0.10.10")
+              (noninteractive t)
+              (default-directory tempdir))
+          (should (zmq--download-module (concat "tags/" zmq-emacs-version)))
+          (let ((file (car (directory-files
+                            default-directory nil
+                            "emacs-zmq\\.\\(dll\\|so\\|dylib\\)$"))))
+            (should (not (null file)))))
+      (delete-directory tempdir t))))
+
 (provide 'zmq-tests)
 
 ;;; zmq-tests.el ends here
