@@ -16,9 +16,9 @@ EZMQ_LIBDIR ?= $(CURDIR)/$(ZMQ_BUILD_HOST)
 # to point to the ZMQ to build with.
 
 # Get the module extension for this build
-EMACS_EXT := $(shell $(EMACS) --batch --eval "(princ (and (boundp 'module-file-suffix) module-file-suffix))")
+EMACS_EXT := $(shell $(EMACS) -Q --batch --eval "(princ (and (boundp 'module-file-suffix) module-file-suffix))")
 ifeq ($(EMACS_EXT), nil)
-$(error No module support in $(EMACS))
+  $(error No module support in $(EMACS))
 endif
 
 ifeq ($(ZMQ_BUILD_HOST),)
