@@ -98,14 +98,14 @@ MAX-PORT defaults to 65536, and MAX-TRIES defaults to 100."
         max-port (or max-port 65536)
         max-tries (or max-tries 100))
   (let (port)
-    (catch 'bound
-      (dotimes (_i max-tries)
-        (setq port (+ (cl-random (- max-port min-port)) min-port))
-        (condition-case nil
-            (progn
-              (zmq-bind sock (format "%s:%d" addr port))
-              (throw 'bound port))
-          ((zmq-EACCES zmq-EADDRINUSE) nil))))))
+    (while (not (or port (zerop max-tries)))
+      (setq port (+ (cl-random (- max-port min-port)) min-port))
+      (condition-case nil
+          (zmq-bind sock (format "%s:%d" addr port))
+        ((zmq-EACCES zmq-EADDRINUSE)
+         (setq port nil
+               max-tries (1- max-tries)))))
+    port))
 
 ;;; Sending/receiving multipart messages
 
