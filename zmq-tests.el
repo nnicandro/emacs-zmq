@@ -1,10 +1,10 @@
 ;;; zmq-tests.el --- Tests for emacs-zmq -*- lexical-binding: t -*-
 
-;; Copyright (C) 2018 Nathaniel Nicandro
+;; Copyright (C) 2018-2023 Nathaniel Nicandro
 
 ;; Author: Nathaniel Nicandro <nathanielnicandro@gmail.com>
 ;; Created: 27 Sep 2018
-;; Version: 0.10.9
+;; Version: 1.0
 
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
