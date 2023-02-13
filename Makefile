@@ -73,10 +73,8 @@ ifneq (,$(filter products,$(MAKECMDGOALS)))
   endif
   PRODUCT := emacs-zmq-$(shell $(CC) -dumpmachine)
   ifneq ($(shell command -v shasum),)
-    # OS X
     SHA256SUM := shasum -a 256
   else
-    # GNU Coreutils
     SHA256SUM := sha256sum
   endif
 endif
