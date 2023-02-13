@@ -1,0 +1,55 @@
+name: release
+on:
+  push:
+    tags:
+      - v*
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: mingw64
+          install: mingw-w64-x86_64-emacs base-devel autotools git
+      - name: Compile
+        run: |
+          make
+      - name: Make product
+        run: |
+          make products
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            products/*.tar.gz*
+  unix-like-release:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CC: ${{ matrix.os == 'macos-latest' && 'clang' || 'gcc' }}
+    steps:
+      - uses: actions/checkout@v3
+      - run: brew install automake
+        if: matrix.os == 'macos-latest'
+      - name: Install Emacs
+        uses: purcell/setup-emacs@master
+        with:
+          version: 28.2
+      - name: Compile
+        run: |
+          make
+      - name: Make product
+        run: |
+          make products
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            products/*.tar.gz*
