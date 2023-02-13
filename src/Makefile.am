@@ -4,7 +4,7 @@ ACLOCAL_AMFLAGS = -I m4
 lib_LTLIBRARIES = emacs-zmq.la
 
 emacs_zmq_la_CFLAGS =
-emacs_zmq_la_LDFLAGS = -module -avoid-version
+emacs_zmq_la_LDFLAGS = -module -avoid-version -shrext $(MODULE_EXT)
 if WINDOWS
 emacs_zmq_la_LDFLAGS += -no-undefined
 endif
