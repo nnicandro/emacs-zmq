@@ -77,6 +77,9 @@ else
 fi
 AC_SUBST([MAYBE_LIBZMQ])
 
+MODULE_EXT="`emacs -Q -batch --eval '(princ module-file-suffix)'`"
+AC_SUBST([MODULE_EXT])
+
 LT_INIT([win32-dll shared disable-static])
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
