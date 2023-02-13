@@ -5,8 +5,6 @@ jobs:
     defaults:
       run:
         shell: msys2 {0}
-    env:
-      ZMQ_BUILD_HOST: x86_64-w64-mingw32
     steps:
       - uses: actions/checkout@v3
       - name: Setup MSYS2
@@ -19,10 +17,6 @@ jobs:
           make
       - name: Run tests
         run: |
-          # Ensure a clean testing environment
-          mkdir tmp
-          cp zmq.el zmq-tests.el $ZMQ_BUILD_HOST/emacs-zmq.dll Makefile tmp
-          cd tmp
           make test
   test-unix-like:
     strategy:
