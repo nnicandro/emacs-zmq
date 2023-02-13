@@ -8,60 +8,38 @@ ELCFILES = $(EFILES:.el=.elc)
 export ZMQ_GIT_REPO ?= https://github.com/zeromq/libzmq
 # The version of ZMQ to build
 export ZMQ_VERSION ?= 4.3.1
-# Set ZMQ_BUILD_HOST to a host triple to enable cross compiling
-export ZMQ_BUILD_HOST ?=
 # Directory in which the emacs-zmq module will be written
-EZMQ_LIBDIR ?= $(CURDIR)/$(ZMQ_BUILD_HOST)
+EZMQ_LIBDIR ?= $(CURDIR)
 # NOTE: The ZMQ_LIBS and ZMQ_CFLAGS can be set before configuring the project
 # to point to the ZMQ to build with.
 
-# Get the module extension for this build
-EMACS_EXT := $(shell $(EMACS) -Q --batch --eval "(princ (and (boundp 'module-file-suffix) module-file-suffix))")
-ifeq ($(EMACS_EXT), nil)
+MODULE_EXT := $(shell $(EMACS) -Q --batch --eval "(princ (and (boundp 'module-file-suffix) module-file-suffix))")
+ifeq ($(MODULE_EXT), nil)
   $(error No module support in $(EMACS))
 endif
-
-ifeq ($(ZMQ_BUILD_HOST),)
-  ifneq (,$(or $(findstring MSYS, $(MSYSTEM)), \
-               $(findstring MINGW, $(MSYSTEM))))
-    SHARED_EXT := .dll
-  else
-    SHARED_EXT := .so
-  endif
-else
-  ifneq (,$(or $(findstring mingw, $(ZMQ_BUILD_HOST)), \
-               $(findstring cygwin, $(ZMQ_BUILD_HOST)), \
-               $(findstring msys, $(ZMQ_BUILD_HOST))))
-    SHARED_EXT := .dll
-  else
-    SHARED_EXT := .so
-  endif
-endif
-
-SHARED := emacs-zmq$(SHARED_EXT)
-SHARED_EMACS := emacs-zmq$(EMACS_EXT)
+EZMQ_MODULE := emacs-zmq$(MODULE_EXT)
 
 .PHONY: all
-all: $(EZMQ_LIBDIR)/$(SHARED_EMACS) compile
+all: $(EZMQ_LIBDIR)/$(EZMQ_MODULE) compile
 
 .PHONY: configure
 configure: src/configure
 	cd src && ./configure CPPFLAGS="$(CPPFLAGS)" \
-		--host=$(ZMQ_BUILD_HOST) --prefix=$(CURDIR) \
+        --prefix=$(CURDIR) \
 		--enable-shared=emacs-zmq --enable-static=zeromq \
 		--without-docs --enable-drafts=yes --enable-libunwind=no \
 		--disable-curve-keygen --disable-perf --disable-eventfd
 
-$(EZMQ_LIBDIR)/$(SHARED_EMACS): src/Makefile
+$(EZMQ_LIBDIR)/$(EZMQ_MODULE): src/Makefile
 	$(MAKE) -C src
 	mkdir -p $(EZMQ_LIBDIR)
-	cp src/.libs/$(SHARED) $(EZMQ_LIBDIR)/$(SHARED_EMACS)
+	cp src/.libs/$(EZMQ_MODULE) $(EZMQ_LIBDIR)/$(EZMQ_MODULE)
 
 src/Makefile: src/configure
 	$(MAKE) configure
 
 # Needed for static Windows builds of libzmq, see libzmq/INSTALL
-ifeq ($(SHARED_EXT),.dll)
+ifeq ($(MODULE_EXT),.dll)
 CPPFLAGS += -DZMQ_STATIC
 endif
 
@@ -90,14 +68,10 @@ $(ELCFILES): %.elc: %.el
 	$(EMACS) --batch -Q -L . -f batch-byte-compile $<
 
 ifneq (,$(filter products,$(MAKECMDGOALS)))
-  ifeq ($(ZMQ_BUILD_HOST),)
-    ifeq (,$(shell which $(CC)))
-      $(error "Compiler $(CC) not found.")
-    endif
-    PRODUCT := emacs-zmq-$(shell $(CC) -dumpmachine)
-  else
-    PRODUCT := emacs-zmq-$(ZMQ_BUILD_HOST)
+  ifeq (,$(shell which $(CC)))
+    $(error "Compiler $(CC) not found.")
   endif
+  PRODUCT := emacs-zmq-$(shell $(CC) -dumpmachine)
   ifneq ($(shell command -v shasum),)
     # OS X
     SHA256SUM := shasum -a 256
@@ -110,9 +84,9 @@ endif
 .PHONY: products
 products: products/$(PRODUCT).tar.gz.sha256
 
-products/$(PRODUCT).tar.gz: $(EZMQ_LIBDIR)/$(SHARED)
+products/$(PRODUCT).tar.gz: $(EZMQ_LIBDIR)/$(EZMQ_MODULE)
 	mkdir -p products/$(PRODUCT)
-	cp $(EZMQ_LIBDIR)/*$(SHARED_EMACS) products/$(PRODUCT)
+	cp $(EZMQ_LIBDIR)/*$(EZMQ_MODULE) products/$(PRODUCT)
 	cd products && \
 		tar -czf $(CURDIR)/products/$(PRODUCT).tar.gz $(PRODUCT)
 
