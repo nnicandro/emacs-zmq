@@ -226,7 +226,7 @@ the backtrace to the parent process. This should only be used for
 debugging purposes."
   (if (not noninteractive) (error "Not a subprocess")
     (let* ((debug-on-event nil)
-           (coding-system-for-write 'utf-8-auto)
+           (coding-system-for-write 'utf-8-emacs)
            (signal-hook-function
             (when backtrace
               (lambda (&rest _)
@@ -368,7 +368,7 @@ initially passed to `zmq-start-process'."
 PROCESS should be an Emacs subprocess that decodes messages sent
 on its STDIN using `zmq-subprocess-read'.
 
-The SEXP is first encoded with the `utf-8-auto' coding system and
+The SEXP is first encoded with the `utf-8-emacs' coding system and
 then encoded using Base 64 encoding before being sent to the
 subprocess."
   (declare (indent 1))
@@ -382,7 +382,7 @@ subprocess."
                 (get-buffer-create " *zmq-subprocess-send*")))
       (erase-buffer)
       (prin1 sexp (current-buffer))
-      (encode-coding-region (point-min) (point-max) 'utf-8-auto)
+      (encode-coding-region (point-min) (point-max) 'utf-8-emacs)
       (base64-encode-region (point-min) (point-max) t)
       (goto-char (point-min)) (insert ?\")
       (goto-char (point-max)) (insert ?\" ?\n)
@@ -396,7 +396,7 @@ meant to be called from an Emacs subprocess."
   (if (not noninteractive) (error "Not in a subprocess")
     (read (decode-coding-string
            (base64-decode-string (read-minibuffer ""))
-           'utf-8-auto))))
+           'utf-8-emacs))))
 
 (defun zmq-set-subprocess-filter (process event-filter)
   "Set the event filter function for PROCESS.
