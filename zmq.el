@@ -476,7 +476,7 @@ Emacs process."
                    :buffer (or buffer (generate-new-buffer " *zmq*"))
                    :noquery t
                    :connection-type 'pipe
-                   :coding-system 'no-conversion
+                   :coding 'no-conversion
                    :filter #'zmq--subprocess-filter
                    :sentinel #'zmq--subprocess-sentinel
                    :stderr stderr
