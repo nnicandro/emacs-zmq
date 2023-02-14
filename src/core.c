@@ -98,6 +98,7 @@ ezmq_signal(emacs_value err, int nargs, ...)
         data[i] = va_arg(args, emacs_value);
     }
     SIGNAL(err, FUNCALL(Qlist, nargs, data));
+    va_end(args);
 }
 
 static void
@@ -126,6 +127,7 @@ ezmq_wrong_type_argument(emacs_value val, int nvalid, ...)
     } else {
         SIGNAL(Qwrong_type_argument, LIST(1, val));
     }
+    va_end(args);
 }
 
 void
