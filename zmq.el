@@ -234,13 +234,13 @@ debugging purposes."
                       (with-temp-buffer
                         (let ((standard-output (current-buffer)))
                           (backtrace))
-                        (buffer-string))))))
-           (sexp (eval (zmq-subprocess-read)))
-           (wrap-context (= (length (cadr sexp)) 1)))
+                        (buffer-string)))))))
       (condition-case err
-          (if wrap-context
-              (funcall sexp (zmq-current-context))
-            (funcall sexp))
+          (let* ((sexp (eval (zmq-subprocess-read)))
+                 (wrap-context (= (length (cadr sexp)) 1)))
+            (if wrap-context
+                (funcall sexp (zmq-current-context))
+              (funcall sexp)))
         (error
          (zmq-prin1 (cons 'error (list (car err)
                                        (or zmq-backtrace
