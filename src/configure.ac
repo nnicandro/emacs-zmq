@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT([emacs-zmq], [0.10.9], [nathanielnicandro@gmail.com])
+AC_INIT([emacs-zmq], [1.0.0], [nathanielnicandro@gmail.com])
 
 AC_CONFIG_SRCDIR([core.c])
 AC_CONFIG_MACRO_DIRS([m4])
