@@ -120,19 +120,17 @@ same meaning as `zmq-send'."
        part sock (if (not (null (cdr parts)))
                      (logior flags zmq-SNDMORE)
                    flags))
-      (setq parts (cdr parts)))))
+      (pop parts))))
 
 (defun zmq-recv-multipart (sock &optional flags)
   "Receive a multipart message from SOCK.
 FLAGS has the same meaning as in `zmq-recv'."
-  (let (res)
-    (catch 'recvd
-      (while t
-        (let ((part (zmq-message)))
-          (zmq-message-recv part sock flags)
-          (setq res (cons (zmq-message-data part) res))
-          (unless (zmq-message-more-p part)
-            (throw 'recvd (nreverse res))))))))
+  (let (parts)
+    (while (let ((part (zmq-message)))
+             (zmq-message-recv part sock flags)
+             (push (zmq-message-data part) parts)
+             (zmq-mesage-more-p part)))
+    (nreverse parts)))
 
 ;;; Setting/getting options from contexts, sockets, messages
 
@@ -197,8 +195,8 @@ PROPERTY is a keyword and can only be one of those in
 (defun zmq-flush (stream)
   "Flush STREAM.
 STREAM can be one of `stdout', `stdin', or `stderr'."
-  (set-binary-mode stream t)
-  (set-binary-mode stream nil))
+  (let ((mode (set-binary-mode stream t)))
+    (set-binary-mode stream mode)))
 
 (defun zmq-prin1 (sexp)
   "Print SEXP using `prin1' and flush `stdout' afterwards."
