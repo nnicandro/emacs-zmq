@@ -218,8 +218,7 @@ as messages in the parent Emacs process.")
   "Initialize the ZMQ subprocess.
 Call `zmq-subprocess-read' and assuming the read s-expression is
 a function, call the function. If the function accepts a single
-argument, pass the `zmq-context' created by a call to the
-function `zmq-current-context' as the argument.
+argument, pass the `zmq-current-context' as the argument.
 
 If BACKTRACE is non-nil and an error occurs when evaluating, send
 the backtrace to the parent process. This should only be used for
@@ -228,17 +227,20 @@ debugging purposes."
     (let* ((debug-on-event nil)
            (coding-system-for-write 'utf-8-emacs)
            (signal-hook-function
-            (when backtrace
-              (lambda (&rest _)
-                (setq zmq-backtrace
-                      (with-temp-buffer
-                        (let ((standard-output (current-buffer)))
-                          (backtrace))
-                        (buffer-string)))))))
+            (if backtrace
+                (lambda (&rest _)
+                  (setq zmq-backtrace
+                        (with-temp-buffer
+                          (let ((standard-output (current-buffer)))
+                            (backtrace))
+                          (buffer-string))))
+              signal-hook-function)))
       (condition-case err
-          (let* ((sexp (eval (zmq-subprocess-read)))
-                 (wrap-context (= (length (cadr sexp)) 1)))
-            (if wrap-context
+          (let ((sexp (eval (zmq-subprocess-read))))
+            (unless (functionp sexp)
+              (error "Read initialization form not a function"))
+            (setq sexp (byte-compile sexp))
+            (if (eq (car (func-arity sexp)) 1)
                 (funcall sexp (zmq-current-context))
               (funcall sexp)))
         (error
