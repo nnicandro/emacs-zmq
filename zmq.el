@@ -622,8 +622,7 @@ Emacs process."
 
 (defun zmq-load ()
   "Load the ZMQ dynamic module."
-  ;; Assume the module is already loaded when one of its functions is defined.
-  (unless (functionp #'zmq--cleanup-globrefs)
+  (unless (featurep 'zmq-core)
     (if module-file-suffix
         (let ((default-directory (file-name-directory (locate-library "zmq.el"))))
           (if (load (expand-file-name "emacs-zmq") t)
