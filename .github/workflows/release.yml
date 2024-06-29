@@ -10,7 +10,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
@@ -35,13 +35,13 @@ jobs:
     env:
       CC: ${{ matrix.os == 'macos-latest' && 'clang' || 'gcc' }}
     steps:
-      - uses: actions/checkout@v3
-      - run: brew install automake
+      - uses: actions/checkout@v4
+      - run: brew install automake libtool
         if: matrix.os == 'macos-latest'
       - name: Install Emacs
         uses: purcell/setup-emacs@master
         with:
-          version: 28.2
+          version: 29.2
       - name: Compile
         run: |
           make

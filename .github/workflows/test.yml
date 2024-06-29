@@ -7,7 +7,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
@@ -23,14 +23,19 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        emacs-version: [26.3, 27.2, 28.2, snapshot]
+        emacs-version: [26.3, 27.2, 28.2, 29.2, snapshot]
+        exclude:
+          - os: macos-latest
+            emacs-version: 26.3
+          - os: macos-latest
+            emacs-version: 27.2
     runs-on: ${{ matrix.os }}
     continue-on-error: true
     env:
       CC: ${{ matrix.os == 'macos-latest' && 'clang' || 'gcc' }}
     steps:
-      - uses: actions/checkout@v3
-      - run: brew install automake
+      - uses: actions/checkout@v4
+      - run: brew install automake libtool
         if: matrix.os == 'macos-latest'
       - name: Install Emacs
         uses: purcell/setup-emacs@master
