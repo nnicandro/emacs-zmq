@@ -652,7 +652,77 @@ Emacs process."
                       (recursive-edit))))))))
       (user-error "Modules are not supported"))))
 
-(zmq-load)
+(unless (featurep 'zmq-core)
+  (dolist (fun '(zmq--cleanup-globrefs
+                 zmq-socket
+                 zmq-send
+                 zmq-recv
+                 zmq-bind
+                 zmq-connect
+                 zmq-join
+                 zmq-unbind
+                 zmq-disconnect
+                 zmq-leave
+                 zmq-close
+                 zmq-proxy
+                 zmq-proxy-steerable
+                 zmq-socket-monitor
+                 zmq-socket-set
+                 zmq-socket-get
+                 zmq-context
+                 zmq-context-terminate
+                 zmq-context-shutdown
+                 zmq-context-get
+                 zmq-context-set
+                 zmq-message
+                 zmq-message-size
+                 zmq-message-data
+                 zmq-message-more-p
+                 zmq-message-copy
+                 zmq-message-move
+                 zmq-message-close
+                 zmq-message-set
+                 zmq-message-get
+                 zmq-message-recv
+                 zmq-message-send
+                 zmq-message-gets
+                 zmq-message-routing-id
+                 zmq-message-set-routing-id
+                 zmq-message-group
+                 zmq-message-set-group
+                 zmq-poll
+                 zmq-poller
+                 zmq-poller-add
+                 zmq-poller-modify
+                 zmq-poller-remove
+                 zmq-poller-destroy
+                 zmq-poller-wait
+                 zmq-poller-wait-all
+                 zmq-version
+                 zmq-has
+                 zmq-z85-decode
+                 zmq-z85-encode
+                 zmq-curve-keypair
+                 zmq-curve-public
+                 zmq-equal
+                 zmq-message-p
+                 zmq-socket-p
+                 zmq-context-p
+                 zmq-poller-p))
+    (defalias fun
+      (lambda (&rest args)
+        (when (featurep 'zmq-core)
+          (error "Hot loading function masking core function"))
+        (zmq-load)
+        (if (featurep 'zmq-core)
+            (apply fun args)
+          (error "Loading of `zmq-core' failed")))
+      (format "Stub definition of `%s'.
+Calling this function will attempt to load `zmq-core', the core
+module containing the ZMQ bindings.  After loading, it will call
+the intended function with the provided arguments.
+
+To manually load `zmq-core', see `zmq-load'." fun))))
 
 (provide 'zmq)
 
