@@ -436,7 +436,7 @@ argument of the function.
 FILTER is a function that takes a single argument, a complete
 s-expression read from the process' stdout. This means that care
 should be taken when writing SEXP to ensure that it only prints
-out lists. Anything other value that SEXP prints will be ignored.
+out lists. Any other value that SEXP prints will be ignored.
 
 SENTINEL has the same meaning as in `make-process'.
 
@@ -455,7 +455,7 @@ Emacs process."
   (or debug (setq debug zmq--subprocess-debug))
   (cond
    ((functionp sexp)
-    (unless (listp sexp)
+    (when (symbolp sexp)
       (setq sexp (symbol-function sexp))))
    (t (error "Can only send functions to processes")))
   (cl-destructuring-bind (min . max) (func-arity sexp)
