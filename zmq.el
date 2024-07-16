@@ -129,7 +129,7 @@ FLAGS has the same meaning as in `zmq-recv'."
     (while (let ((part (zmq-message)))
              (zmq-message-recv part sock flags)
              (push (zmq-message-data part) parts)
-             (zmq-mesage-more-p part)))
+             (zmq-message-more-p part)))
     (nreverse parts)))
 
 ;;; Setting/getting options from contexts, sockets, messages
