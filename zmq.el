@@ -6,7 +6,7 @@
 ;; Created: 05 Jan 2018
 ;; URL: https://github.com/nnicandro/emacs-zmq
 ;; Keywords: comm
-;; Version: 1.0.1
+;; Version: 1.0.2
 ;; Package-Requires: ((cl-lib "0.5") (emacs "26"))
 
 ;; This program is free software; you can redistribute it and/or
@@ -37,7 +37,7 @@
   "ZMQ bindings for Emacs"
   :group 'communication)
 
-(defconst zmq-emacs-version "v1.0.1")
+(defconst zmq-emacs-version "v1.0.2")
 
 (defvar zmq-current-context nil
   "The context set by the function `zmq-current-context'.")
