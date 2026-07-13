@@ -227,11 +227,12 @@ debugging purposes."
            (signal-hook-function
             (if backtrace
                 (lambda (&rest _)
-                  (setq zmq-backtrace
-                        (with-temp-buffer
-                          (let ((standard-output (current-buffer)))
-                            (backtrace))
-                          (buffer-string))))
+                  (let ((signal-hook-function nil))
+                    (setq zmq-backtrace
+                          (with-temp-buffer
+                            (let ((standard-output (current-buffer)))
+                              (backtrace))
+                            (buffer-string)))))
               signal-hook-function)))
       (condition-case err
           (let ((sexp (eval (zmq-subprocess-read))))

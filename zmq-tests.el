@@ -404,6 +404,27 @@
       (when (process-live-p process)
         (kill-process process)))))
 
+(ert-deftest zmq-subprocess-debug ()
+  (ert-info ("Subprocess starts in debug mode")
+    (let ((process nil)
+          (filter-called nil))
+      (unwind-protect
+          (progn
+            (setq process (zmq-start-process
+                           '(lambda ()
+                              (prin1 (cons 'test-result "alive"))
+                              (zmq-flush 'stdout))
+                           :filter (lambda (event)
+                                     (setq filter-called t)
+                                     (should (equal (cdr event) "alive")))
+                           :debug t))
+            (with-timeout (0.4 nil)
+              (while (not filter-called)
+                (sleep-for 0.01)))
+            (should filter-called))
+        (when (process-live-p process)
+          (kill-process process))))))
+
 (ert-deftest zmq-globrefs ()
   ;; Inspired by https://nullprogram.com/blog/2014/01/27/
   (let ((table (make-hash-table :size 1 :weakness 'value :test 'equal)))
