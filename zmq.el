@@ -470,7 +470,8 @@ Emacs process."
                   :name "zmq stderr"
                   :buffer (generate-new-buffer " *zmq*")
                   :noquery t
-                  :stop (not debug)))
+                  :stop nil
+                  :filter (unless debug #'ignore)))
          (process (make-process
                    :name "zmq"
                    :buffer (or buffer (generate-new-buffer " *zmq*"))
